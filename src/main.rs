@@ -46,7 +46,14 @@ enum Token {
     Eof
 }
 
-fn tokenize(source: &String) -> Result<Vec<Token>, String> {
+#[derive(Debug)]
+struct TokenWithContext{
+    token: Token,
+    lexeme: String,
+    line: u32
+}
+
+fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     unimplemented!();
 }
 
