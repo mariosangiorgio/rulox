@@ -3,8 +3,20 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-fn run(source: &String) -> i32 {
+#[derive(Debug)]
+struct Token {
+}
+
+fn tokenize(source: &String) -> Vec<Token> {
     unimplemented!();
+}
+
+fn run(source: &String) -> i32 {
+    let tokens = tokenize(source);
+    for token in tokens {
+        println!("{:?}", token);
+    }
+    0
 }
 
 fn run_file(file_name: &String) -> i32 {
