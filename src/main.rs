@@ -4,7 +4,46 @@ use std::io;
 use std::io::prelude::*;
 
 #[derive(Debug)]
-struct Token {
+enum Token {
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
+    Bang,
+    BangEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+    Identifier(String),
+    StringLiteral(String),
+    NumberLiteral(u32),
+    // Keywords
+    And,
+    Class,
+    Else,
+    False,
+    Fun,
+    For,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
+
+    Eof
 }
 
 fn tokenize(source: &String) -> Result<Vec<Token>, String> {
