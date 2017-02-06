@@ -7,30 +7,28 @@ use std::io::prelude::*;
 struct Token {
 }
 
-fn tokenize(source: &String) -> Vec<Token> {
+fn tokenize(source: &String) -> Result<Vec<Token>, String> {
     unimplemented!();
 }
 
-fn run(source: &String) -> i32 {
-    let tokens = tokenize(source);
+fn run(source: &String) -> Result<(), String> {
+    let tokens = try!(tokenize(source));
     for token in tokens {
         println!("{:?}", token);
     }
-    0
+    Ok(())
 }
 
-fn run_file(file_name: &String) -> i32 {
+fn run_file(file_name: &String) -> Result<(), String> {
     match File::open(file_name) {
-        Err(e) => {
-            println!("Error opening {}", file_name);
-            1
+        Err(_) => {
+            Err("Error opening file".into()) // TODO: add context
         }
         Ok(mut file) => {
             let mut source = String::new();
             match file.read_to_string(&mut source) {
-                Err(e) => {
-                    println!("Error reading {}", file_name);
-                    1
+                Err(_) => {
+                    Err("Error reading file".into()) // TODO: add context
                 }
                 Ok(_) => run(&source),
             }
@@ -38,30 +36,32 @@ fn run_file(file_name: &String) -> i32 {
     }
 }
 
-fn run_prompt() -> i32 {
+fn run_prompt() -> Result<(), String> {
     loop {
         print!("> ");
         io::stdout().flush();
         let mut source = String::new();
-        match io::stdin().read_line(&mut source) {
-            Ok(n) => {
-                run(&source);
-                ()
-            }
-            Err(e) => (),
-        }
+        io::stdin().read_line(&mut source);
+        try!(run(&source));
+        ()
     }
-    0
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let exit_code = match args.len() {
+    let result = match args.len() {
         // The first argument is the program name
         1 => run_prompt(),
         2 => run_file(&args[1]),
         _ => {
             println!("Usage: rulox [script]");
+            Ok(())
+        }
+    };
+    let exit_code = match result {
+        Ok(_) => 0,
+        Err(e) => {
+            println!("{}", e);
             1
         }
     };
