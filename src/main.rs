@@ -1,9 +1,10 @@
 use std::env;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 
 fn run(source: &String) -> i32 {
-    panic!("Not implemented yet");
+    unimplemented!();
 }
 
 fn run_file(file_name: &String) -> i32 {
@@ -26,7 +27,19 @@ fn run_file(file_name: &String) -> i32 {
 }
 
 fn run_prompt() -> i32 {
-    panic!("Not implemented yet");
+    loop {
+        print!("> ");
+        io::stdout().flush();
+        let mut source = String::new();
+        match io::stdin().read_line(&mut source) {
+            Ok(n) => {
+                run(&source);
+                ()
+            }
+            Err(e) => (),
+        }
+    }
+    0
 }
 
 fn main() {
