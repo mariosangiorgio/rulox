@@ -49,7 +49,7 @@ enum Token {
 #[derive(Debug)]
 struct TokenWithContext {
     token: Token,
-    lexeme: String, // TODO: make a reference
+    lexeme: Option<String>, // TODO: make a reference
     line: usize,
 }
 
@@ -69,12 +69,29 @@ impl Scanner {
         }
     }
 
-    fn is_at_end(self: &Scanner) -> bool {
+    fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
-    fn scan_next(mut self: &Scanner) -> TokenWithContext {
-        unimplemented!()
+    fn advance(&mut self) -> char {
+        let result = self.source.chars().nth(self.current).unwrap();
+        self.current += 1;
+        result
+    }
+
+    fn add_simple_context(&self, token: Token) -> TokenWithContext {
+        TokenWithContext {
+            token: token,
+            lexeme: None,
+            line: self.line,
+        }
+    }
+
+    fn scan_next(&mut self) -> TokenWithContext {
+        match self.advance() {
+            '(' => self.add_simple_context(Token::LeftParen),
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -87,7 +104,7 @@ fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     }
     tokens.push(TokenWithContext {
         token: Token::Eof,
-        lexeme: "".into(),
+        lexeme: None,
         line: scanner.line,
     });
     Ok(tokens)
