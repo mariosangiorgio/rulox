@@ -82,7 +82,11 @@ impl Scanner {
     }
 
     fn peek(&self) -> char() {
-        self.char_at(self.current)
+        if (self.is_at_end()) {
+            '\0'
+        } else {
+            self.char_at(self.current)
+        }
     }
 
     fn advance(&mut self) -> char {
