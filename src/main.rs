@@ -64,6 +64,9 @@ struct Scanner {
     line: usize,
     source: String, // TODO: make a reference
 }
+fn is_digit(c: char) -> bool {
+    c >= '0' && c <= '9'
+}
 impl Scanner {
     fn initialize(source: &String) -> Scanner {
         Scanner {
@@ -95,6 +98,14 @@ impl Scanner {
         }
     }
 
+    fn peekNext(&self) -> char() {
+        if self.current + 1 >= self.source.len() {
+            '\0'
+        } else {
+            self.char_at(self.current + 1)
+        }
+    }
+
     fn advance(&mut self) -> char {
         self.current += 1;
         self.char_at(self.current - 1)
@@ -122,7 +133,7 @@ impl Scanner {
     fn string(&mut self) -> Result<Token, String> {
         let initial_line = self.line;
         while self.peek() != '"' && !self.is_at_end() {
-            if (self.peek() == '\n') {
+            if self.peek() == '\n' {
                 self.line += 1
             }
             self.advance();
@@ -132,6 +143,21 @@ impl Scanner {
         }
         self.advance();
         Ok(Token::StringLiteral(self.substring(self.start + 1, self.current - 1)))
+    }
+
+    fn number(&mut self) -> Token {
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+        if self.peek() == '.' && is_digit(self.peekNext()) {
+            self.advance(); // Consume the .
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+        let literal = self.substring(self.start, self.current);
+        let value = literal.parse::<f64>().unwrap();
+        Token::NumberLiteral(value)
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
@@ -194,10 +220,16 @@ impl Scanner {
                 Token::Whitespace
             }
             '"' => try!(self.string()),
-            _ => {
-                return Err(format!("Unexpected character at line {}, pos {}",
-                                   self.line,
-                                   self.current))
+            c => {
+                if is_digit(c) {
+                    self.number()
+                } else {
+                    let position = self.current - 1;
+                    return Err(format!("Unexpected character {} at line {}, pos {}",
+                                       self.char_at(position),
+                                       self.line,
+                                       position));
+                }
             }
         };
         Ok(self.add_context(token))
@@ -255,6 +287,8 @@ fn run_file(file_name: &String) -> Result<(), String> {
 }
 
 fn run_prompt() -> Result<(), String> {
+    println!("Rulox - A lox interpreter written in Rust");
+    io::stdout().flush();
     loop {
         print!("> ");
         io::stdout().flush();
