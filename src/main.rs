@@ -90,6 +90,9 @@ impl Scanner {
     fn scan_next(&mut self) -> TokenWithContext {
         match self.advance() {
             '(' => self.add_simple_context(Token::LeftParen),
+            ')' => self.add_simple_context(Token::RightParen),            
+            '{' => self.add_simple_context(Token::LeftBrace),
+            '}' => self.add_simple_context(Token::RightBrace),
             _ => unimplemented!(),
         }
     }
