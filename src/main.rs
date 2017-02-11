@@ -93,6 +93,12 @@ impl Scanner {
             ')' => self.add_simple_context(Token::RightParen),            
             '{' => self.add_simple_context(Token::LeftBrace),
             '}' => self.add_simple_context(Token::RightBrace),
+            ',' => self.add_simple_context(Token::Comma),
+            '.' => self.add_simple_context(Token::Dot),
+            '-' => self.add_simple_context(Token::Minus),
+            '+' => self.add_simple_context(Token::Plus),
+            ';' => self.add_simple_context(Token::Semicolon),
+            '*' => self.add_simple_context(Token::Star),
             _ => unimplemented!(),
         }
     }
