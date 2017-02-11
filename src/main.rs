@@ -26,7 +26,7 @@ enum Token {
     LessEqual,
     Identifier(String),
     StringLiteral(String),
-    NumberLiteral(u32),
+    NumberLiteral(f64),
     // Keywords
     And,
     Class,
@@ -83,7 +83,7 @@ impl Scanner {
         self.source.chars().nth(index).unwrap()
     }
 
-    fn substring(&self, start: usize, end: usize) -> String{
+    fn substring(&self, start: usize, end: usize) -> String {
         self.source.chars().skip(start).take(end - start).collect()
     }
 
@@ -119,16 +119,16 @@ impl Scanner {
         }
     }
 
-    fn string(&mut self) -> Result<Token, String>{
+    fn string(&mut self) -> Result<Token, String> {
         let initial_line = self.line;
-        while self.peek() != '"' && !self.is_at_end(){
-            if(self.peek() == '\n'){
+        while self.peek() != '"' && !self.is_at_end() {
+            if (self.peek() == '\n') {
                 self.line += 1
             }
             self.advance();
         }
-        if self.is_at_end(){
-            return Err(format!("Unterminated string at line {}", initial_line))
+        if self.is_at_end() {
+            return Err(format!("Unterminated string at line {}", initial_line));
         }
         self.advance();
         Ok(Token::StringLiteral(self.substring(self.start + 1, self.current - 1)))
