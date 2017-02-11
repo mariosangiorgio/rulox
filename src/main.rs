@@ -18,6 +18,8 @@ enum Token {
     Star,
     Bang,
     BangEqual,
+    Equal,
+    EqualEqual,
     Greater,
     GreaterEqual,
     Less,
@@ -73,12 +75,28 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn advance(&mut self) -> char {
-        self.current += 1;
-        self.source.chars().nth(self.current - 1).unwrap()
+    fn char_at(&self, index: usize) -> char {
+        // TODO: there must be a better way
+        self.source.chars().nth(index).unwrap()
     }
 
-    fn add_simple_context(&self, token: Token) -> TokenWithContext {
+    fn advance(&mut self) -> char {
+        self.current += 1;
+        self.char_at(self.current - 1)
+    }
+
+    fn is_match(&mut self, expected: char) -> bool {
+        if (self.is_at_end()) {
+            return false;
+        }
+        if (self.char_at(self.current) != expected) {
+            return false;
+        }
+        self.current += 1;
+        return true;
+    }
+
+    fn add_context(&self, token: Token) -> TokenWithContext {
         TokenWithContext {
             token: token,
             lexeme: self.source.chars().skip(self.start).take(self.current - self.start).collect(),
@@ -88,19 +106,52 @@ impl Scanner {
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
         self.start = self.current;
-        match self.advance() {
-            '(' => Ok(self.add_simple_context(Token::LeftParen)),
-            ')' => Ok(self.add_simple_context(Token::RightParen)),
-            '{' => Ok(self.add_simple_context(Token::LeftBrace)),
-            '}' => Ok(self.add_simple_context(Token::RightBrace)),
-            ',' => Ok(self.add_simple_context(Token::Comma)),
-            '.' => Ok(self.add_simple_context(Token::Dot)),
-            '-' => Ok(self.add_simple_context(Token::Minus)),
-            '+' => Ok(self.add_simple_context(Token::Plus)),
-            ';' => Ok(self.add_simple_context(Token::Semicolon)),
-            '*' => Ok(self.add_simple_context(Token::Star)),
-            _ => Err(format!("Unexpected character at line {}, pos {}", self.line, self.current))
-        }
+        let token = match self.advance() {
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
+            ',' => Token::Comma,
+            '.' => Token::Dot,
+            '-' => Token::Minus,
+            '+' => Token::Plus,
+            ';' => Token::Semicolon,
+            '*' => Token::Star,
+            '!' => {
+                if self.is_match('=') {
+                    Token::BangEqual
+                } else {
+                    Token::Bang
+                }
+            }
+            '=' => {
+                if self.is_match('=') {
+                    Token::EqualEqual
+                } else {
+                    Token::Equal
+                }
+            }
+            '<' => {
+                if self.is_match('=') {
+                    Token::LessEqual
+                } else {
+                    Token::Less
+                }
+            }
+            '>' => {
+                if self.is_match('=') {
+                    Token::GreaterEqual
+                } else {
+                    Token::Greater
+                }
+            }
+            _ => {
+                return Err(format!("Unexpected character at line {}, pos {}",
+                                   self.line,
+                                   self.current))
+            }
+        };
+        Ok(self.add_context(token))
     }
 }
 
@@ -109,9 +160,9 @@ fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     while !scanner.is_at_end() {
-        match scanner.scan_next(){
+        match scanner.scan_next() {
             Ok(token) => tokens.push(token),
-            Err(message) => return Err(message)
+            Err(message) => return Err(message),
         }
     }
     tokens.push(TokenWithContext {
