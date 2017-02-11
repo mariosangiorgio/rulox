@@ -87,6 +87,7 @@ impl Scanner {
     }
 
     fn scan_next(&mut self) -> TokenWithContext {
+        self.start = self.current;
         match self.advance() {
             '(' => self.add_simple_context(Token::LeftParen),
             ')' => self.add_simple_context(Token::RightParen),
