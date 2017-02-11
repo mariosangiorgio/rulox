@@ -74,9 +74,8 @@ impl Scanner {
     }
 
     fn advance(&mut self) -> char {
-        let result = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
-        result
+        self.source.chars().nth(self.current - 1).unwrap()
     }
 
     fn add_simple_context(&self, token: Token) -> TokenWithContext {
