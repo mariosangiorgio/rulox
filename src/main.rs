@@ -46,6 +46,7 @@ enum Token {
     While,
 
     Eof,
+    Comment,
 }
 
 #[derive(Debug)]
@@ -78,6 +79,10 @@ impl Scanner {
     fn char_at(&self, index: usize) -> char {
         // TODO: there must be a better way
         self.source.chars().nth(index).unwrap()
+    }
+
+    fn peek(&self) -> char() {
+        self.char_at(self.current)
     }
 
     fn advance(&mut self) -> char {
@@ -143,6 +148,17 @@ impl Scanner {
                     Token::GreaterEqual
                 } else {
                     Token::Greater
+                }
+            }
+            '/' => {
+                if self.is_match('/') {
+                    // Comments go on till the end of the line
+                    while (self.peek() != '\n' && !self.is_at_end()) {
+                        self.advance();
+                    }
+                    Token::Comment
+                } else {
+                    Token::Slash
                 }
             }
             _ => {
