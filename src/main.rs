@@ -46,7 +46,9 @@ enum Token {
     While,
 
     Eof,
+    // These are not described in the book but they simplify the parser
     Comment,
+    Whitespace,
 }
 
 #[derive(Debug)]
@@ -165,6 +167,13 @@ impl Scanner {
                     Token::Slash
                 }
             }
+            ' ' => Token::Whitespace,
+            '\r' => Token::Whitespace,
+            '\t' => Token::Whitespace,
+            '\n' => {
+                self.line += 1;
+                Token::Whitespace
+            }
             _ => {
                 return Err(format!("Unexpected character at line {}, pos {}",
                                    self.line,
@@ -181,7 +190,14 @@ fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut tokens = Vec::new();
     while !scanner.is_at_end() {
         match scanner.scan_next() {
-            Ok(token) => tokens.push(token),
+            Ok(tokenWithContext) => {
+                match tokenWithContext.token {
+                    // Ignoring tokens we don't care about
+                    Token::Comment => {}
+                    Token::Whitespace => {}
+                    _ => tokens.push(tokenWithContext),
+                }
+            }
             Err(message) => return Err(message),
         }
     }
