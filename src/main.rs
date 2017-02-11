@@ -43,18 +43,54 @@ enum Token {
     Var,
     While,
 
-    Eof
+    Eof,
 }
 
 #[derive(Debug)]
-struct TokenWithContext{
+struct TokenWithContext {
     token: Token,
-    lexeme: String,
-    line: u32
+    lexeme: String, // TODO: make a reference
+    line: usize,
 }
 
+struct Scanner {
+    start: usize,
+    current: usize,
+    line: usize,
+    source: String, // TODO: make a reference
+}
+impl Scanner {
+    fn initialize(source: &String) -> Scanner {
+        Scanner {
+            start: 0,
+            current: 0,
+            line: 0,
+            source: source.clone(),
+        }
+    }
+
+    fn is_at_end(self: &Scanner) -> bool {
+        self.current >= self.source.len()
+    }
+
+    fn scan_next(mut self: &Scanner) -> TokenWithContext {
+        unimplemented!()
+    }
+}
+
+
 fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
-    unimplemented!();
+    let mut scanner = Scanner::initialize(source);
+    let mut tokens = Vec::new();
+    while !scanner.is_at_end() {
+        tokens.push(scanner.scan_next());
+    }
+    tokens.push(TokenWithContext {
+        token: Token::Eof,
+        lexeme: "".into(),
+        line: scanner.line,
+    });
+    Ok(tokens)
 }
 
 fn run(source: &String) -> Result<(), String> {
