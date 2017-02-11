@@ -83,8 +83,12 @@ impl Scanner {
         self.source.chars().nth(index).unwrap()
     }
 
+    fn substring(&self, start: usize, end: usize) -> String{
+        self.source.chars().skip(start).take(end - start).collect()
+    }
+
     fn peek(&self) -> char() {
-        if (self.is_at_end()) {
+        if self.is_at_end() {
             '\0'
         } else {
             self.char_at(self.current)
@@ -97,10 +101,10 @@ impl Scanner {
     }
 
     fn is_match(&mut self, expected: char) -> bool {
-        if (self.is_at_end()) {
+        if self.is_at_end() {
             return false;
         }
-        if (self.char_at(self.current) != expected) {
+        if self.char_at(self.current) != expected {
             return false;
         }
         self.current += 1;
@@ -110,9 +114,24 @@ impl Scanner {
     fn add_context(&self, token: Token) -> TokenWithContext {
         TokenWithContext {
             token: token,
-            lexeme: self.source.chars().skip(self.start).take(self.current - self.start).collect(),
+            lexeme: self.substring(self.start, self.current),
             line: self.line,
         }
+    }
+
+    fn string(&mut self) -> Result<Token, String>{
+        let initial_line = self.line;
+        while self.peek() != '"' && !self.is_at_end(){
+            if(self.peek() == '\n'){
+                self.line += 1
+            }
+            self.advance();
+        }
+        if self.is_at_end(){
+            return Err(format!("Unterminated string at line {}", initial_line))
+        }
+        self.advance();
+        Ok(Token::StringLiteral(self.substring(self.start + 1, self.current - 1)))
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
@@ -159,7 +178,7 @@ impl Scanner {
             '/' => {
                 if self.is_match('/') {
                     // Comments go on till the end of the line
-                    while (self.peek() != '\n' && !self.is_at_end()) {
+                    while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
                     Token::Comment
@@ -174,6 +193,7 @@ impl Scanner {
                 self.line += 1;
                 Token::Whitespace
             }
+            '"' => try!(self.string()),
             _ => {
                 return Err(format!("Unexpected character at line {}, pos {}",
                                    self.line,
