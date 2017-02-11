@@ -86,20 +86,20 @@ impl Scanner {
         }
     }
 
-    fn scan_next(&mut self) -> TokenWithContext {
+    fn scan_next(&mut self) -> Result<TokenWithContext, String> {
         self.start = self.current;
         match self.advance() {
-            '(' => self.add_simple_context(Token::LeftParen),
-            ')' => self.add_simple_context(Token::RightParen),
-            '{' => self.add_simple_context(Token::LeftBrace),
-            '}' => self.add_simple_context(Token::RightBrace),
-            ',' => self.add_simple_context(Token::Comma),
-            '.' => self.add_simple_context(Token::Dot),
-            '-' => self.add_simple_context(Token::Minus),
-            '+' => self.add_simple_context(Token::Plus),
-            ';' => self.add_simple_context(Token::Semicolon),
-            '*' => self.add_simple_context(Token::Star),
-            _ => unimplemented!(),
+            '(' => Ok(self.add_simple_context(Token::LeftParen)),
+            ')' => Ok(self.add_simple_context(Token::RightParen)),
+            '{' => Ok(self.add_simple_context(Token::LeftBrace)),
+            '}' => Ok(self.add_simple_context(Token::RightBrace)),
+            ',' => Ok(self.add_simple_context(Token::Comma)),
+            '.' => Ok(self.add_simple_context(Token::Dot)),
+            '-' => Ok(self.add_simple_context(Token::Minus)),
+            '+' => Ok(self.add_simple_context(Token::Plus)),
+            ';' => Ok(self.add_simple_context(Token::Semicolon)),
+            '*' => Ok(self.add_simple_context(Token::Star)),
+            _ => Err(format!("Unexpected character at line {}, pos {}", self.line, self.current))
         }
     }
 }
@@ -109,7 +109,10 @@ fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     while !scanner.is_at_end() {
-        tokens.push(scanner.scan_next());
+        match scanner.scan_next(){
+            Ok(token) => tokens.push(token),
+            Err(message) => return Err(message)
+        }
     }
     tokens.push(TokenWithContext {
         token: Token::Eof,
