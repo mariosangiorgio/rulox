@@ -41,7 +41,12 @@ pub enum Token {
     While,
 
     Eof,
-    // These are not described in the book but they simplify the parser
+    /*
+     * The book doesn't have tokens for comments and
+     * whitespaces. Introducing them the scanner can
+     * deal with them uniformly and in a more
+     * functional way.
+     */
     Comment,
     Whitespace,
 }
