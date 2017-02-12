@@ -64,9 +64,19 @@ struct Scanner {
     line: usize,
     source: String, // TODO: make a reference
 }
+
 fn is_digit(c: char) -> bool {
     c >= '0' && c <= '9'
 }
+
+fn is_alpha(c: char) -> bool {
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+fn is_alphanumeric(c: char) -> bool {
+    is_digit(c) || is_alpha(c)
+}
+
 impl Scanner {
     fn initialize(source: &String) -> Scanner {
         Scanner {
@@ -98,7 +108,7 @@ impl Scanner {
         }
     }
 
-    fn peekNext(&self) -> char() {
+    fn peek_next(&self) -> char() {
         if self.current + 1 >= self.source.len() {
             '\0'
         } else {
@@ -149,7 +159,7 @@ impl Scanner {
         while is_digit(self.peek()) {
             self.advance();
         }
-        if self.peek() == '.' && is_digit(self.peekNext()) {
+        if self.peek() == '.' && is_digit(self.peek_next()) {
             self.advance(); // Consume the .
             while is_digit(self.peek()) {
                 self.advance();
@@ -158,6 +168,33 @@ impl Scanner {
         let literal = self.substring(self.start, self.current);
         let value = literal.parse::<f64>().unwrap();
         Token::NumberLiteral(value)
+    }
+
+    fn identifier(&mut self) -> Token {
+        while is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+        // TODO: take a ref in the first place
+        match self.substring(self.start, self.current).as_ref() {
+            "and" => Token::And,
+            "class" => Token::Class,
+            "else" => Token::Else,
+            "false" => Token::False,
+            "for" => Token::For,
+            "fun" => Token::Fun,
+            "if" => Token::If,
+            "nil" => Token::Nil,
+            "or" => Token::Or,
+            "print" => Token::Print,
+            "return" => Token::Return,
+            "super" => Token::Super,
+            "this" => Token::This,
+            "true" => Token::True,
+            "var" => Token::Var,
+            "while" => Token::While,
+            identifier => Token::Identifier(identifier.into()),
+        }
+
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
@@ -223,6 +260,8 @@ impl Scanner {
             c => {
                 if is_digit(c) {
                     self.number()
+                } else if is_alpha(c) {
+                    self.identifier()
                 } else {
                     let position = self.current - 1;
                     return Err(format!("Unexpected character {} at line {}, pos {}",
@@ -241,16 +280,12 @@ fn tokenize(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     while !scanner.is_at_end() {
-        match scanner.scan_next() {
-            Ok(tokenWithContext) => {
-                match tokenWithContext.token {
-                    // Ignoring tokens we don't care about
-                    Token::Comment => {}
-                    Token::Whitespace => {}
-                    _ => tokens.push(tokenWithContext),
-                }
-            }
-            Err(message) => return Err(message),
+        let token_with_context = try!(scanner.scan_next());
+        match token_with_context.token {
+            // Ignoring tokens we don't care about
+            Token::Comment => {}
+            Token::Whitespace => {}
+            _ => tokens.push(token_with_context),
         }
     }
     tokens.push(TokenWithContext {
