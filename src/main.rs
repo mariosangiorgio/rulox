@@ -257,18 +257,13 @@ impl Scanner {
                 Token::Whitespace
             }
             '"' => try!(self.string()),
+            c if is_digit(c) => self.number(),
+            c if is_alpha(c) => self.identifier(),
             c => {
-                if is_digit(c) {
-                    self.number()
-                } else if is_alpha(c) {
-                    self.identifier()
-                } else {
-                    let position = self.current - 1;
-                    return Err(format!("Unexpected character {} at line {}, pos {}",
-                                       self.char_at(position),
-                                       self.line,
-                                       position));
-                }
+                return Err(format!("Unexpected character {} at line {}, pos {}",
+                                   c,
+                                   self.line,
+                                   self.current - 1));
             }
         };
         Ok(self.add_context(token))
@@ -329,9 +324,9 @@ fn run_prompt() -> Result<(), String> {
         let _ = io::stdout().flush();
         let mut source = String::new();
         let _ = io::stdin().read_line(&mut source);
-        //TODO: add a way to exit
+        // TODO: add a way to exit
         try!(run(&source))
-        //TODO: report syntax errors to the user
+        // TODO: report syntax errors to the user
     }
 }
 
