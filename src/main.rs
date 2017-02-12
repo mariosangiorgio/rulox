@@ -323,14 +323,15 @@ fn run_file(file_name: &String) -> Result<(), String> {
 
 fn run_prompt() -> Result<(), String> {
     println!("Rulox - A lox interpreter written in Rust");
-    io::stdout().flush();
+    let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
         print!("> ");
-        io::stdout().flush();
+        let _ = io::stdout().flush();
         let mut source = String::new();
-        io::stdin().read_line(&mut source);
-        try!(run(&source));
-        ()
+        let _ = io::stdin().read_line(&mut source);
+        //TODO: add a way to exit
+        try!(run(&source))
+        //TODO: report syntax errors to the user
     }
 }
 
