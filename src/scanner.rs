@@ -136,7 +136,7 @@ impl Scanner {
         TokenWithContext {
             token: token,
             lexeme: self.substring(self.start, self.current),
-            line: self.line,
+            line: self.line + 1, // Converts from 0-indexed to 1-indexed
         }
     }
 
@@ -328,5 +328,24 @@ mod tests {
         assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[4].token, Token::Semicolon);        
         assert_eq!(tokens[5].token, Token::Eof);
+    }
+
+    #[test]
+    fn multiline_statements(){
+        let tokens = scan(&r#"var a = 1.0;
+                              var b = "Hello";"#.into()).unwrap();
+        assert_eq!(tokens[0].token, Token::Var);
+        assert_eq!(tokens[1].token, Token::Identifier("a".into()));
+        assert_eq!(tokens[2].token, Token::Equal);        
+        assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
+        assert_eq!(tokens[4].token, Token::Semicolon);
+        assert_eq!(tokens[5].token, Token::Var);
+        assert_eq!(tokens[6].token, Token::Identifier("b".into()));
+        assert_eq!(tokens[7].token, Token::Equal);        
+        assert_eq!(tokens[8].token, Token::StringLiteral("Hello".into()));
+        assert_eq!(tokens[9].token, Token::Semicolon);                
+        assert_eq!(tokens[10].token, Token::Eof);
+        assert_eq!(tokens[1].line, 1);        
+        assert_eq!(tokens[9].line, 2);
     }
 }
