@@ -20,3 +20,17 @@ pub enum Token {
 }
 ```
 Algebraic data types for the win
+
+---
+
+## Pattern matching
+```rust
+let token = match self.advance() {
+    '(' => Token::LeftParen,
+    ')' => Token::RightParen,
+    /*...*/
+    c if is_digit(c) => self.number(),
+    c if is_alpha(c) => self.identifier(), 
+    /*...*/
+}                       
+```

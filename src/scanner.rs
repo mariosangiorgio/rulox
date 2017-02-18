@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     LeftParen,
     RightParen,
@@ -289,4 +289,44 @@ pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, String> {
         line: scanner.line,
     });
     Ok(tokens)
+}
+
+#[cfg(test)]
+mod tests {
+    use scanner::*;
+
+    #[test]
+    fn single_token() {
+        let tokens = scan(&"+".into()).unwrap();
+        assert_eq!(tokens[0].token, Token::Plus);
+    }
+
+    #[test]
+    fn expression() {
+        let tokens = scan(&"1+2".into()).unwrap();
+        assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
+        assert_eq!(tokens[1].token, Token::Plus);
+        assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
+        assert_eq!(tokens[3].token, Token::Eof);
+    }
+
+    #[test]
+    fn expression_with_whitespaces() {
+        let tokens = scan(&"1 + 2".into()).unwrap();
+        assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
+        assert_eq!(tokens[1].token, Token::Plus);
+        assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
+        assert_eq!(tokens[3].token, Token::Eof);
+    }
+    
+    #[test]
+    fn assignement_with_comment() {
+        let tokens = scan(&"var a = 1.0; // A comment".into()).unwrap();
+        assert_eq!(tokens[0].token, Token::Var);
+        assert_eq!(tokens[1].token, Token::Identifier("a".into()));
+        assert_eq!(tokens[2].token, Token::Equal);        
+        assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
+        assert_eq!(tokens[4].token, Token::Semicolon);        
+        assert_eq!(tokens[5].token, Token::Eof);
+    }
 }
