@@ -34,3 +34,10 @@ let token = match self.advance() {
     /*...*/
 }                       
 ```
+---
+
+#[fit]Look ma, no visitors!
+
+---
+
+#[fit] recursive type `ast::Expr` has infinite size

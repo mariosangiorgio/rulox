@@ -1,4 +1,6 @@
 mod scanner;
+mod ast;
+mod pretty_printer;
 
 use std::env;
 use std::fs::File;
