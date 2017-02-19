@@ -77,12 +77,22 @@ fn is_alphanumeric(c: char) -> bool {
     is_digit(c) || is_alpha(c)
 }
 
+fn is_whitespace(c: char) -> bool{
+    match c {
+        ' ' => true,
+        '\r' => true,
+        '\t' => true,
+        '\n' => true,
+        _ => false
+    }
+}
+
 impl Scanner {
     fn initialize(source: &String) -> Scanner {
         Scanner {
             start: 0,
             current: 0,
-            line: 0,
+            line: 1, // 1-indexed,
             source: source.clone(),
         }
     }
@@ -118,7 +128,11 @@ impl Scanner {
 
     fn advance(&mut self) -> char {
         self.current += 1;
-        self.char_at(self.current - 1)
+        let c = self.char_at(self.current - 1);
+        if c == '\n' {
+            self.line += 1;
+        }
+        c
     }
 
     fn is_match(&mut self, expected: char) -> bool {
@@ -136,16 +150,13 @@ impl Scanner {
         TokenWithContext {
             token: token,
             lexeme: self.substring(self.start, self.current),
-            line: self.line + 1, // Converts from 0-indexed to 1-indexed
+            line: self.line,
         }
     }
 
     fn string(&mut self) -> Result<Token, String> {
         let initial_line = self.line;
         while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1
-            }
             self.advance();
         }
         if self.is_at_end() {
@@ -248,15 +259,9 @@ impl Scanner {
                 } else {
                     Token::Slash
                 }
-            }
-            ' ' => Token::Whitespace,
-            '\r' => Token::Whitespace,
-            '\t' => Token::Whitespace,
-            '\n' => {
-                self.line += 1;
-                Token::Whitespace
-            }
+            },
             '"' => try!(self.string()),
+            c if is_whitespace(c) => Token::Whitespace,
             c if is_digit(c) => self.number(),
             c if is_alpha(c) => self.identifier(),
             c => {
