@@ -41,12 +41,10 @@ pub enum Token {
     While,
 
     Eof,
-    /*
-     * The book doesn't have tokens for comments and
-     * whitespaces. Introducing them the scanner can
-     * deal with them uniformly and in a more
-     * functional way.
-     */
+    // The book doesn't have tokens for comments and
+    // whitespaces. Introducing them the scanner can
+    // deal with them uniformly and in a more
+    // functional way.
     Comment,
     Whitespace,
 }
@@ -77,13 +75,13 @@ fn is_alphanumeric(c: char) -> bool {
     is_digit(c) || is_alpha(c)
 }
 
-fn is_whitespace(c: char) -> bool{
+fn is_whitespace(c: char) -> bool {
     match c {
         ' ' => true,
         '\r' => true,
         '\t' => true,
         '\n' => true,
-        _ => false
+        _ => false,
     }
 }
 
@@ -259,7 +257,7 @@ impl Scanner {
                 } else {
                     Token::Slash
                 }
-            },
+            }
             '"' => try!(self.string()),
             c if is_whitespace(c) => Token::Whitespace,
             c if is_digit(c) => self.number(),
@@ -323,34 +321,36 @@ mod tests {
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
         assert_eq!(tokens[3].token, Token::Eof);
     }
-    
+
     #[test]
     fn assignement_with_comment() {
         let tokens = scan(&"var a = 1.0; // A comment".into()).unwrap();
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
-        assert_eq!(tokens[2].token, Token::Equal);        
+        assert_eq!(tokens[2].token, Token::Equal);
         assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
-        assert_eq!(tokens[4].token, Token::Semicolon);        
+        assert_eq!(tokens[4].token, Token::Semicolon);
         assert_eq!(tokens[5].token, Token::Eof);
     }
 
     #[test]
-    fn multiline_statements(){
+    fn multiline_statements() {
         let tokens = scan(&r#"var a = 1.0;
-                              var b = "Hello";"#.into()).unwrap();
+                              var b = "Hello";"#
+                .into())
+            .unwrap();
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
-        assert_eq!(tokens[2].token, Token::Equal);        
+        assert_eq!(tokens[2].token, Token::Equal);
         assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[4].token, Token::Semicolon);
         assert_eq!(tokens[5].token, Token::Var);
         assert_eq!(tokens[6].token, Token::Identifier("b".into()));
-        assert_eq!(tokens[7].token, Token::Equal);        
+        assert_eq!(tokens[7].token, Token::Equal);
         assert_eq!(tokens[8].token, Token::StringLiteral("Hello".into()));
-        assert_eq!(tokens[9].token, Token::Semicolon);                
+        assert_eq!(tokens[9].token, Token::Semicolon);
         assert_eq!(tokens[10].token, Token::Eof);
-        assert_eq!(tokens[1].line, 1);        
+        assert_eq!(tokens[1].line, 1);
         assert_eq!(tokens[9].line, 2);
     }
 }
