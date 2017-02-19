@@ -1,6 +1,8 @@
-enum Operator {
-
+pub enum Operator {
+    Minus,
+    Star,
 }
+
 pub enum Literal {
     StringLiteral(String),
     NumberLiteral(f64),
