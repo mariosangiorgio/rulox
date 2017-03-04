@@ -1,23 +1,69 @@
-use ast::{Expr, Literal};
+use ast::{Expr, Literal, Operator, UnaryExpr, BinaryExpr, Grouping};
 
 impl Expr {
+    // TODO: avoid copying of strings.
+    // Possibly I can pass a mutable string to be filled
     pub fn pretty_print(&self) -> String {
-        let mut pretty_printed = String::new();
         match self {
-            &Expr::Literal(ref l) => pretty_printed.push_str(&l.pretty_print()),
-            _ => unimplemented!(),
+            &Expr::Literal(ref l) => l.pretty_print(),
+            &Expr::Unary(ref u) => (*u).pretty_print(),
+            &Expr::Binary(ref b) => (*b).pretty_print(),
+            &Expr::Grouping(ref g) => (*g).pretty_print(),
         }
-        pretty_printed
+    }
+}
+
+impl Operator {
+    fn pretty_print(&self) -> String {
+        match self {
+            &Operator::Minus => "-".into(),
+            &Operator::Star => "*".into(),
+        }
     }
 }
 
 impl Literal {
     fn pretty_print(&self) -> String {
         match self {
-            // TODO: avoid copying
             &Literal::StringLiteral(ref s) => s.clone(),
             &Literal::NumberLiteral(n) => n.to_string(),
         }
+    }
+}
+
+impl Grouping {
+    fn pretty_print(&self) -> String {
+        let mut pretty_printed = String::new();
+        pretty_printed.push_str("(group ");
+        pretty_printed.push_str(&self.expr.pretty_print());
+        pretty_printed.push_str(")");
+        pretty_printed
+    }
+}
+
+impl UnaryExpr {
+    fn pretty_print(&self) -> String {
+        let mut pretty_printed = String::new();
+        pretty_printed.push_str("(");
+        pretty_printed.push_str(&self.operator.pretty_print());
+        pretty_printed.push_str(" ");
+        pretty_printed.push_str(&self.right.pretty_print());
+        pretty_printed.push_str(")");
+        pretty_printed
+    }
+}
+
+impl BinaryExpr {
+    fn pretty_print(&self) -> String {
+        let mut pretty_printed = String::new();
+        pretty_printed.push_str("(");
+        pretty_printed.push_str(&self.operator.pretty_print());
+        pretty_printed.push_str(" ");
+        pretty_printed.push_str(&self.left.pretty_print());
+        pretty_printed.push_str(" ");
+        pretty_printed.push_str(&self.right.pretty_print());
+        pretty_printed.push_str(")");
+        pretty_printed
     }
 }
 
