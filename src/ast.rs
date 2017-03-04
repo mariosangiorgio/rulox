@@ -8,9 +8,24 @@ pub enum Literal {
     NumberLiteral(f64),
 }
 
+pub struct UnaryExpr {
+    pub operator: Operator,
+    pub right: Expr,
+}
+
+pub struct BinaryExpr {
+    pub left: Expr,
+    pub operator: Operator,
+    pub right: Expr,
+}
+
+pub struct Grouping {
+    pub expr: Expr,    
+}
+
 pub enum Expr {
-    Unary(Operator, Box<Expr>),
-    Binary(Box<Expr>, Operator, Box<Expr>),
-    Grouping(Box<Expr>),
+    Unary(Box<UnaryExpr>),
+    Binary(Box<BinaryExpr>),
+    Grouping(Box<Grouping>),
     Literal(Literal),
 }

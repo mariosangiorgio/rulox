@@ -27,10 +27,19 @@ mod tests {
 
     #[test]
     fn complex_expression() {
-        let subexpr1 = Expr::Unary(Operator::Minus,
-                                   Box::new(Expr::Literal(Literal::NumberLiteral(123f64))));
-        let subexpr2 = Expr::Grouping(Box::new(Expr::Literal(Literal::NumberLiteral(45.67f64))));
-        let expr = Expr::Binary(Box::new(subexpr1), Operator::Star, Box::new(subexpr2));
+        let subexpr1 = UnaryExpr{
+            operator: Operator::Minus,
+            right: Expr::Literal(Literal::NumberLiteral(123f64))
+        };
+        let subexpr2 = Grouping{
+            expr: Expr::Literal(Literal::NumberLiteral(45.67f64))
+        };
+        let binary_expr = BinaryExpr{
+            left: Expr::Unary(Box::new(subexpr1)),
+            operator: Operator::Star,
+            right: Expr::Grouping(Box::new(subexpr2))
+        };
+        let expr = Expr::Binary(Box::new(binary_expr));
         assert_eq!("(* (- 123) (group 45.67))", pretty_print(&expr));
     }
 }
