@@ -3,6 +3,8 @@ use ast::{Expr, Literal, Operator, UnaryExpr, BinaryExpr, Grouping};
 impl Expr {
     // TODO: avoid copying of strings.
     // Possibly I can pass a mutable string to be filled
+    // If I use a trait I can have it provide a default implementation
+    // that automatically creates a string
     pub fn pretty_print(&self) -> String {
         match self {
             &Expr::Literal(ref l) => l.pretty_print(),
