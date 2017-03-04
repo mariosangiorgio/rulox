@@ -20,12 +20,12 @@ pub struct BinaryExpr {
 }
 
 pub struct Grouping {
-    pub expr: Expr,    
+    pub expr: Expr,
 }
 
 pub enum Expr {
+    Literal(Literal),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Grouping(Box<Grouping>),
-    Literal(Literal),
 }
