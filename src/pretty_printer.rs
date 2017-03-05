@@ -1,77 +1,77 @@
 use ast::{Expr, Literal, Operator, UnaryExpr, BinaryExpr, Grouping};
 
-impl Expr {
-    // TODO: avoid copying of strings.
-    // Possibly I can pass a mutable string to be filled
-    // If I use a trait I can have it provide a default implementation
-    // that automatically creates a string
-    pub fn pretty_print(&self) -> String {
-        match self {
-            &Expr::Literal(ref l) => l.pretty_print(),
-            &Expr::Unary(ref u) => (*u).pretty_print(),
-            &Expr::Binary(ref b) => (*b).pretty_print(),
-            &Expr::Grouping(ref g) => (*g).pretty_print(),
-        }
-    }
-}
-
-impl Operator {
-    fn pretty_print(&self) -> String {
-        match self {
-            &Operator::Minus => "-".into(),
-            &Operator::Star => "*".into(),
-        }
-    }
-}
-
-impl Literal {
-    fn pretty_print(&self) -> String {
-        match self {
-            &Literal::StringLiteral(ref s) => s.clone(),
-            &Literal::NumberLiteral(n) => n.to_string(),
-        }
-    }
-}
-
-impl Grouping {
+trait PrettyPrint {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
     fn pretty_print(&self) -> String {
         let mut pretty_printed = String::new();
+        &self.pretty_print_into(&mut pretty_printed);
+        pretty_printed
+    }
+}
+
+impl PrettyPrint for Expr {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match self {
+            &Expr::Literal(ref l) => l.pretty_print_into(pretty_printed),
+            &Expr::Unary(ref u) => (*u).pretty_print_into(pretty_printed),
+            &Expr::Binary(ref b) => (*b).pretty_print_into(pretty_printed),
+            &Expr::Grouping(ref g) => (*g).pretty_print_into(pretty_printed),
+        }
+    }
+}
+
+impl PrettyPrint for Operator {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match self {
+            &Operator::Minus => pretty_printed.push_str("-"),
+            &Operator::Star => pretty_printed.push_str("*"),
+        }
+    }
+}
+
+impl PrettyPrint for Literal {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match self {
+            &Literal::StringLiteral(ref s) => pretty_printed.push_str(s),
+            &Literal::NumberLiteral(n) => pretty_printed.push_str(&n.to_string()),
+        }
+    }
+}
+
+impl PrettyPrint for Grouping {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         pretty_printed.push_str("(group ");
-        pretty_printed.push_str(&self.expr.pretty_print());
+        &self.expr.pretty_print_into(pretty_printed);
         pretty_printed.push_str(")");
-        pretty_printed
     }
 }
 
-impl UnaryExpr {
-    fn pretty_print(&self) -> String {
-        let mut pretty_printed = String::new();
+impl PrettyPrint for UnaryExpr {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         pretty_printed.push_str("(");
-        pretty_printed.push_str(&self.operator.pretty_print());
+        &self.operator.pretty_print_into(pretty_printed);
         pretty_printed.push_str(" ");
-        pretty_printed.push_str(&self.right.pretty_print());
+        &self.right.pretty_print_into(pretty_printed);
         pretty_printed.push_str(")");
-        pretty_printed
     }
 }
 
-impl BinaryExpr {
-    fn pretty_print(&self) -> String {
-        let mut pretty_printed = String::new();
+impl PrettyPrint for BinaryExpr {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         pretty_printed.push_str("(");
-        pretty_printed.push_str(&self.operator.pretty_print());
+        &self.operator.pretty_print_into(pretty_printed);
         pretty_printed.push_str(" ");
-        pretty_printed.push_str(&self.left.pretty_print());
+        &self.left.pretty_print_into(pretty_printed);
         pretty_printed.push_str(" ");
-        pretty_printed.push_str(&self.right.pretty_print());
+        &self.right.pretty_print_into(pretty_printed);
         pretty_printed.push_str(")");
-        pretty_printed
     }
 }
 
 #[cfg(test)]
 mod tests {
     use ast::*;
+    use pretty_printer::PrettyPrint;
 
     #[test]
     fn literal() {
