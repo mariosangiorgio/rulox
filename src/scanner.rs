@@ -52,15 +52,16 @@ pub enum Token {
 #[derive(Debug)]
 pub struct TokenWithContext {
     token: Token,
-    lexeme: String, // TODO: make a reference
+    // Takes a copy. Tokens can outlive the file they came from    
+    lexeme: String,
     line: usize,
 }
 
-struct Scanner {
+struct Scanner<'a> {
     start: usize,
     current: usize,
     line: usize,
-    source: String, // TODO: make a reference
+    source: &'a String,
 }
 
 fn is_digit(c: char) -> bool {
@@ -85,13 +86,13 @@ fn is_whitespace(c: char) -> bool {
     }
 }
 
-impl Scanner {
+impl<'a> Scanner<'a> {
     fn initialize(source: &String) -> Scanner {
         Scanner {
             start: 0,
             current: 0,
             line: 1, // 1-indexed,
-            source: source.clone(),
+            source: source,
         }
     }
 
