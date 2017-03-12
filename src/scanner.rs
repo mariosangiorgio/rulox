@@ -1,4 +1,4 @@
-use itertools::{multipeek,MultiPeek};
+use itertools::{multipeek, MultiPeek};
 use std::str;
 
 #[derive(Debug, PartialEq)]
@@ -55,12 +55,12 @@ pub enum Token {
 #[derive(Debug)]
 pub struct TokenWithContext {
     token: Token,
-    // Takes a copy. Tokens can outlive the file they came from    
+    // Takes a copy. Tokens can outlive the file they came from
     lexeme: String,
     line: usize,
 }
 
-struct Scanner<'a>{
+struct Scanner<'a> {
     current: usize,
     current_lexeme: String,
     line: usize,
@@ -101,24 +101,23 @@ impl<'a> Scanner<'a> {
 
     fn is_at_end(&mut self) -> bool {
         self.source.reset_peek();
-        match self.source.peek(){
+        match self.source.peek() {
             Some(_) => false,
             None => true,
         }
     }
 
-    fn peek(&mut self) -> char() {
-        self.source.reset_peek();        
-        //TODO: this is dubious
-        match self.source.peek(){
-            Some(&c) => c,
-            None => '\0',
+    fn peek_check(&mut self, check: &Fn(char) -> bool) -> bool {
+        self.source.reset_peek();
+        match self.source.peek() {
+            Some(&c) => check(c),
+            None => false,
         }
     }
 
     fn advance(&mut self) -> char {
         self.current += 1;
-        //TODO: handle None!
+        // TODO: handle None!
         let c = self.source.next().unwrap();
         self.current_lexeme.push(c);
         if c == '\n' {
@@ -128,19 +127,18 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_match(&mut self, expected: char) -> bool {
-        self.source.reset_peek();        
-        match self.source.peek(){
+        self.source.reset_peek();
+        match self.source.peek() {
             Some(&c) => {
                 if c == expected {
                     let _ = self.source.next();
-                    self.current += 1;                    
-                    true                    
-                }
-                else{
+                    self.current += 1;
+                    true
+                } else {
                     false
                 }
             }
-            None => false,            
+            None => false,
         }
     }
 
@@ -155,8 +153,12 @@ impl<'a> Scanner<'a> {
     }
 
     fn string(&mut self) -> Result<Token, String> {
-        let initial_line = self.line;        
-        while self.peek() != '"' && !self.is_at_end() {
+        let initial_line = self.line;
+        self.source.reset_peek();
+        while match self.source.peek() {
+            Some(&p) => p != '"',
+            None => false,
+        } {
             self.advance();
         }
         if self.is_at_end() {
@@ -170,20 +172,22 @@ impl<'a> Scanner<'a> {
     }
 
     fn number(&mut self) -> Token {
-        while is_digit(self.peek()) {
+        while self.peek_check(&is_digit) {
             self.advance();
         }
         // Here we do double lookahead
         self.source.reset_peek();
-        match self.source.peek(){
-            Some(&p1) =>{
+        match self.source.peek() {
+            Some(&p1) => {
                 match self.source.peek() {
-                    Some(&p2) => if p1 == '.' && is_digit(p2){
-                        self.advance(); // Consume the .
-                        while is_digit(self.peek()) {
-                            self.advance();
-                        }                        
-                    },
+                    Some(&p2) => {
+                        if p1 == '.' && is_digit(p2) {
+                            self.advance(); // Consume the .
+                            while self.peek_check(&is_digit) {
+                                self.advance();
+                            }
+                        }
+                    }
                     None => (),
                 }
             }
@@ -194,7 +198,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier(&mut self) -> Token {
-        while is_alphanumeric(self.peek()) {
+        while self.peek_check(&is_alphanumeric) {
             self.advance();
         }
         // TODO: take a ref in the first place
@@ -263,7 +267,7 @@ impl<'a> Scanner<'a> {
             '/' => {
                 if self.is_match('/') {
                     // Comments go on till the end of the line
-                    while self.peek() != '\n' && !self.is_at_end() {
+                    while self.peek_check(&|c| c != '\n') {
                         self.advance();
                     }
                     Token::Comment
