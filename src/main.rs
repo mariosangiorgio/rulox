@@ -2,6 +2,8 @@ mod scanner;
 mod ast;
 mod pretty_printer;
 
+extern crate itertools;
+
 use std::env;
 use std::fs::File;
 use std::io;

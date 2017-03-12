@@ -1,3 +1,6 @@
+use itertools::{multipeek,MultiPeek};
+use std::str;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     LeftParen,
@@ -57,11 +60,11 @@ pub struct TokenWithContext {
     line: usize,
 }
 
-struct Scanner<'a> {
-    start: usize,
+struct Scanner<'a>{
     current: usize,
+    current_lexeme: String,
     line: usize,
-    source: &'a String,
+    source: MultiPeek<str::Chars<'a>>,
 }
 
 fn is_digit(c: char) -> bool {
@@ -89,45 +92,47 @@ fn is_whitespace(c: char) -> bool {
 impl<'a> Scanner<'a> {
     fn initialize(source: &String) -> Scanner {
         Scanner {
-            start: 0,
             current: 0,
+            current_lexeme: "".into(),
             line: 1, // 1-indexed,
-            source: source,
+            source: multipeek(source.chars()),
         }
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
-
-    fn char_at(&self, index: usize) -> char {
-        // TODO: there must be a better way
-        self.source.chars().nth(index).unwrap()
-    }
-
-    fn substring(&self, start: usize, end: usize) -> String {
-        self.source.chars().skip(start).take(end - start).collect()
-    }
-
-    fn peek(&self) -> char() {
-        if self.is_at_end() {
-            '\0'
-        } else {
-            self.char_at(self.current)
+    fn is_at_end(&mut self) -> bool {
+        self.source.reset_peek();
+        match self.source.peek(){
+            Some(_) => false,
+            None => true,
         }
     }
 
-    fn peek_next(&self) -> char() {
-        if self.current + 1 >= self.source.len() {
-            '\0'
-        } else {
-            self.char_at(self.current + 1)
+    fn peek(&mut self) -> char() {
+        self.source.reset_peek();        
+        //TODO: this is dubious
+        match self.source.peek(){
+            Some(&c) => c,
+            None => '\0',
+        }
+    }
+
+    fn peek_next(&mut self) -> char() {
+        self.source.reset_peek();        
+        //TODO: this is dubious
+        match self.source.peek(){
+            Some(&_) => match self.source.peek(){
+                Some(&c) => c,
+                None => '\0',
+                },
+            None => '\0',
         }
     }
 
     fn advance(&mut self) -> char {
         self.current += 1;
-        let c = self.char_at(self.current - 1);
+        //TODO: handle None!
+        let c = self.source.next().unwrap();
+        self.current_lexeme.push(c);
         if c == '\n' {
             self.line += 1;
         }
@@ -135,26 +140,34 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_match(&mut self, expected: char) -> bool {
-        if self.is_at_end() {
-            return false;
+        self.source.reset_peek();        
+        match self.source.peek(){
+            Some(&c) => {
+                if c == expected {
+                    let _ = self.source.next();
+                    self.current += 1;                    
+                    true                    
+                }
+                else{
+                    false
+                }
+            }
+            None => false,            
         }
-        if self.char_at(self.current) != expected {
-            return false;
-        }
-        self.current += 1;
-        return true;
     }
 
-    fn add_context(&self, token: Token) -> TokenWithContext {
-        TokenWithContext {
+    fn add_context(&mut self, token: Token) -> TokenWithContext {
+        let result = TokenWithContext {
             token: token,
-            lexeme: self.substring(self.start, self.current),
+            lexeme: self.current_lexeme.clone(),
             line: self.line,
-        }
+        };
+        self.current_lexeme = "".into();
+        result
     }
 
     fn string(&mut self) -> Result<Token, String> {
-        let initial_line = self.line;
+        let initial_line = self.line;        
         while self.peek() != '"' && !self.is_at_end() {
             self.advance();
         }
@@ -162,7 +175,10 @@ impl<'a> Scanner<'a> {
             return Err(format!("Unterminated string at line {}", initial_line));
         }
         self.advance();
-        Ok(Token::StringLiteral(self.substring(self.start + 1, self.current - 1)))
+        let literal_length = self.current_lexeme.len() - 2;
+        // Trims delimiters
+        let literal = self.current_lexeme.chars().skip(1).take(literal_length).collect();
+        Ok(Token::StringLiteral(literal))
     }
 
     fn number(&mut self) -> Token {
@@ -175,8 +191,7 @@ impl<'a> Scanner<'a> {
                 self.advance();
             }
         }
-        let literal = self.substring(self.start, self.current);
-        let value = literal.parse::<f64>().unwrap();
+        let value = self.current_lexeme.parse::<f64>().unwrap();
         Token::NumberLiteral(value)
     }
 
@@ -185,7 +200,7 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
         // TODO: take a ref in the first place
-        match self.substring(self.start, self.current).as_ref() {
+        match self.current_lexeme.as_ref() {
             "and" => Token::And,
             "class" => Token::Class,
             "else" => Token::Else,
@@ -208,7 +223,6 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
-        self.start = self.current;
         let token = match self.advance() {
             '(' => Token::LeftParen,
             ')' => Token::RightParen,
