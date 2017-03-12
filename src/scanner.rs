@@ -187,7 +187,6 @@ impl<'a> Scanner<'a> {
         while self.peek_check(&is_alphanumeric) {
             self.advance();
         }
-        // TODO: take a ref in the first place
         match self.current_lexeme.as_ref() {
             "and" => Token::And,
             "class" => Token::Class,
