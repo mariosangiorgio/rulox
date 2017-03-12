@@ -140,18 +140,12 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_match(&mut self, expected: char) -> bool {
-        self.source.reset_peek();
-        match self.source.peek() {
-            Some(&c) => {
-                if c == expected {
-                    let _ = self.source.next();
-                    self.current += 1;
-                    true
-                } else {
-                    false
-                }
-            }
-            None => false,
+        if self.peek_check(&|c| c == expected) {
+            let _ = self.source.next();
+            self.current += 1;
+            true
+        } else {
+            false
         }
     }
 
