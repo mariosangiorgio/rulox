@@ -172,6 +172,12 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn advance_while(&mut self, condition: &Fn(char) -> bool) -> () {
+        while self.peek_check(condition) {
+            self.advance();
+        }
+    }
+
     fn add_context(&mut self, token: Token, initial_position: Position) -> TokenWithContext {
         let result = TokenWithContext {
             token: token,
@@ -184,10 +190,7 @@ impl<'a> Scanner<'a> {
 
     fn string(&mut self) -> Result<Token, String> {
         let initial_line = self.current_position.line;
-        self.source.reset_peek();
-        while self.peek_check(&|c| c != '"') {
-            self.advance();
-        }
+        self.advance_while(&|c| c != '"');
         if !self.advance_if_match('"') {
             return Err(format!("Unterminated string at line {}", initial_line));
         }
@@ -198,23 +201,17 @@ impl<'a> Scanner<'a> {
     }
 
     fn number(&mut self) -> Token {
-        while self.peek_check(&is_digit) {
-            self.advance();
-        }
+        self.advance_while(&is_digit);
         if self.peek_check2(&|p1| p1 == '.', &is_digit) {
             self.advance(); // Consume the .
-            while self.peek_check(&is_digit) {
-                self.advance();
-            }
+            self.advance_while(&is_digit);
         }
         let value = self.current_lexeme.parse::<f64>().unwrap();
         Token::NumberLiteral(value)
     }
 
     fn identifier(&mut self) -> Token {
-        while self.peek_check(&is_alphanumeric) {
-            self.advance();
-        }
+        self.advance_while(&is_alphanumeric);
         match self.current_lexeme.as_ref() {
             "and" => Token::And,
             "class" => Token::Class,
@@ -294,9 +291,7 @@ impl<'a> Scanner<'a> {
             '/' => {
                 if self.advance_if_match('/') {
                     // Comments go on till the end of the line
-                    while self.peek_check(&|c| c != '\n') {
-                        self.advance();
-                    }
+                    self.advance_while(&|c| c != '\n');
                     Token::Comment
                 } else {
                     Token::Slash
