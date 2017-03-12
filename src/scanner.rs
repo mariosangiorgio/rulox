@@ -99,14 +99,6 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn is_at_end(&mut self) -> bool {
-        self.source.reset_peek();
-        match self.source.peek() {
-            Some(_) => false,
-            None => true,
-        }
-    }
-
     fn peek_check(&mut self, check: &Fn(char) -> bool) -> bool {
         self.source.reset_peek();
         match self.source.peek() {
@@ -164,10 +156,9 @@ impl<'a> Scanner<'a> {
         while self.peek_check(&|c| c != '"') {
             self.advance();
         }
-        if self.is_at_end() {
+        if !self.advance_if_match('"') {
             return Err(format!("Unterminated string at line {}", initial_line));
         }
-        self.advance();
         let literal_length = self.current_lexeme.len() - 2;
         // Trims delimiters
         let literal = self.current_lexeme.chars().skip(1).take(literal_length).collect();
@@ -216,6 +207,13 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
+        if !self.peek_check(&|_| true) {
+            return Ok(TokenWithContext {
+                token: Token::Eof,
+                lexeme: "".into(),
+                line: self.line,
+            });
+        }
         let token = match self.advance() {
             '(' => Token::LeftParen,
             ')' => Token::RightParen,
@@ -285,20 +283,20 @@ impl<'a> Scanner<'a> {
 pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
-    while !scanner.is_at_end() {
+    let mut eof = false;
+    while !eof {
         let token_with_context = try!(scanner.scan_next());
         match token_with_context.token {
             // Ignoring tokens we don't care about
             Token::Comment => {}
             Token::Whitespace => {}
+            Token::Eof => {
+                eof = true;
+                tokens.push(token_with_context);
+            }
             _ => tokens.push(token_with_context),
         }
     }
-    tokens.push(TokenWithContext {
-        token: Token::Eof,
-        lexeme: "".into(),
-        line: scanner.line,
-    });
     Ok(tokens)
 }
 
