@@ -55,7 +55,7 @@ pub enum Token {
 #[derive(Debug,Clone,Copy)]
 /// Represents a position in the source file.
 /// Both line and column are represented by a 1-based
-/// index, since this struct exists only to provide 
+/// index, since this struct exists only to provide
 /// context to the user.
 struct Position {
     line: usize,
@@ -64,7 +64,10 @@ struct Position {
 
 impl Position {
     fn initial() -> Position {
-        Position{line:1, column: 1}        
+        Position {
+            line: 1,
+            column: 1,
+        }
     }
 
     fn increment_column(&mut self) -> () {
@@ -73,7 +76,7 @@ impl Position {
 
     fn increment_line(&mut self) -> () {
         self.line += 1;
-        self.column = 1;        
+        self.column = 1;
     }
 }
 
@@ -151,8 +154,7 @@ impl<'a> Scanner<'a> {
                 self.current_lexeme.push(c);
                 if c == '\n' {
                     self.current_position.increment_line();
-                }
-                else{
+                } else {
                     self.current_position.increment_column();;
                 }
             }
@@ -244,9 +246,9 @@ impl<'a> Scanner<'a> {
             None => {
                 return Ok(TokenWithContext {
                     token: Token::Eof,
-                    // Not very meaningful. Is Eof needed at all?                    
+                    // Not very meaningful. Is Eof needed at all?
                     lexeme: "".into(),
-                    position: initial_position
+                    position: initial_position,
                 });
             }
         };
