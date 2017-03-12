@@ -120,15 +120,19 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn advance(&mut self) -> char {
+    fn advance(&mut self) -> Option<char> {
         self.current += 1;
-        // TODO: handle None!
-        let c = self.source.next().unwrap();
-        self.current_lexeme.push(c);
-        if c == '\n' {
-            self.line += 1;
+        let next = self.source.next();
+        match next {
+            Some(c) => {
+                self.current_lexeme.push(c);
+                if c == '\n' {
+                    self.line += 1;
+                }
+            }
+            None => (),
         }
-        c
+        next
     }
 
     fn advance_if_match(&mut self, expected: char) -> bool {
@@ -207,14 +211,19 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
-        if !self.peek_check(&|_| true) {
-            return Ok(TokenWithContext {
-                token: Token::Eof,
-                lexeme: "".into(),
-                line: self.line,
-            });
-        }
-        let token = match self.advance() {
+        // Check if there is something left to iterate on.
+        // Early return if we're done.
+        let next_char = match self.advance() {
+            Some(c) => c,
+            None => {
+                return Ok(TokenWithContext {
+                    token: Token::Eof,
+                    lexeme: "".into(),
+                    line: self.line,
+                });
+            }
+        };
+        let token = match next_char {
             '(' => Token::LeftParen,
             ')' => Token::RightParen,
             '{' => Token::LeftBrace,
