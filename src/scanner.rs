@@ -52,18 +52,43 @@ pub enum Token {
     Whitespace,
 }
 
+#[derive(Debug,Clone,Copy)]
+/// Represents a position in the source file.
+/// Both line and column are represented by a 1-based
+/// index, since this struct exists only to provide 
+/// context to the user.
+struct Position {
+    line: usize,
+    column: usize,
+}
+
+impl Position {
+    fn initial() -> Position {
+        Position{line:1, column: 1}        
+    }
+
+    fn increment_column(&mut self) -> () {
+        self.column += 1;
+    }
+
+    fn increment_line(&mut self) -> () {
+        self.line += 1;
+        self.column = 1;        
+    }
+}
+
 #[derive(Debug)]
 pub struct TokenWithContext {
     token: Token,
     // Takes a copy. Tokens can outlive the file they came from
     lexeme: String,
-    line: usize,
+    /// Position of the first character of the token
+    position: Position,
 }
 
 struct Scanner<'a> {
-    current: usize,
+    current_position: Position,
     current_lexeme: String,
-    line: usize,
     source: MultiPeek<str::Chars<'a>>,
 }
 
@@ -92,9 +117,8 @@ fn is_whitespace(c: char) -> bool {
 impl<'a> Scanner<'a> {
     fn initialize(source: &String) -> Scanner {
         Scanner {
-            current: 0,
+            current_position: Position::initial(),
             current_lexeme: "".into(),
-            line: 1, // 1-indexed,
             source: multipeek(source.chars()),
         }
     }
@@ -121,13 +145,15 @@ impl<'a> Scanner<'a> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        self.current += 1;
         let next = self.source.next();
         match next {
             Some(c) => {
                 self.current_lexeme.push(c);
                 if c == '\n' {
-                    self.line += 1;
+                    self.current_position.increment_line();
+                }
+                else{
+                    self.current_position.increment_column();;
                 }
             }
             None => (),
@@ -144,18 +170,18 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn add_context(&mut self, token: Token) -> TokenWithContext {
+    fn add_context(&mut self, token: Token, initial_position: Position) -> TokenWithContext {
         let result = TokenWithContext {
             token: token,
             lexeme: self.current_lexeme.clone(),
-            line: self.line,
+            position: initial_position,
         };
         self.current_lexeme = "".into();
         result
     }
 
     fn string(&mut self) -> Result<Token, String> {
-        let initial_line = self.line;
+        let initial_line = self.current_position.line;
         self.source.reset_peek();
         while self.peek_check(&|c| c != '"') {
             self.advance();
@@ -210,6 +236,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_next(&mut self) -> Result<TokenWithContext, String> {
+        let initial_position = self.current_position;
         // Check if there is something left to iterate on.
         // Early return if we're done.
         let next_char = match self.advance() {
@@ -217,8 +244,9 @@ impl<'a> Scanner<'a> {
             None => {
                 return Ok(TokenWithContext {
                     token: Token::Eof,
+                    // Not very meaningful. Is Eof needed at all?                    
                     lexeme: "".into(),
-                    line: self.line,
+                    position: initial_position
                 });
             }
         };
@@ -277,13 +305,13 @@ impl<'a> Scanner<'a> {
             c if is_digit(c) => self.number(),
             c if is_alpha(c) => self.identifier(),
             c => {
-                return Err(format!("Unexpected character {} at line {}, pos {}",
+                return Err(format!("Unexpected character {} at line {}, column {}",
                                    c,
-                                   self.line,
-                                   self.current - 1));
+                                   self.current_position.line,
+                                   self.current_position.column - 1));
             }
         };
-        Ok(self.add_context(token))
+        Ok(self.add_context(token, initial_position))
     }
 }
 
@@ -364,7 +392,9 @@ mod tests {
         assert_eq!(tokens[8].token, Token::StringLiteral("Hello".into()));
         assert_eq!(tokens[9].token, Token::Semicolon);
         assert_eq!(tokens[10].token, Token::Eof);
-        assert_eq!(tokens[1].line, 1);
-        assert_eq!(tokens[9].line, 2);
+        assert_eq!(tokens[1].position.line, 1);
+        assert_eq!(tokens[1].position.column, 5);
+        assert_eq!(tokens[9].position.line, 2);
+        assert_eq!(tokens[9].position.column, 46); // There are 30 spaces before the text!
     }
 }
