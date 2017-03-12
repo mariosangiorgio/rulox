@@ -116,18 +116,6 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn peek_next(&mut self) -> char() {
-        self.source.reset_peek();        
-        //TODO: this is dubious
-        match self.source.peek(){
-            Some(&_) => match self.source.peek(){
-                Some(&c) => c,
-                None => '\0',
-                },
-            None => '\0',
-        }
-    }
-
     fn advance(&mut self) -> char {
         self.current += 1;
         //TODO: handle None!
@@ -185,11 +173,21 @@ impl<'a> Scanner<'a> {
         while is_digit(self.peek()) {
             self.advance();
         }
-        if self.peek() == '.' && is_digit(self.peek_next()) {
-            self.advance(); // Consume the .
-            while is_digit(self.peek()) {
-                self.advance();
+        // Here we do double lookahead
+        self.source.reset_peek();
+        match self.source.peek(){
+            Some(&p1) =>{
+                match self.source.peek() {
+                    Some(&p2) => if p1 == '.' && is_digit(p2){
+                        self.advance(); // Consume the .
+                        while is_digit(self.peek()) {
+                            self.advance();
+                        }                        
+                    },
+                    None => (),
+                }
             }
+            None => (),
         }
         let value = self.current_lexeme.parse::<f64>().unwrap();
         Token::NumberLiteral(value)
