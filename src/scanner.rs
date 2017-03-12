@@ -139,10 +139,9 @@ impl<'a> Scanner<'a> {
         c
     }
 
-    fn is_match(&mut self, expected: char) -> bool {
+    fn advance_if_match(&mut self, expected: char) -> bool {
         if self.peek_check(&|c| c == expected) {
-            let _ = self.source.next();
-            self.current += 1;
+            let _ = self.advance();
             true
         } else {
             false
@@ -229,35 +228,35 @@ impl<'a> Scanner<'a> {
             ';' => Token::Semicolon,
             '*' => Token::Star,
             '!' => {
-                if self.is_match('=') {
+                if self.advance_if_match('=') {
                     Token::BangEqual
                 } else {
                     Token::Bang
                 }
             }
             '=' => {
-                if self.is_match('=') {
+                if self.advance_if_match('=') {
                     Token::EqualEqual
                 } else {
                     Token::Equal
                 }
             }
             '<' => {
-                if self.is_match('=') {
+                if self.advance_if_match('=') {
                     Token::LessEqual
                 } else {
                     Token::Less
                 }
             }
             '>' => {
-                if self.is_match('=') {
+                if self.advance_if_match('=') {
                     Token::GreaterEqual
                 } else {
                     Token::Greater
                 }
             }
             '/' => {
-                if self.is_match('/') {
+                if self.advance_if_match('/') {
                     // Comments go on till the end of the line
                     while self.peek_check(&|c| c != '\n') {
                         self.advance();
