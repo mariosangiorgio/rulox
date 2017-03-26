@@ -82,7 +82,7 @@ impl Position {
 
 #[derive(Debug)]
 pub struct TokenWithContext {
-    token: Token,
+    pub token: Token,
     // Takes a copy. Tokens can outlive the file they came from
     lexeme: String,
     /// Position of the first character of the token

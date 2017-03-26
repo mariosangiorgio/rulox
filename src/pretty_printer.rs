@@ -1,6 +1,6 @@
 use ast::{Expr, Literal, Operator, UnaryExpr, BinaryExpr, Grouping};
 
-trait PrettyPrint {
+pub trait PrettyPrint {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
     fn pretty_print(&self) -> String {
         let mut pretty_printed = String::new();
@@ -23,8 +23,17 @@ impl PrettyPrint for Expr {
 impl PrettyPrint for Operator {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         match self {
+            &Operator::Bang => pretty_printed.push_str("!"),
             &Operator::Minus => pretty_printed.push_str("-"),
+            &Operator::Plus => pretty_printed.push_str("+"),
+            &Operator::Slash => pretty_printed.push_str("/"),
             &Operator::Star => pretty_printed.push_str("*"),
+            &Operator::Equal => pretty_printed.push_str("=="),
+            &Operator::NotEqual => pretty_printed.push_str("!="),
+            &Operator::Less => pretty_printed.push_str("<"),
+            &Operator::LessEqual => pretty_printed.push_str("<="),
+            &Operator::Greater => pretty_printed.push_str(">"),
+            &Operator::GreaterEqual => pretty_printed.push_str(">="),
         }
     }
 }
@@ -32,6 +41,8 @@ impl PrettyPrint for Operator {
 impl PrettyPrint for Literal {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         match self {
+            &Literal::NilLiteral => pretty_printed.push_str("null"),
+            &Literal::BoolLiteral(ref b) => pretty_printed.push_str(&b.to_string()),
             &Literal::StringLiteral(ref s) => pretty_printed.push_str(s),
             &Literal::NumberLiteral(n) => pretty_printed.push_str(&n.to_string()),
         }

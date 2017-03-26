@@ -1,6 +1,7 @@
 mod scanner;
 mod ast;
 mod pretty_printer;
+mod parser;
 
 extern crate itertools;
 
@@ -8,12 +9,13 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use pretty_printer::PrettyPrint;
 
 fn run(source: &String) -> Result<(), String> {
     let tokens = try!(scanner::scan(source));
-    for token in tokens {
-        println!("{:?}", token);
-    }
+    println!("{:?}", tokens);
+    let expr = parser::parse(tokens);
+    println!("{:?}", expr.pretty_print());
     Ok(())
 }
 

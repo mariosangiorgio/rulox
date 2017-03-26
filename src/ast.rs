@@ -1,9 +1,20 @@
 pub enum Operator {
+    Bang,
     Minus,
+    Plus,
+    Slash,
     Star,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 pub enum Literal {
+    NilLiteral,
+    BoolLiteral(bool),
     StringLiteral(String),
     NumberLiteral(f64),
 }
