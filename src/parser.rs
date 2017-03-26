@@ -187,4 +187,11 @@ mod tests {
         let expr = parse(tokens);
         assert_eq!("123", &expr.pretty_print());
     }
+
+    #[test]
+    fn binary() {
+        let tokens = scan(&"123+456".into()).unwrap();
+        let expr = parse(tokens);
+        assert_eq!("123 + 456", &expr.pretty_print());
+    }
 }
