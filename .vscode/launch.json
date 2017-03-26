@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug rulox",
+      "type": "lldb-mi",
+      "request": "launch",
+      "target": "target/debug/rulox-b9f16ee6f179bcc2",
+      "arguments": "--test parser::tests::literal",
+      "cwd": "${workspaceRoot}",
+      "printCalls": true
+    }
+  ]
+}
