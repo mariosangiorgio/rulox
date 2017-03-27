@@ -43,7 +43,6 @@ pub enum Token {
     Var,
     While,
 
-    Eof,
     // The book doesn't have tokens for comments and
     // whitespaces. Introducing them the scanner can
     // deal with them uniformly and in a more
@@ -234,20 +233,13 @@ impl<'a> Scanner<'a> {
 
     }
 
-    fn scan_next(&mut self) -> Result<TokenWithContext, String> {
+    fn scan_next(&mut self) -> Result<Option<TokenWithContext>, String> {
         let initial_position = self.current_position;
         // Check if there is something left to iterate on.
         // Early return if we're done.
         let next_char = match self.advance() {
             Some(c) => c,
-            None => {
-                return Ok(TokenWithContext {
-                    token: Token::Eof,
-                    // Not very meaningful. Is Eof needed at all?
-                    lexeme: "".into(),
-                    position: initial_position,
-                });
-            }
+            None => return Ok(None),
         };
         let token = match next_char {
             '(' => Token::LeftParen,
@@ -308,7 +300,7 @@ impl<'a> Scanner<'a> {
                                    self.current_position.column - 1));
             }
         };
-        Ok(self.add_context(token, initial_position))
+        Ok(Some(self.add_context(token, initial_position)))
     }
 }
 
@@ -316,16 +308,11 @@ impl<'a> Scanner<'a> {
 pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, String> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
-    let mut eof = false;
-    while !eof {
-        let token_with_context = try!(scanner.scan_next());
+    while let Some(token_with_context) = try!(scanner.scan_next()) {
         match token_with_context.token {
             // Ignoring tokens we don't care about
             Token::Comment => {}
             Token::Whitespace => {}
-            Token::Eof => {
-                eof = true;
-            }
             _ => tokens.push(token_with_context),
         }
     }
