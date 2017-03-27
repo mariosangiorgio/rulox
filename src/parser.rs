@@ -4,6 +4,7 @@ use std::iter::Peekable;
 
 pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Option<Expr>, String> {
     let mut iter = tokens.iter().peekable();
+    //TODO: add recovery
     parse_expression(&mut iter)
 }
 
@@ -115,13 +116,7 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
             _ => None,
         }
     }
-    let peeked_token;
-    {
-        peeked_token = tokens.peek().cloned(); // Can I avoid this?
-    };
-    if let Some(Some(mapped_operator)) =
-        peeked_token.map(|pt| &pt.token)
-            .map(map_operator) {
+    if let Some(Some(mapped_operator)) = tokens.peek().cloned().map(|pt| map_operator(&pt.token)) {
         {
             // Just advance, we know all we need from the peeked value
             let _ = tokens.next();
