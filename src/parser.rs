@@ -4,7 +4,7 @@ use std::iter::Peekable;
 
 pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Option<Expr>, String> {
     let mut iter = tokens.iter().peekable();
-    //TODO: add recovery
+    // TODO: add recovery
     parse_expression(&mut iter)
 }
 
@@ -204,5 +204,19 @@ mod tests {
         let tokens = scan(&"123+456".into()).unwrap();
         let expr = parse(tokens).unwrap().unwrap();
         assert_eq!("(+ 123 456)", &expr.pretty_print());
+    }
+
+    #[test]
+    fn precedence_add_mul() {
+        let tokens = scan(&"123+456*789".into()).unwrap();
+        let expr = parse(tokens).unwrap().unwrap();
+        assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
+    }
+
+        #[test]
+    fn precedence_mul_add() {
+        let tokens = scan(&"123*456+789".into()).unwrap();
+        let expr = parse(tokens).unwrap().unwrap();
+        assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
     }
 }
