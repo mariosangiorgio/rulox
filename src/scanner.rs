@@ -56,7 +56,7 @@ pub enum Token {
 /// Both line and column are represented by a 1-based
 /// index, since this struct exists only to provide
 /// context to the user.
-struct Position {
+pub struct Position {
     line: usize,
     column: usize,
 }
@@ -83,9 +83,9 @@ impl Position {
 pub struct TokenWithContext {
     pub token: Token,
     // Takes a copy. Tokens can outlive the file they came from
-    lexeme: String,
+    pub lexeme: String,
     /// Position of the first character of the token
-    position: Position,
+    pub position: Position,
 }
 
 struct Scanner<'a> {

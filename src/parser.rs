@@ -29,17 +29,18 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
         }
     };
     while let Some(Some(mapped_operator)) = tokens.peek().map(|pt| map_operator(&pt.token)) {
+        let operator; // We know it's right, we read it just for error reporting
         {
-            // Just advance, we know all we need from the peeked value
-            let _ = tokens.next();
+            operator = tokens.next().unwrap();
         }
         let right;
         {
             if let Some(e) = try!(parse_subexpression(tokens)) {
                 right = e
             } else {
-                // TODO add context
-                return Err("Expected subexpression".into());
+                return Err(format!("Expected subexpression after {:?} at {:?}",
+                                   operator.lexeme,
+                                   operator.position));
             }
         };
         let binary_expression = BinaryExpr {
@@ -117,17 +118,18 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
         }
     }
     if let Some(Some(mapped_operator)) = tokens.peek().cloned().map(|pt| map_operator(&pt.token)) {
+        let operator; // For error reporting
         {
-            // Just advance, we know all we need from the peeked value
-            let _ = tokens.next();
+            operator = tokens.next().unwrap();
         }
         let right;
         {
             if let Some(e) = try!(parse_unary(tokens)) {
                 right = e;
             } else {
-                // TODO: add context
-                return Err("Expected right side of unary".into());
+                return Err(format!("Expected subexpression after {:?} at {:?}",
+                                   operator.lexeme,
+                                   operator.position));
             }
         };
         let unary_expression = UnaryExpr {
@@ -160,8 +162,9 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                     if let Some(e) = try!(parse_expression(tokens)) {
                         expr = e;
                     } else {
-                        // TODO add context
-                        return Err("Unfinished grouping expression".into());
+                        return Err(format!("Unfinished grouping expression near {:?} at {:?}",
+                                           primary_token.lexeme,
+                                           primary_token.position));
                     }
                 };
                 {
@@ -169,15 +172,20 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                         if token.token == Token::LeftParen {
                             let grouping_expression = Grouping { expr: expr };
                             return Ok(Some(Expr::Grouping(Box::new(grouping_expression))));
+                        } else {
+                            return Err(format!("Missing ) near {:?} at {:?}",
+                                               token.lexeme,
+                                               token.position));
                         }
+
                     }
-                    // TODO: fill with context
-                    return Err("Missing )".into());
+                    return Err(format!("Missing ) before end of file"));
                 }
             }
             _ => {
-                // TODO: fill with context
-                return Err("Unexpected token".into());
+                return Err(format!("Unexpected token {:?} at {:?}",
+                                   primary_token.lexeme,
+                                   primary_token.position));
             }
         };
         Ok(Some(parsed_expression))
@@ -225,5 +233,17 @@ mod tests {
         let tokens = scan(&"-123*456+789".into()).unwrap();
         let expr = parse(tokens).unwrap().unwrap();
         assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
+    }
+
+    #[test]
+    fn unclosed_group() {
+        let tokens = scan(&"2(".into()).unwrap();
+        assert!(parse(tokens).is_err());
+    }
+
+    #[test]
+    fn unopened_group() {
+        let tokens = scan(&"2)".into()).unwrap();
+        assert!(parse(tokens).is_err());
     }
 }
