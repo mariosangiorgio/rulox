@@ -213,10 +213,17 @@ mod tests {
         assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
     }
 
-        #[test]
+    #[test]
     fn precedence_mul_add() {
         let tokens = scan(&"123*456+789".into()).unwrap();
         let expr = parse(tokens).unwrap().unwrap();
         assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
+    }
+
+    #[test]
+    fn precedence_mul_add_unary() {
+        let tokens = scan(&"-123*456+789".into()).unwrap();
+        let expr = parse(tokens).unwrap().unwrap();
+        assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
     }
 }
