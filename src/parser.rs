@@ -2,12 +2,12 @@ use ast::*;
 use scanner::{Token, TokenWithContext};
 use std::iter::Peekable;
 
-pub fn parse(tokens: Vec<TokenWithContext>) -> Expr {
+pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Option<Expr>, String> {
     let mut iter = tokens.iter().peekable();
     parse_expression(&mut iter)
 }
 
-fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     parse_equality(tokens)
@@ -15,13 +15,17 @@ fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Expr
 
 fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
                        map_operator: &Fn(&Token) -> Option<Operator>,
-                       parse_subexpression: &Fn(&mut Peekable<I>) -> Expr)
-                       -> Expr
+                       parse_subexpression: &Fn(&mut Peekable<I>) -> Result<Option<Expr>, String>)
+                       -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let mut expr;
     {
-        expr = parse_subexpression(tokens);
+        if let Some(e) = try!(parse_subexpression(tokens)) {
+            expr = e;
+        } else {
+            return Ok(None);
+        }
     };
     let peeked_token;
     {
@@ -35,7 +39,12 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
             }
             let right;
             {
-                right = parse_subexpression(tokens);
+                if let Some(e) = try!(parse_subexpression(tokens)) {
+                    right = e
+                } else {
+                    // TODO add context
+                    return Err("Expected subexpression".into());
+                }
             };
             let binary_expression = BinaryExpr {
                 left: expr,
@@ -47,10 +56,10 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
             break;
         }
     }
-    expr
+    Ok(Some(expr))
 }
 
-fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -63,7 +72,7 @@ fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Expr
     parse_binary(tokens, &map_operator, &parse_comparison)
 }
 
-fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -78,7 +87,7 @@ fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Expr
     parse_binary(tokens, &map_operator, &parse_term)
 }
 
-fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -91,7 +100,7 @@ fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Expr
     parse_binary(tokens, &map_operator, &parse_factor)
 }
 
-fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -104,7 +113,7 @@ fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Expr
     parse_binary(tokens, &map_operator, &parse_unary)
 }
 
-fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -127,19 +136,24 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Expr
         }
         let right;
         {
-            right = parse_unary(tokens);
+            if let Some(e) = try!(parse_unary(tokens)) {
+                right = e;
+            } else {
+                // TODO: add context
+                return Err("Expected right side of unary".into());
+            }
         };
         let unary_expression = UnaryExpr {
             operator: mapped_operator,
             right: right,
         };
-        return Expr::Unary(Box::new(unary_expression));
+        return Ok(Some(Expr::Unary(Box::new(unary_expression))));
     } else {
         parse_primary(tokens)
     }
 }
 
-fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Expr
+fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let primary_token;
@@ -147,7 +161,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Expr
         primary_token = tokens.next();
     };
     if let Some(primary_token) = primary_token {
-        match primary_token.token {
+        let parsed_expression = match primary_token.token {
             Token::False => Expr::Literal(Literal::BoolLiteral(false)),
             Token::True => Expr::Literal(Literal::BoolLiteral(true)),
             Token::Nil => Expr::Literal(Literal::NilLiteral),
@@ -156,22 +170,32 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Expr
             Token::LeftParen => {
                 let expr;
                 {
-                    expr = parse_expression(tokens);
+                    if let Some(e) = try!(parse_expression(tokens)) {
+                        expr = e;
+                    } else {
+                        // TODO add context
+                        return Err("Unfinished grouping expression".into());
+                    }
                 };
                 {
                     if let Some(token) = tokens.next() {
                         if token.token == Token::LeftParen {
                             let grouping_expression = Grouping { expr: expr };
-                            return Expr::Grouping(Box::new(grouping_expression));
+                            return Ok(Some(Expr::Grouping(Box::new(grouping_expression))));
                         }
                     }
-                    unimplemented!()
+                    // TODO: fill with context
+                    return Err("Missing )".into());
                 }
             }
-            _ => unimplemented!(),
-        }
+            _ => {
+                // TODO: fill with context
+                return Err("Unexpected token".into());
+            }
+        };
+        Ok(Some(parsed_expression))
     } else {
-        unimplemented!()
+        Ok(None)
     }
 }
 
@@ -184,14 +208,14 @@ mod tests {
     #[test]
     fn literal() {
         let tokens = scan(&"123".into()).unwrap();
-        let expr = parse(tokens);
+        let expr = parse(tokens).unwrap().unwrap();
         assert_eq!("123", &expr.pretty_print());
     }
 
     #[test]
     fn binary() {
-        let tokens = scan(&"123+456".into()).unwrap();
-        let expr = parse(tokens);
-        assert_eq!("123 + 456", &expr.pretty_print());
+    let tokens = scan(&"123+456".into()).unwrap();
+    let expr = parse(tokens).unwrap().unwrap();
+    assert_eq!("123 + 456", &expr.pretty_print());
     }
 }

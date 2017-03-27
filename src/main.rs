@@ -14,8 +14,9 @@ use pretty_printer::PrettyPrint;
 fn run(source: &String) -> Result<(), String> {
     let tokens = try!(scanner::scan(source));
     println!("{:?}", tokens);
-    let expr = parser::parse(tokens);
-    println!("{:?}", expr.pretty_print());
+    if let Some(expr) = try!(parser::parse(tokens)) {
+        println!("{:?}", expr.pretty_print());
+    }
     Ok(())
 }
 
