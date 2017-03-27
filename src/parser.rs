@@ -27,34 +27,26 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
             return Ok(None);
         }
     };
-    let peeked_token;
-    {
-        peeked_token = tokens.peek().cloned(); // Can I avoid this?
-    };
-    while let Some(peeked_token) = peeked_token {
-        if let Some(mapped_operator) = map_operator(&peeked_token.token) {
-            {
-                // Just advance, we know all we need from the peeked value
-                let _ = tokens.next();
-            }
-            let right;
-            {
-                if let Some(e) = try!(parse_subexpression(tokens)) {
-                    right = e
-                } else {
-                    // TODO add context
-                    return Err("Expected subexpression".into());
-                }
-            };
-            let binary_expression = BinaryExpr {
-                left: expr,
-                operator: mapped_operator,
-                right: right,
-            };
-            expr = Expr::Binary(Box::new(binary_expression));
-        } else {
-            break;
+    while let Some(Some(mapped_operator)) = tokens.peek().map(|pt| map_operator(&pt.token)) {
+        {
+            // Just advance, we know all we need from the peeked value
+            let _ = tokens.next();
         }
+        let right;
+        {
+            if let Some(e) = try!(parse_subexpression(tokens)) {
+                right = e
+            } else {
+                // TODO add context
+                return Err("Expected subexpression".into());
+            }
+        };
+        let binary_expression = BinaryExpr {
+            left: expr,
+            operator: mapped_operator,
+            right: right,
+        };
+        expr = Expr::Binary(Box::new(binary_expression));
     }
     Ok(Some(expr))
 }
@@ -214,8 +206,8 @@ mod tests {
 
     #[test]
     fn binary() {
-    let tokens = scan(&"123+456".into()).unwrap();
-    let expr = parse(tokens).unwrap().unwrap();
-    assert_eq!("123 + 456", &expr.pretty_print());
+        let tokens = scan(&"123+456".into()).unwrap();
+        let expr = parse(tokens).unwrap().unwrap();
+        assert_eq!("(+ 123 456)", &expr.pretty_print());
     }
 }
