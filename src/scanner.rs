@@ -325,7 +325,6 @@ pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, String> {
             Token::Whitespace => {}
             Token::Eof => {
                 eof = true;
-                tokens.push(token_with_context);
             }
             _ => tokens.push(token_with_context),
         }
@@ -349,7 +348,6 @@ mod tests {
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
-        assert_eq!(tokens[3].token, Token::Eof);
     }
 
     #[test]
@@ -358,7 +356,6 @@ mod tests {
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
-        assert_eq!(tokens[3].token, Token::Eof);
     }
 
     #[test]
@@ -369,7 +366,6 @@ mod tests {
         assert_eq!(tokens[2].token, Token::Equal);
         assert_eq!(tokens[3].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[4].token, Token::Semicolon);
-        assert_eq!(tokens[5].token, Token::Eof);
     }
 
     #[test]
@@ -388,7 +384,6 @@ mod tests {
         assert_eq!(tokens[7].token, Token::Equal);
         assert_eq!(tokens[8].token, Token::StringLiteral("Hello".into()));
         assert_eq!(tokens[9].token, Token::Semicolon);
-        assert_eq!(tokens[10].token, Token::Eof);
         assert_eq!(tokens[1].position.line, 1);
         assert_eq!(tokens[1].position.column, 5);
         assert_eq!(tokens[9].position.line, 2);
