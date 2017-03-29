@@ -2,8 +2,18 @@ use ast::*;
 use scanner::{Token, TokenWithContext};
 use std::iter::Peekable;
 
-pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, String> {
-    println!("{:?}", tokens);
+#[derive(Debug)]
+pub struct ParseError{
+    message: String
+}
+
+impl ParseError {
+    fn from_message(message: String) -> ParseError {
+        ParseError{message: message}
+    }
+}
+
+pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, ParseError> {
     let mut iter = tokens.iter().peekable();
     // TODO: add recovery
     if let Some(expr) = try!(parse_expression(&mut iter)){
@@ -11,15 +21,15 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, String> {
             Ok(expr)
         }
         else{
-            Err("Parser didn't consume all the tokens".into())
+            Err(ParseError::from_message("Parser didn't consume all the tokens".into()))
         }
     }
     else{
-        Err("Parser didn't return anything".into())
+        Err(ParseError::from_message("Parser didn't return anything".into()))
     }
 }
 
-fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     parse_equality(tokens)
@@ -27,8 +37,8 @@ fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, Str
 
 fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
                        map_operator: &Fn(&Token) -> Option<Operator>,
-                       parse_subexpression: &Fn(&mut Peekable<I>) -> Result<Option<Expr>, String>)
-                       -> Result<Option<Expr>, String>
+                       parse_subexpression: &Fn(&mut Peekable<I>) -> Result<Option<Expr>, ParseError>)
+                       -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let mut expr;
@@ -49,9 +59,9 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
             if let Some(e) = try!(parse_subexpression(tokens)) {
                 right = e
             } else {
-                return Err(format!("Expected subexpression after {:?} at {:?}",
+                return Err(ParseError::from_message(format!("Expected subexpression after {:?} at {:?}",
                                    operator.lexeme,
-                                   operator.position));
+                                   operator.position)));
             }
         };
         let binary_expression = BinaryExpr {
@@ -64,7 +74,7 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
     Ok(Some(expr))
 }
 
-fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -77,7 +87,7 @@ fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, Strin
     parse_binary(tokens, &map_operator, &parse_comparison)
 }
 
-fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -92,7 +102,7 @@ fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, Str
     parse_binary(tokens, &map_operator, &parse_term)
 }
 
-fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -105,7 +115,7 @@ fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     parse_binary(tokens, &map_operator, &parse_factor)
 }
 
-fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -118,7 +128,7 @@ fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     parse_binary(tokens, &map_operator, &parse_unary)
 }
 
-fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn map_operator(token: &Token) -> Option<Operator> {
@@ -138,9 +148,9 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
             if let Some(e) = try!(parse_unary(tokens)) {
                 right = e;
             } else {
-                return Err(format!("Expected subexpression after {:?} at {:?}",
+                return Err(ParseError::from_message(format!("Expected subexpression after {:?} at {:?}",
                                    operator.lexeme,
-                                   operator.position));
+                                   operator.position)));
             }
         };
         let unary_expression = UnaryExpr {
@@ -153,14 +163,13 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
     }
 }
 
-fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
+fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let primary_token;
     {
         primary_token = tokens.next();
     };
-    println!("Primary: {:?}", primary_token);
     if let Some(primary_token) = primary_token {
         let parsed_expression = match primary_token.token {
             Token::False => Expr::Literal(Literal::BoolLiteral(false)),
@@ -174,9 +183,9 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                     if let Some(e) = try!(parse_expression(tokens)) {
                         expr = e;
                     } else {
-                        return Err(format!("Unfinished grouping expression near {:?} at {:?}",
+                        return Err(ParseError::from_message(format!("Unfinished grouping expression near {:?} at {:?}",
                                            primary_token.lexeme,
-                                           primary_token.position));
+                                           primary_token.position)));
                     }
                 };
                 {
@@ -185,19 +194,19 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                             let grouping_expression = Grouping { expr: expr };
                             return Ok(Some(Expr::Grouping(Box::new(grouping_expression))));
                         } else {
-                            return Err(format!("Missing ) near {:?} at {:?}",
+                            return Err(ParseError::from_message(format!("Missing ) near {:?} at {:?}",
                                                token.lexeme,
-                                               token.position));
+                                               token.position)));
                         }
 
                     }
-                    return Err(format!("Missing ) before end of file"));
+                    return Err(ParseError::from_message(format!("Missing ) before end of file")));
                 }
             },
             _ => {
-                return Err(format!("Unexpected token {:?} at {:?}",
+                return Err(ParseError::from_message(format!("Unexpected token {:?} at {:?}",
                                    primary_token.lexeme,
-                                   primary_token.position));
+                                   primary_token.position)));
             }
         };
         Ok(Some(parsed_expression))

@@ -15,7 +15,7 @@ use pretty_printer::PrettyPrint;
 enum Error{
     IoError(String),
     ScannerError(scanner::ScannerError),
-    ParserError(String)
+    ParserError(parser::ParseError)
 }
 
 fn run(source: &String) -> Result<(), Error> {
