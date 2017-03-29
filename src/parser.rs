@@ -2,10 +2,21 @@ use ast::*;
 use scanner::{Token, TokenWithContext};
 use std::iter::Peekable;
 
-pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Option<Expr>, String> {
+pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, String> {
+    println!("{:?}", tokens);
     let mut iter = tokens.iter().peekable();
     // TODO: add recovery
-    parse_expression(&mut iter)
+    if let Some(expr) = try!(parse_expression(&mut iter)){
+        if let None = iter.next(){
+            Ok(expr)
+        }
+        else{
+            Err("Parser didn't consume all the tokens".into())
+        }
+    }
+    else{
+        Err("Parser didn't return anything".into())
+    }
 }
 
 fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String>
@@ -149,6 +160,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
     {
         primary_token = tokens.next();
     };
+    println!("Primary: {:?}", primary_token);
     if let Some(primary_token) = primary_token {
         let parsed_expression = match primary_token.token {
             Token::False => Expr::Literal(Literal::BoolLiteral(false)),
@@ -169,7 +181,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                 };
                 {
                     if let Some(token) = tokens.next() {
-                        if token.token == Token::LeftParen {
+                        if token.token == Token::RightParen {
                             let grouping_expression = Grouping { expr: expr };
                             return Ok(Some(Expr::Grouping(Box::new(grouping_expression))));
                         } else {
@@ -181,7 +193,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Result<Option<Expr>, String
                     }
                     return Err(format!("Missing ) before end of file"));
                 }
-            }
+            },
             _ => {
                 return Err(format!("Unexpected token {:?} at {:?}",
                                    primary_token.lexeme,
@@ -203,41 +215,41 @@ mod tests {
     #[test]
     fn literal() {
         let tokens = scan(&"123".into()).unwrap();
-        let expr = parse(tokens).unwrap().unwrap();
+        let expr = parse(tokens).unwrap();
         assert_eq!("123", &expr.pretty_print());
     }
 
     #[test]
     fn binary() {
         let tokens = scan(&"123+456".into()).unwrap();
-        let expr = parse(tokens).unwrap().unwrap();
+        let expr = parse(tokens).unwrap();
         assert_eq!("(+ 123 456)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_add_mul() {
         let tokens = scan(&"123+456*789".into()).unwrap();
-        let expr = parse(tokens).unwrap().unwrap();
+        let expr = parse(tokens).unwrap();
         assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add() {
         let tokens = scan(&"123*456+789".into()).unwrap();
-        let expr = parse(tokens).unwrap().unwrap();
+        let expr = parse(tokens).unwrap();
         assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add_unary() {
         let tokens = scan(&"-123*456+789".into()).unwrap();
-        let expr = parse(tokens).unwrap().unwrap();
+        let expr = parse(tokens).unwrap();
         assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn unclosed_group() {
-        let tokens = scan(&"2(".into()).unwrap();
+        let tokens = scan(&"(2".into()).unwrap();
         assert!(parse(tokens).is_err());
     }
 
