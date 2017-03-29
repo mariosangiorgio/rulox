@@ -88,6 +88,17 @@ pub struct TokenWithContext {
     pub position: Position,
 }
 
+#[derive(Debug)]
+pub struct ScannerError{
+    message: String
+}
+
+impl ScannerError {
+    fn from_message(message: String) -> ScannerError {
+        ScannerError{message: message}
+    }
+}
+
 struct Scanner<'a> {
     current_position: Position,
     current_lexeme: String,
@@ -187,11 +198,11 @@ impl<'a> Scanner<'a> {
         result
     }
 
-    fn string(&mut self) -> Result<Token, String> {
+    fn string(&mut self) -> Result<Token, ScannerError> {
         let initial_line = self.current_position.line;
         self.advance_while(&|c| c != '"');
         if !self.advance_if_match('"') {
-            return Err(format!("Unterminated string at line {}", initial_line));
+            return Err(ScannerError::from_message(format!("Unterminated string at line {}", initial_line)));
         }
         let literal_length = self.current_lexeme.len() - 2;
         // Trims delimiters
@@ -233,7 +244,7 @@ impl<'a> Scanner<'a> {
 
     }
 
-    fn scan_next(&mut self) -> Result<Option<TokenWithContext>, String> {
+    fn scan_next(&mut self) -> Result<Option<TokenWithContext>, ScannerError> {
         let initial_position = self.current_position;
         // Check if there is something left to iterate on.
         // Early return if we're done.
@@ -294,10 +305,11 @@ impl<'a> Scanner<'a> {
             c if is_digit(c) => self.number(),
             c if is_alpha(c) => self.identifier(),
             c => {
-                return Err(format!("Unexpected character {} at line {}, column {}",
+                return Err(ScannerError::from_message(
+                    format!("Unexpected character {} at line {}, column {}",
                                    c,
                                    self.current_position.line,
-                                   self.current_position.column - 1));
+                                   self.current_position.column - 1)));
             }
         };
         Ok(Some(self.add_context(token, initial_position)))
@@ -305,7 +317,7 @@ impl<'a> Scanner<'a> {
 }
 
 
-pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, String> {
+pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, ScannerError> {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     while let Some(token_with_context) = try!(scanner.scan_next()) {

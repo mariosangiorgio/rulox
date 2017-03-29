@@ -11,22 +11,38 @@ use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
 
-fn run(source: &String) -> Result<(), String> {
-    let tokens = try!(scanner::scan(source));
-    println!("{:?}", try!(parser::parse(tokens)).pretty_print());
-    Ok(())
+#[derive(Debug)]
+enum Error{
+    IoError(String),
+    ScannerError(scanner::ScannerError),
+    ParserError(String)
 }
 
-fn run_file(file_name: &String) -> Result<(), String> {
+fn run(source: &String) -> Result<(), Error> {
+    match scanner::scan(source){
+        Ok(tokens) =>{
+            match parser::parse(tokens) {
+                Ok(expr) => {
+                    println!("{:?}", expr.pretty_print());
+                    Ok(())
+                },
+                Err(err) => Err(Error::ParserError(err))
+            }
+        }
+        Err(err) => Err(Error::ScannerError(err))
+    }
+}
+
+fn run_file(file_name: &String) -> Result<(), Error> {
     match File::open(file_name) {
         Err(_) => {
-            Err("Error opening file".into()) // TODO: add context
+            Err(Error::IoError("Error opening file".into())) // TODO: add context
         }
         Ok(mut file) => {
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
-                    Err("Error reading file".into()) // TODO: add context
+                    Err(Error::IoError("Error reading file".into())) // TODO: add context
                 }
                 Ok(_) => run(&source),
             }
@@ -34,7 +50,7 @@ fn run_file(file_name: &String) -> Result<(), String> {
     }
 }
 
-fn run_prompt() -> Result<(), String> {
+fn run_prompt() -> Result<(), Error> {
     println!("Rulox - A lox interpreter written in Rust");
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
@@ -62,7 +78,7 @@ fn main() {
     let exit_code = match result {
         Ok(_) => 0,
         Err(e) => {
-            println!("{}", e);
+            println!("{:?}", e);
             1
         }
     };
