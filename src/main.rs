@@ -19,6 +19,10 @@ enum Error{
 }
 
 fn run(source: &String) -> Result<(), Error> {
+    // TODO: change scan and parse to return both what they managed
+    // to do and a list of the errors they encountered.
+    // This way we can report all the issues at once instead of
+    // requiring lots of attempts
     match scanner::scan(source){
         Ok(tokens) =>{
             match parser::parse(tokens) {
