@@ -12,10 +12,10 @@ use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
 
 #[derive(Debug)]
-enum Error{
+enum Error {
     IoError(String),
     ScannerError(scanner::ScannerError),
-    ParserError(parser::ParseError)
+    ParserError(parser::ParseError),
 }
 
 fn run(source: &String) -> Result<(), Error> {
@@ -23,17 +23,17 @@ fn run(source: &String) -> Result<(), Error> {
     // to do and a list of the errors they encountered.
     // This way we can report all the issues at once instead of
     // requiring lots of attempts
-    match scanner::scan(source){
-        Ok(tokens) =>{
+    match scanner::scan(source) {
+        Ok(tokens) => {
             match parser::parse(tokens) {
                 Ok(expr) => {
                     println!("{:?}", expr.pretty_print());
                     Ok(())
-                },
-                Err(err) => Err(Error::ParserError(err))
+                }
+                Err(err) => Err(Error::ParserError(err)),
             }
         }
-        Err(err) => Err(Error::ScannerError(err))
+        Err(err) => Err(Error::ScannerError(err)),
     }
 }
 

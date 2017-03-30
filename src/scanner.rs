@@ -89,13 +89,13 @@ pub struct TokenWithContext {
 }
 
 #[derive(Debug)]
-pub struct ScannerError{
-    message: String
+pub struct ScannerError {
+    message: String,
 }
 
 impl ScannerError {
     fn from_message(message: String) -> ScannerError {
-        ScannerError{message: message}
+        ScannerError { message: message }
     }
 }
 
@@ -202,7 +202,8 @@ impl<'a> Scanner<'a> {
         let initial_line = self.current_position.line;
         self.advance_while(&|c| c != '"');
         if !self.advance_if_match('"') {
-            return Err(ScannerError::from_message(format!("Unterminated string at line {}", initial_line)));
+            return Err(ScannerError::from_message(format!("Unterminated string at line {}",
+                                                          initial_line)));
         }
         let literal_length = self.current_lexeme.len() - 2;
         // Trims delimiters
@@ -305,11 +306,11 @@ impl<'a> Scanner<'a> {
             c if is_digit(c) => self.number(),
             c if is_alpha(c) => self.identifier(),
             c => {
-                return Err(ScannerError::from_message(
-                    format!("Unexpected character {} at line {}, column {}",
-                                   c,
-                                   self.current_position.line,
-                                   self.current_position.column - 1)));
+                return Err(ScannerError::from_message(format!("Unexpected character {} at line \
+                                                               {}, column {}",
+                                                              c,
+                                                              self.current_position.line,
+                                                              self.current_position.column - 1)));
             }
         };
         Ok(Some(self.add_context(token, initial_position)))
