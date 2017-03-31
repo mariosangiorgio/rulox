@@ -18,35 +18,36 @@ enum Error {
     ParserError(parser::ParseError),
 }
 
-fn run(source: &String) -> Result<(), Error> {
+fn run(source: &String) -> Result<(), Vec<Error>> {
     // TODO: change scan and parse to return both what they managed
     // to do and a list of the errors they encountered.
     // This way we can report all the issues at once instead of
     // requiring lots of attempts
-    match scanner::scan(source) {
-        Ok(tokens) => {
-            match parser::parse(tokens) {
-                Ok(expr) => {
-                    println!("{:?}", expr.pretty_print());
-                    Ok(())
-                }
-                Err(err) => Err(Error::ParserError(err)),
-            }
+    let (tokens, scanner_errors) = scanner::scan(source);
+    let errors : Vec<Error> = scanner_errors.iter().map(|e|Error::ScannerError(e.clone())).collect();
+    if errors.is_empty() {
+        match parser::parse(tokens) {
+            Ok(expr) => {
+                println!("{:?}", expr.pretty_print());
+                Ok(())
+            },
+            Err(err) => Err(vec![Error::ParserError(err)]),
         }
-        Err(err) => Err(Error::ScannerError(err)),
+    } else {
+        Err(errors)
     }
 }
 
-fn run_file(file_name: &String) -> Result<(), Error> {
+fn run_file(file_name: &String) -> Result<(), Vec<Error>> {
     match File::open(file_name) {
         Err(_) => {
-            Err(Error::IoError("Error opening file".into())) // TODO: add context
+            Err(vec![Error::IoError("Error opening file".into())]) // TODO: add context
         }
         Ok(mut file) => {
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
-                    Err(Error::IoError("Error reading file".into())) // TODO: add context
+                    Err(vec![Error::IoError("Error reading file".into())]) // TODO: add context
                 }
                 Ok(_) => run(&source),
             }
@@ -54,7 +55,7 @@ fn run_file(file_name: &String) -> Result<(), Error> {
     }
 }
 
-fn run_prompt() -> Result<(), Error> {
+fn run_prompt() -> Result<(), Vec<Error>> {
     println!("Rulox - A lox interpreter written in Rust");
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
@@ -81,8 +82,10 @@ fn main() {
     };
     let exit_code = match result {
         Ok(_) => 0,
-        Err(e) => {
-            println!("{:?}", e);
+        Err(errors) => {
+            for error in errors{
+                println!("{:?}", error);
+            }
             1
         }
     };

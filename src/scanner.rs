@@ -88,7 +88,7 @@ pub struct TokenWithContext {
     pub position: Position,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct ScannerError {
     message: String,
 }
@@ -245,13 +245,13 @@ impl<'a> Scanner<'a> {
 
     }
 
-    fn scan_next(&mut self) -> Result<Option<TokenWithContext>, ScannerError> {
+    fn scan_next(&mut self) -> Option<Result<TokenWithContext, ScannerError>> {
         let initial_position = self.current_position;
         // Check if there is something left to iterate on.
         // Early return if we're done.
         let next_char = match self.advance() {
             Some(c) => c,
-            None => return Ok(None),
+            None => return None,
         };
         let token = match next_char {
             '(' => Token::LeftParen,
@@ -301,35 +301,47 @@ impl<'a> Scanner<'a> {
                     Token::Slash
                 }
             }
-            '"' => try!(self.string()),
+            '"' => {
+                match self.string() {
+                    Ok(token) => token,
+                    Err(error) => return Some(Err(error)),
+                }
+            }
             c if is_whitespace(c) => Token::Whitespace,
             c if is_digit(c) => self.number(),
             c if is_alpha(c) => self.identifier(),
             c => {
-                return Err(ScannerError::from_message(format!("Unexpected character {} at line \
-                                                               {}, column {}",
-                                                              c,
-                                                              self.current_position.line,
-                                                              self.current_position.column - 1)));
+                return Some(Err(ScannerError::from_message(format!("Unexpected character {} \
+                                                                    at line {}, column {}",
+                                                                   c,
+                                                                   self.current_position.line,
+                                                                   self.current_position.column -
+                                                                   1))));
             }
         };
-        Ok(Some(self.add_context(token, initial_position)))
+        Some(Ok(self.add_context(token, initial_position)))
     }
 }
 
 
-pub fn scan(source: &String) -> Result<Vec<TokenWithContext>, ScannerError> {
+pub fn scan(source: &String) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
-    while let Some(token_with_context) = try!(scanner.scan_next()) {
-        match token_with_context.token {
-            // Ignoring tokens we don't care about
-            Token::Comment => {}
-            Token::Whitespace => {}
-            _ => tokens.push(token_with_context),
+    let mut errors = Vec::new();
+    while let Some(result) = scanner.scan_next() {
+        match result {
+            Ok(token_with_context) => {
+                match token_with_context.token {
+                    // Ignoring tokens we don't care about
+                    Token::Comment => {}
+                    Token::Whitespace => {}
+                    _ => tokens.push(token_with_context),
+                };
+            }
+            Err(error) => errors.push(error),
         }
     }
-    Ok(tokens)
+    (tokens, errors)
 }
 
 #[cfg(test)]
@@ -338,13 +350,13 @@ mod tests {
 
     #[test]
     fn single_token() {
-        let tokens = scan(&"+".into()).unwrap();
+        let (tokens, _) = scan(&"+".into());
         assert_eq!(tokens[0].token, Token::Plus);
     }
 
     #[test]
     fn expression() {
-        let tokens = scan(&"1+2".into()).unwrap();
+        let (tokens, _) = scan(&"1+2".into());
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
@@ -352,7 +364,7 @@ mod tests {
 
     #[test]
     fn expression_with_whitespaces() {
-        let tokens = scan(&"1 + 2".into()).unwrap();
+        let (tokens, _) = scan(&"1 + 2".into());
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
@@ -360,7 +372,7 @@ mod tests {
 
     #[test]
     fn assignement_with_comment() {
-        let tokens = scan(&"var a = 1.0; // A comment".into()).unwrap();
+        let (tokens, _) = scan(&"var a = 1.0; // A comment".into());
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);
@@ -370,10 +382,9 @@ mod tests {
 
     #[test]
     fn multiline_statements() {
-        let tokens = scan(&r#"var a = 1.0;
+        let (tokens, _) = scan(&r#"var a = 1.0;
                               var b = "Hello";"#
-                .into())
-            .unwrap();
+            .into());
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);

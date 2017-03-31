@@ -227,48 +227,48 @@ mod tests {
 
     #[test]
     fn literal() {
-        let tokens = scan(&"123".into()).unwrap();
+        let (tokens, _) = scan(&"123".into());
         let expr = parse(tokens).unwrap();
         assert_eq!("123", &expr.pretty_print());
     }
 
     #[test]
     fn binary() {
-        let tokens = scan(&"123+456".into()).unwrap();
+        let (tokens, _) = scan(&"123+456".into());
         let expr = parse(tokens).unwrap();
         assert_eq!("(+ 123 456)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_add_mul() {
-        let tokens = scan(&"123+456*789".into()).unwrap();
+        let (tokens, _) = scan(&"123+456*789".into());
         let expr = parse(tokens).unwrap();
         assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add() {
-        let tokens = scan(&"123*456+789".into()).unwrap();
+        let (tokens, _) = scan(&"123*456+789".into());
         let expr = parse(tokens).unwrap();
         assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add_unary() {
-        let tokens = scan(&"-123*456+789".into()).unwrap();
+        let (tokens, _) = scan(&"-123*456+789".into());
         let expr = parse(tokens).unwrap();
         assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn unclosed_group() {
-        let tokens = scan(&"(2".into()).unwrap();
+        let (tokens, _) = scan(&"(2".into());
         assert!(parse(tokens).is_err());
     }
 
     #[test]
     fn unopened_group() {
-        let tokens = scan(&"2)".into()).unwrap();
+        let (tokens, _) = scan(&"2)".into());
         assert!(parse(tokens).is_err());
     }
 }
