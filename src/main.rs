@@ -24,15 +24,20 @@ fn run(source: &String) -> Result<(), Vec<Error>> {
     // This way we can report all the issues at once instead of
     // requiring lots of attempts
     let (tokens, scanner_errors) = scanner::scan(source);
-    let errors : Vec<Error> = scanner_errors.iter().map(|e|Error::ScannerError(e.clone())).collect();
-    if errors.is_empty() {
-        match parser::parse(tokens) {
-            Ok(expr) => {
-                println!("{:?}", expr.pretty_print());
-                Ok(())
-            },
-            Err(err) => Err(vec![Error::ParserError(err)]),
+    let mut errors: Vec<Error> =
+        scanner_errors.iter().map(|e| Error::ScannerError(e.clone())).collect();
+    match parser::parse(tokens) {
+        Ok(expr) => {
+            println!("{:?}", expr.pretty_print());
         }
+        Err(parse_errors) => {
+            for error in parse_errors {
+                errors.push(Error::ParserError(error))
+            }
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
     } else {
         Err(errors)
     }
@@ -83,7 +88,7 @@ fn main() {
     let exit_code = match result {
         Ok(_) => 0,
         Err(errors) => {
-            for error in errors{
+            for error in errors {
                 println!("{:?}", error);
             }
             1
