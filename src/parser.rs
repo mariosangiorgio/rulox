@@ -15,7 +15,6 @@ impl ParseError {
 
 pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
     let mut iter = tokens.iter().peekable();
-    // TODO: add recovery
     if let Some(result) = parse_expression(&mut iter) {
         match result {
             Ok(expr) => {
@@ -26,11 +25,40 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
                                  .into())])
                 }
             }
-            Err(error) => Err(vec![error]),
+            Err(error) => {
+                {
+                    synchronise(&mut iter);
+                }
+                Err(vec![error])
+            }
         }
 
     } else {
         Err(vec![ParseError::from_message("Parser didn't return anything".into())])
+    }
+}
+
+fn synchronise<'a, I>(tokens: &mut Peekable<I>)
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    while let Some(token_with_context) = tokens.peek().cloned() {
+        match token_with_context.token {
+            Token::Semicolon => {
+                let _ = tokens.next();
+                break;
+            }
+            Token::Class => break,
+            Token::Fun => break,
+            Token::Var => break,
+            Token::For => break,
+            Token::If => break,
+            Token::While => break,
+            Token::Print => break,
+            Token::Return => break,
+            _ => {
+                let _ = tokens.next();
+            }
+        }
     }
 }
 
