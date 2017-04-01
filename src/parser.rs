@@ -2,6 +2,13 @@ use ast::*;
 use scanner::{Token, TokenWithContext};
 use std::iter::Peekable;
 
+/// This behave exactly as try! but wraps the returned result in a Some.
+/// It's useful to remove some boilerplate in the code introduced by
+/// the use of Option<Result<T, E>>
+macro_rules! try_wrap_err {
+    ($e:expr) => (match $e {Ok(e) => e, Err(e) => return Some(Err(e))})
+}
+
 #[derive(Debug)]
 pub struct ParseError {
     message: String,
@@ -92,10 +99,7 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
         let right;
         {
             if let Some(result) = parse_subexpression(tokens) {
-                match result {
-                    Ok(subexpression) => right = subexpression,
-                    _ => return Some(result),
-                }
+                right = try_wrap_err!(result);
             } else {
                 return Some(Err(ParseError::from_message(format!("Expected subexpression \
                                                                   after {:?} at {:?}",
@@ -185,10 +189,7 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
         let right;
         {
             if let Some(result) = parse_unary(tokens) {
-                match result {
-                    Ok(unary_expression) => right = unary_expression,
-                    _ => return Some(result),
-                }
+                right = try_wrap_err!(result);
             } else {
                 return Some(Err(ParseError::from_message(format!("Expected subexpression \
                                                                   after {:?} at {:?}",
@@ -224,10 +225,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
                 let expr;
                 {
                     if let Some(result) = parse_expression(tokens) {
-                        match result {
-                            Ok(expression) => expr = expression,
-                            _ => return Some(result),
-                        }
+                        expr = try_wrap_err!(result);
                     } else {
                         return Some(Err(ParseError::from_message(format!("Unfinished grouping \
                                                                      expression near {:?} at \
