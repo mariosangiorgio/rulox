@@ -195,7 +195,7 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
             _ => None,
         }
     }
-    if let Some(Some(mapped_operator)) = tokens.peek().cloned().map(|pt| map_operator(&pt.token)) {
+    if let Some(Some(mapped_operator)) = tokens.peek().map(|pt| map_operator(&pt.token)) {
         let operator; // For error reporting
         {
             operator = tokens.next().unwrap();
