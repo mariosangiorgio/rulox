@@ -196,8 +196,9 @@ impl<'a> Scanner<'a> {
     }
 
     fn string(&mut self) -> Result<Token, ScannerError> {
-        self.advance_while(&|c| c != '"');
+        self.advance_while(&|c| c != '"' && c!= '\n');
         if !self.advance_if_match('"') {
+            self.current_lexeme = "".into();
             return Err(ScannerError::MissingStringTerminator(self.current_position));
         }
         let literal_length = self.current_lexeme.len() - 2;
@@ -307,6 +308,7 @@ impl<'a> Scanner<'a> {
             c if is_alpha(c) => self.identifier(),
             c => {
                 // TODO: check if position is off by one
+                self.current_lexeme = "".into();
                 return Some(Err(ScannerError::UnexpectedCharacter(c, self.current_position)));
             }
         };
@@ -391,4 +393,32 @@ mod tests {
         assert_eq!(tokens[9].position.line, 2);
         assert_eq!(tokens[9].position.column, 46); // There are 30 spaces before the text!
     }
+
+    #[test]
+    fn expression_with_bad_character() {
+        let (tokens, errors) = scan(&"1 + $2".into());
+        assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
+        assert_eq!(tokens[1].token, Token::Plus);
+        assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
+    fn statements_with_unterminated_string() {
+        let (tokens, errors) = scan(&r#"var a = "Unterminated;
+                              var b = "Hello";"#
+            .into());
+        assert_eq!(tokens[0].token, Token::Var);
+        assert_eq!(tokens[1].token, Token::Identifier("a".into()));
+        assert_eq!(tokens[2].token, Token::Equal);
+        // Literal not reported, it wasn't terminated
+        // Semicolon got embedded into the string
+        assert_eq!(tokens[3].token, Token::Var);
+        assert_eq!(tokens[4].token, Token::Identifier("b".into()));
+        assert_eq!(tokens[5].token, Token::Equal);
+        assert_eq!(tokens[6].token, Token::StringLiteral("Hello".into()));
+        assert_eq!(tokens[7].token, Token::Semicolon);
+        assert_eq!(errors.len(), 1);
+    }
+
 }
