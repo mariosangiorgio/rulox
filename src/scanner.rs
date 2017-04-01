@@ -196,7 +196,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn string(&mut self) -> Result<Token, ScannerError> {
-        self.advance_while(&|c| c != '"' && c!= '\n');
+        self.advance_while(&|c| c != '"' && c != '\n');
         if !self.advance_if_match('"') {
             self.current_lexeme = "".into();
             return Err(ScannerError::MissingStringTerminator(self.current_position));
@@ -315,7 +315,6 @@ impl<'a> Scanner<'a> {
         Some(Ok(self.add_context(token, initial_position)))
     }
 }
-
 
 pub fn scan(source: &String) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
     let mut scanner = Scanner::initialize(source);
