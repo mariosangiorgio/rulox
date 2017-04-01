@@ -48,23 +48,37 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
 fn synchronise<'a, I>(tokens: &mut Peekable<I>)
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    while let Some(token_with_context) = tokens.peek().cloned() {
-        match token_with_context.token {
-            Token::Semicolon => {
+    enum TokenKind{
+        StartOfConstruct,
+        BodyOfConstruct,
+        EndOfConstruct,
+    };
+    fn classify(token: &Token) -> TokenKind{
+        match token {
+            &Token::Semicolon => TokenKind::EndOfConstruct,
+            &Token::Class => TokenKind::StartOfConstruct,
+            &Token::Fun => TokenKind::StartOfConstruct,
+            &Token::Var => TokenKind::StartOfConstruct,
+            &Token::For => TokenKind::StartOfConstruct,
+            &Token::If => TokenKind::StartOfConstruct,
+            &Token::While => TokenKind::StartOfConstruct,
+            &Token::Print => TokenKind::StartOfConstruct,
+            &Token::Return => TokenKind::StartOfConstruct,
+            _ => TokenKind::BodyOfConstruct
+    }
+    }
+    while let Some(token_kind) = tokens.peek().map(|t|classify(&t.token)) {
+        match token_kind {
+            TokenKind::StartOfConstruct => {
+                break;
+            },
+            TokenKind::BodyOfConstruct =>{
+                let _ = tokens.next();
+            }
+            TokenKind::EndOfConstruct => {
                 let _ = tokens.next();
                 break;
-            }
-            Token::Class => break,
-            Token::Fun => break,
-            Token::Var => break,
-            Token::For => break,
-            Token::If => break,
-            Token::While => break,
-            Token::Print => break,
-            Token::Return => break,
-            _ => {
-                let _ = tokens.next();
-            }
+            },
         }
     }
 }
