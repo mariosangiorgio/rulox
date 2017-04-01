@@ -77,13 +77,11 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
 {
     let mut expr;
     {
-        if let Some(result) = parse_subexpression(tokens) {
-            match result {
-                Ok(subexpression) => expr = subexpression,
-                _ => return Some(result),
-            }
+        let result = parse_subexpression(tokens);
+        if let Some(Ok(subexpression)) =  result{
+            expr = subexpression;
         } else {
-            return None;
+            return result;
         }
     };
     while let Some(Some(mapped_operator)) = tokens.peek().map(|pt| map_operator(&pt.token)) {
