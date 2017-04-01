@@ -48,12 +48,12 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
 fn synchronise<'a, I>(tokens: &mut Peekable<I>)
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    enum TokenKind{
+    enum TokenKind {
         StartOfConstruct,
         BodyOfConstruct,
         EndOfConstruct,
     };
-    fn classify(token: &Token) -> TokenKind{
+    fn classify(token: &Token) -> TokenKind {
         match token {
             &Token::Semicolon => TokenKind::EndOfConstruct,
             &Token::Class => TokenKind::StartOfConstruct,
@@ -64,21 +64,21 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
             &Token::While => TokenKind::StartOfConstruct,
             &Token::Print => TokenKind::StartOfConstruct,
             &Token::Return => TokenKind::StartOfConstruct,
-            _ => TokenKind::BodyOfConstruct
+            _ => TokenKind::BodyOfConstruct,
+        }
     }
-    }
-    while let Some(token_kind) = tokens.peek().map(|t|classify(&t.token)) {
+    while let Some(token_kind) = tokens.peek().map(|t| classify(&t.token)) {
         match token_kind {
             TokenKind::StartOfConstruct => {
                 break;
-            },
-            TokenKind::BodyOfConstruct =>{
+            }
+            TokenKind::BodyOfConstruct => {
                 let _ = tokens.next();
             }
             TokenKind::EndOfConstruct => {
                 let _ = tokens.next();
                 break;
-            },
+            }
         }
     }
 }
@@ -99,7 +99,7 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
     let mut expr;
     {
         let result = parse_subexpression(tokens);
-        if let Some(Ok(subexpression)) =  result{
+        if let Some(Ok(subexpression)) = result {
             expr = subexpression;
         } else {
             return result;
