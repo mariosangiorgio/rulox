@@ -79,11 +79,13 @@ impl Position {
     }
 }
 
+pub type Lexeme = String;
+
 #[derive(Debug)]
 pub struct TokenWithContext {
     pub token: Token,
     // Takes a copy. Tokens can outlive the file they came from
-    pub lexeme: String,
+    pub lexeme: Lexeme,
     /// Position of the first character of the token
     pub position: Position,
 }

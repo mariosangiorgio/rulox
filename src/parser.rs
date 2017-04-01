@@ -1,5 +1,5 @@
 use ast::*;
-use scanner::{Token, TokenWithContext};
+use scanner::{Lexeme, Position, Token, TokenWithContext};
 use std::iter::Peekable;
 
 /// This behave exactly as try! but wraps the returned result in a Some.
@@ -10,14 +10,12 @@ macro_rules! try_wrap_err {
 }
 
 #[derive(Debug)]
-pub struct ParseError {
-    message: String,
-}
-
-impl ParseError {
-    fn from_message(message: String) -> ParseError {
-        ParseError { message: message }
-    }
+pub enum ParseError {
+    UnconsumedTokens,
+    UnexpectedEndOfFile,
+    UnexpectedToken(Lexeme, Position),
+    MissingSubexpression(Lexeme, Position),
+    MissingClosingParen(Lexeme, Position),
 }
 
 pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
@@ -28,8 +26,7 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
                 if let None = iter.next() {
                     Ok(expr)
                 } else {
-                    Err(vec![ParseError::from_message("Parser didn't consume all the tokens"
-                                 .into())])
+                    Err(vec![ParseError::UnconsumedTokens])
                 }
             }
             Err(error) => {
@@ -41,7 +38,7 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
         }
 
     } else {
-        Err(vec![ParseError::from_message("Parser didn't return anything".into())])
+        Err(vec![ParseError::UnexpectedEndOfFile])
     }
 }
 
@@ -115,10 +112,8 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
             if let Some(result) = parse_subexpression(tokens) {
                 right = try_wrap_err!(result);
             } else {
-                return Some(Err(ParseError::from_message(format!("Expected subexpression \
-                                                                  after {:?} at {:?}",
-                                                                 operator.lexeme,
-                                                                 operator.position))));
+                return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
+                                                                 operator.position)));
             }
         };
         let binary_expression = BinaryExpr {
@@ -205,10 +200,8 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
             if let Some(result) = parse_unary(tokens) {
                 right = try_wrap_err!(result);
             } else {
-                return Some(Err(ParseError::from_message(format!("Expected subexpression \
-                                                                  after {:?} at {:?}",
-                                                                 operator.lexeme,
-                                                                 operator.position))));
+                return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
+                                                                 operator.position)));
             }
         };
         let unary_expression = UnaryExpr {
@@ -241,11 +234,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
                     if let Some(result) = parse_expression(tokens) {
                         expr = try_wrap_err!(result);
                     } else {
-                        return Some(Err(ParseError::from_message(format!("Unfinished grouping \
-                                                                     expression near {:?} at \
-                                                                     {:?}",
-                                                                         primary_token.lexeme,
-                                                                         primary_token.position))));
+                        return Some(Err(ParseError::UnexpectedEndOfFile));
                     }
                 };
                 {
@@ -254,22 +243,17 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
                             let grouping_expression = Grouping { expr: expr };
                             return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
                         } else {
-                            return Some(Err(ParseError::from_message(format!("Missing ) near \
-                                                                              {:?} at {:?}",
-                                                                             token.lexeme,
-                                                                             token.position))));
+                            return Some(Err(ParseError::MissingClosingParen(token.lexeme.clone(),
+                                                                            token.position)));
                         }
 
                     }
-                    return Some(Err(ParseError::from_message(format!("Missing ) before end of \
-                                                                      file"))));
+                    return Some(Err(ParseError::UnexpectedEndOfFile));
                 }
             }
             _ => {
-                return Some(Err(ParseError::from_message(format!("Unexpected token {:?} at \
-                                                                  {:?}",
-                                                                 primary_token.lexeme,
-                                                                 primary_token.position))));
+                return Some(Err(ParseError::UnexpectedToken(primary_token.lexeme.clone(),
+                                                            primary_token.position)));
             }
         };
         Some(Ok(parsed_expression))
