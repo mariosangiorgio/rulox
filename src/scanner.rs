@@ -191,14 +191,12 @@ impl<'a> Scanner<'a> {
             lexeme: self.current_lexeme.clone(),
             position: initial_position,
         };
-        self.current_lexeme = "".into();
         result
     }
 
     fn string(&mut self) -> Result<Token, ScannerError> {
         self.advance_while(&|c| c != '"' && c != '\n');
         if !self.advance_if_match('"') {
-            self.current_lexeme = "".into();
             return Err(ScannerError::MissingStringTerminator(self.current_position));
         }
         let literal_length = self.current_lexeme.len() - 2;
@@ -243,6 +241,7 @@ impl<'a> Scanner<'a> {
 
     fn scan_next(&mut self) -> Option<Result<TokenWithContext, ScannerError>> {
         let initial_position = self.current_position;
+        self.current_lexeme.clear();
         // Check if there is something left to iterate on.
         // Early return if we're done.
         let next_char = match self.advance() {
@@ -308,7 +307,6 @@ impl<'a> Scanner<'a> {
             c if is_alpha(c) => self.identifier(),
             c => {
                 // TODO: check if position is off by one
-                self.current_lexeme = "".into();
                 return Some(Err(ScannerError::UnexpectedCharacter(c, self.current_position)));
             }
         };
