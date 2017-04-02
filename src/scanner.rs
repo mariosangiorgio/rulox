@@ -248,69 +248,61 @@ impl<'a> Scanner<'a> {
             Some(c) => c,
             None => return None,
         };
-        let token = match next_char {
-            '(' => Token::LeftParen,
-            ')' => Token::RightParen,
-            '{' => Token::LeftBrace,
-            '}' => Token::RightBrace,
-            ',' => Token::Comma,
-            '.' => Token::Dot,
-            '-' => Token::Minus,
-            '+' => Token::Plus,
-            ';' => Token::Semicolon,
-            '*' => Token::Star,
+        let result = match next_char {
+            '(' => Ok(Token::LeftParen),
+            ')' => Ok(Token::RightParen),
+            '{' => Ok(Token::LeftBrace),
+            '}' => Ok(Token::RightBrace),
+            ',' => Ok(Token::Comma),
+            '.' => Ok(Token::Dot),
+            '-' => Ok(Token::Minus),
+            '+' => Ok(Token::Plus),
+            ';' => Ok(Token::Semicolon),
+            '*' => Ok(Token::Star),
             '!' => {
                 if self.advance_if_match('=') {
-                    Token::BangEqual
+                    Ok(Token::BangEqual)
                 } else {
-                    Token::Bang
+                    Ok(Token::Bang)
                 }
             }
             '=' => {
                 if self.advance_if_match('=') {
-                    Token::EqualEqual
+                    Ok(Token::EqualEqual)
                 } else {
-                    Token::Equal
+                    Ok(Token::Equal)
                 }
             }
             '<' => {
                 if self.advance_if_match('=') {
-                    Token::LessEqual
+                    Ok(Token::LessEqual)
                 } else {
-                    Token::Less
+                    Ok(Token::Less)
                 }
             }
             '>' => {
                 if self.advance_if_match('=') {
-                    Token::GreaterEqual
+                    Ok(Token::GreaterEqual)
                 } else {
-                    Token::Greater
+                    Ok(Token::Greater)
                 }
             }
             '/' => {
                 if self.advance_if_match('/') {
                     // Comments go on till the end of the line
                     self.advance_while(&|c| c != '\n');
-                    Token::Comment
+                    Ok(Token::Comment)
                 } else {
-                    Token::Slash
+                    Ok(Token::Slash)
                 }
             }
-            '"' => {
-                match self.string() {
-                    Ok(token) => token,
-                    Err(error) => return Some(Err(error)),
-                }
-            }
-            c if is_whitespace(c) => Token::Whitespace,
-            c if is_digit(c) => self.number(),
-            c if is_alpha(c) => self.identifier(),
-            c => {
-                // TODO: check if position is off by one
-                return Some(Err(ScannerError::UnexpectedCharacter(c, self.current_position)));
-            }
+            '"' => self.string(),
+            c if is_whitespace(c) => Ok(Token::Whitespace),
+            c if is_digit(c) => Ok(self.number()),
+            c if is_alpha(c) => Ok(self.identifier()),
+            c => Err(ScannerError::UnexpectedCharacter(c, self.current_position)),
         };
-        Some(Ok(self.add_context(token, initial_position)))
+        Some(result.map(|token| self.add_context(token, initial_position)))
     }
 }
 
