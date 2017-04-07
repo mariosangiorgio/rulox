@@ -87,7 +87,7 @@ fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, Pars
 }
 
 fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
-                       map_operator: &Fn(&Token) -> Option<Operator>,
+                       map_operator: &Fn(&Token) -> Option<BinaryOperator>,
                        parse_subexpression: &Fn(&mut Peekable<I>)
                                                 -> Option<Result<Expr, ParseError>>)
                        -> Option<Result<Expr, ParseError>>
@@ -129,10 +129,10 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
 fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn map_operator(token: &Token) -> Option<Operator> {
+    fn map_operator(token: &Token) -> Option<BinaryOperator> {
         match token {
-            &Token::BangEqual => Some(Operator::NotEqual),
-            &Token::EqualEqual => Some(Operator::Equal),
+            &Token::BangEqual => Some(BinaryOperator::NotEqual),
+            &Token::EqualEqual => Some(BinaryOperator::Equal),
             _ => None,
         }
     }
@@ -142,12 +142,12 @@ fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseE
 fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn map_operator(token: &Token) -> Option<Operator> {
+    fn map_operator(token: &Token) -> Option<BinaryOperator> {
         match token {
-            &Token::Greater => Some(Operator::Greater),
-            &Token::GreaterEqual => Some(Operator::GreaterEqual),
-            &Token::Less => Some(Operator::Less),
-            &Token::LessEqual => Some(Operator::LessEqual),
+            &Token::Greater => Some(BinaryOperator::Greater),
+            &Token::GreaterEqual => Some(BinaryOperator::GreaterEqual),
+            &Token::Less => Some(BinaryOperator::Less),
+            &Token::LessEqual => Some(BinaryOperator::LessEqual),
             _ => None,
         }
     }
@@ -157,10 +157,10 @@ fn parse_comparison<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, Pars
 fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn map_operator(token: &Token) -> Option<Operator> {
+    fn map_operator(token: &Token) -> Option<BinaryOperator> {
         match token {
-            &Token::Minus => Some(Operator::Minus),
-            &Token::Plus => Some(Operator::Plus),
+            &Token::Minus => Some(BinaryOperator::Minus),
+            &Token::Plus => Some(BinaryOperator::Plus),
             _ => None,
         }
     }
@@ -170,10 +170,10 @@ fn parse_term<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError
 fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn map_operator(token: &Token) -> Option<Operator> {
+    fn map_operator(token: &Token) -> Option<BinaryOperator> {
         match token {
-            &Token::Slash => Some(Operator::Slash),
-            &Token::Star => Some(Operator::Star),
+            &Token::Slash => Some(BinaryOperator::Slash),
+            &Token::Star => Some(BinaryOperator::Star),
             _ => None,
         }
     }
@@ -183,10 +183,10 @@ fn parse_factor<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErr
 fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn map_operator(token: &Token) -> Option<Operator> {
+    fn map_operator(token: &Token) -> Option<UnaryOperator> {
         match token {
-            &Token::Minus => Some(Operator::Minus),
-            &Token::Bang => Some(Operator::Bang),
+            &Token::Minus => Some(UnaryOperator::Minus),
+            &Token::Bang => Some(UnaryOperator::Bang),
             _ => None,
         }
     }

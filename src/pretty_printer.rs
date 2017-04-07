@@ -1,4 +1,4 @@
-use ast::{Expr, Literal, Operator, UnaryExpr, BinaryExpr, Grouping};
+use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping};
 
 pub trait PrettyPrint {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
@@ -20,20 +20,28 @@ impl PrettyPrint for Expr {
     }
 }
 
-impl PrettyPrint for Operator {
+impl PrettyPrint for UnaryOperator {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         match self {
-            &Operator::Bang => pretty_printed.push_str("!"),
-            &Operator::Minus => pretty_printed.push_str("-"),
-            &Operator::Plus => pretty_printed.push_str("+"),
-            &Operator::Slash => pretty_printed.push_str("/"),
-            &Operator::Star => pretty_printed.push_str("*"),
-            &Operator::Equal => pretty_printed.push_str("=="),
-            &Operator::NotEqual => pretty_printed.push_str("!="),
-            &Operator::Less => pretty_printed.push_str("<"),
-            &Operator::LessEqual => pretty_printed.push_str("<="),
-            &Operator::Greater => pretty_printed.push_str(">"),
-            &Operator::GreaterEqual => pretty_printed.push_str(">="),
+            &UnaryOperator::Bang => pretty_printed.push_str("!"),
+            &UnaryOperator::Minus => pretty_printed.push_str("-"),
+        }
+    }
+}
+
+impl PrettyPrint for BinaryOperator {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match self {
+            &BinaryOperator::Minus => pretty_printed.push_str("-"),
+            &BinaryOperator::Plus => pretty_printed.push_str("+"),
+            &BinaryOperator::Slash => pretty_printed.push_str("/"),
+            &BinaryOperator::Star => pretty_printed.push_str("*"),
+            &BinaryOperator::Equal => pretty_printed.push_str("=="),
+            &BinaryOperator::NotEqual => pretty_printed.push_str("!="),
+            &BinaryOperator::Less => pretty_printed.push_str("<"),
+            &BinaryOperator::LessEqual => pretty_printed.push_str("<="),
+            &BinaryOperator::Greater => pretty_printed.push_str(">"),
+            &BinaryOperator::GreaterEqual => pretty_printed.push_str(">="),
         }
     }
 }
@@ -93,13 +101,13 @@ mod tests {
     #[test]
     fn complex_expression() {
         let subexpr1 = UnaryExpr {
-            operator: Operator::Minus,
+            operator: UnaryOperator::Minus,
             right: Expr::Literal(Literal::NumberLiteral(123f64)),
         };
         let subexpr2 = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
         let binary_expr = BinaryExpr {
             left: Expr::Unary(Box::new(subexpr1)),
-            operator: Operator::Star,
+            operator: BinaryOperator::Star,
             right: Expr::Grouping(Box::new(subexpr2)),
         };
         let expr = Expr::Binary(Box::new(binary_expr));

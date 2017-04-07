@@ -1,5 +1,9 @@
-pub enum Operator {
+pub enum UnaryOperator {
     Bang,
+    Minus,
+}
+
+pub enum BinaryOperator {
     Minus,
     Plus,
     Slash,
@@ -20,13 +24,13 @@ pub enum Literal {
 }
 
 pub struct UnaryExpr {
-    pub operator: Operator,
+    pub operator: UnaryOperator,
     pub right: Expr,
 }
 
 pub struct BinaryExpr {
     pub left: Expr,
-    pub operator: Operator,
+    pub operator: BinaryOperator,
     pub right: Expr,
 }
 
