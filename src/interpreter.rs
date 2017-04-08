@@ -32,7 +32,7 @@ impl Interpret for Expr {
         match self {
             &Expr::Literal(ref l) => l.interpret(),
             &Expr::Unary(ref u) => u.interpret(),
-            &Expr::Binary(ref b) => unimplemented!(),
+            &Expr::Binary(ref b) => b.interpret(),
             &Expr::Grouping(ref g) => g.interpret(),
         }
     }
@@ -66,6 +66,17 @@ impl Interpret for UnaryExpr {
                     _ => Err(RuntimeError::RuntimeError),
                 }
             }
+        }
+    }
+}
+
+impl Interpret for BinaryExpr {
+    fn interpret(&self) -> Result<Value, RuntimeError> {
+        let left = try!(self.left.interpret());
+        let right = try!(self.right.interpret());
+        match (&self.operator, &left, &right) {
+            (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => Ok(Value::Number(l - r)),
+            _ => unimplemented!(),
         }
     }
 }

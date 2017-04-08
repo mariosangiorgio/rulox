@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
-use interpreter::{Interpret, Value, RuntimeError};
+use interpreter::{Interpret, RuntimeError};
 
 #[derive(Debug)]
 enum RunResult {
