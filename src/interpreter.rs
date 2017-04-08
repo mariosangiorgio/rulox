@@ -88,7 +88,7 @@ impl Interpret for BinaryExpr {
                 Ok(Value::Number(l + r))
             }
             (&BinaryOperator::Plus, &Value::String(ref l), &Value::String(ref r)) => {
-                let mut result : String = "".into();
+                let mut result = String::new();
                 result.push_str(l);
                 result.push_str(r);
                 Ok(Value::String(result))
@@ -105,8 +105,9 @@ mod tests {
 
     #[test]
     fn literal() {
-        let expr = Expr::Literal(Literal::StringLiteral("abc".into()));
-        assert_eq!(Value::String("abc".into()), expr.interpret().unwrap());
+        let string = String::from("abc");
+        let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
+        assert_eq!(Value::String(string), expr.interpret().unwrap());
     }
 
     #[test]

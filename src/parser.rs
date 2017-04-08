@@ -270,9 +270,10 @@ mod tests {
 
     #[test]
     fn literal() {
-        let (tokens, _) = scan(&"123".into());
+        let string = String::from("123");
+        let (tokens, _) = scan(&string);
         let expr = parse(tokens).unwrap();
-        assert_eq!("123", &expr.pretty_print());
+        assert_eq!(&string, &expr.pretty_print());
     }
 
     #[test]

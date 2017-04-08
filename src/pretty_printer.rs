@@ -94,8 +94,9 @@ mod tests {
 
     #[test]
     fn literal() {
-        let expr = Expr::Literal(Literal::StringLiteral("abc".into()));
-        assert_eq!("abc", &expr.pretty_print());
+        let string = String::from("abc");
+        let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
+        assert_eq!(string, expr.pretty_print());
     }
 
     #[test]
