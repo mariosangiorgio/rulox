@@ -2,6 +2,7 @@ mod scanner;
 mod ast;
 mod pretty_printer;
 mod parser;
+mod interpreter;
 
 extern crate itertools;
 
@@ -10,13 +11,14 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
+use interpreter::{Interpret, Value, RuntimeError};
 
 #[derive(Debug)]
 enum RunResult {
     Ok,
     IoError(String),
     InputError(Vec<InputError>),
-    RuntimeError,
+    RuntimeError(RuntimeError),
 }
 
 #[derive(Debug)]
@@ -25,28 +27,40 @@ enum InputError {
     ParserError(parser::ParseError),
 }
 
-fn run(source: &String) -> RunResult {
-    // TODO: change scan and parse to return both what they managed
-    // to do and a list of the errors they encountered.
-    // This way we can report all the issues at once instead of
-    // requiring lots of attempts
+fn scan_and_parse(source: &String) -> Result<ast::Expr, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
     let mut errors: Vec<InputError> =
         scanner_errors.iter().map(|e| InputError::ScannerError(e.clone())).collect();
     match parser::parse(tokens) {
         Ok(expr) => {
-            println!("{:?}", expr.pretty_print());
+            if errors.is_empty() {
+                Ok(expr)
+            } else {
+                Err(errors)
+            }
         }
         Err(parse_errors) => {
             for error in parse_errors {
                 errors.push(InputError::ParserError(error))
             }
+            Err(errors)
         }
     }
-    if errors.is_empty() {
-        RunResult::Ok
-    } else {
-        RunResult::InputError(errors)
+}
+
+fn run(source: &String) -> RunResult {
+    match scan_and_parse(source) {
+        Ok(expr) => {
+            println!("{:?}", expr.pretty_print());
+            match expr.interpret() {
+                Ok(value) => {
+                    println!("{:?}", value);
+                    RunResult::Ok
+                }
+                Err(e) => RunResult::RuntimeError(e),
+            }
+        }
+        Err(e) => RunResult::InputError(e),
     }
 }
 
