@@ -27,7 +27,7 @@ enum InputError {
     ParserError(parser::ParseError),
 }
 
-fn scan_and_parse(source: &String) -> Result<ast::Expr, Vec<InputError>> {
+fn scan_and_parse(source: &str) -> Result<ast::Expr, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
     let mut errors: Vec<InputError> =
         scanner_errors.iter().map(|e| InputError::ScannerError(e.clone())).collect();
@@ -48,7 +48,7 @@ fn scan_and_parse(source: &String) -> Result<ast::Expr, Vec<InputError>> {
     }
 }
 
-fn run(source: &String) -> RunResult {
+fn run(source: &str) -> RunResult {
     match scan_and_parse(source) {
         Ok(expr) => {
             println!("{:?}", expr.pretty_print());
@@ -64,7 +64,7 @@ fn run(source: &String) -> RunResult {
     }
 }
 
-fn run_file(file_name: &String) -> RunResult {
+fn run_file(file_name: &str) -> RunResult {
     match File::open(file_name) {
         Err(_) => {
             RunResult::IoError("Error opening file".into()) // TODO: add context

@@ -125,7 +125,7 @@ fn is_whitespace(c: char) -> bool {
 }
 
 impl<'a> Scanner<'a> {
-    fn initialize(source: &String) -> Scanner {
+    fn initialize(source: &str) -> Scanner {
         Scanner {
             current_position: Position::initial(),
             current_lexeme: "".into(),
@@ -306,7 +306,7 @@ impl<'a> Scanner<'a> {
     }
 }
 
-pub fn scan(source: &String) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
+pub fn scan(source: &str) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
     let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
@@ -332,13 +332,13 @@ mod tests {
 
     #[test]
     fn single_token() {
-        let (tokens, _) = scan(&"+".into());
+        let (tokens, _) = scan(&"+");
         assert_eq!(tokens[0].token, Token::Plus);
     }
 
     #[test]
     fn expression() {
-        let (tokens, _) = scan(&"1+2".into());
+        let (tokens, _) = scan(&"1+2");
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn expression_with_whitespaces() {
-        let (tokens, _) = scan(&"1 + 2".into());
+        let (tokens, _) = scan(&"1 + 2");
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn assignement_with_comment() {
-        let (tokens, _) = scan(&"var a = 1.0; // A comment".into());
+        let (tokens, _) = scan(&"var a = 1.0; // A comment");
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);
@@ -365,8 +365,7 @@ mod tests {
     #[test]
     fn multiline_statements() {
         let (tokens, _) = scan(&r#"var a = 1.0;
-                              var b = "Hello";"#
-            .into());
+                              var b = "Hello";"#);
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);
@@ -385,7 +384,7 @@ mod tests {
 
     #[test]
     fn expression_with_bad_character() {
-        let (tokens, errors) = scan(&"1 + $2".into());
+        let (tokens, errors) = scan(&"1 + $2");
         assert_eq!(tokens[0].token, Token::NumberLiteral(1.0f64));
         assert_eq!(tokens[1].token, Token::Plus);
         assert_eq!(tokens[2].token, Token::NumberLiteral(2.0f64));
@@ -395,8 +394,7 @@ mod tests {
     #[test]
     fn statements_with_unterminated_string() {
         let (tokens, errors) = scan(&r#"var a = "Unterminated;
-                              var b = "Hello";"#
-            .into());
+                              var b = "Hello";"#);
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);
