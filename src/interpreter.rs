@@ -16,6 +16,16 @@ impl Value {
             _ => true,
         }
     }
+
+    fn equals(&self, other: &Value) -> bool {
+        match (self, other) {
+            (&Value::Nil, &Value::Nil) => true,
+            (&Value::Boolean(l), &Value::Boolean(r)) => l == r,
+            (&Value::Number(l), &Value::Number(r)) => l == r,
+            (&Value::String(ref l), &Value::String(ref r)) => l == r,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -93,6 +103,20 @@ impl Interpret for BinaryExpr {
                 result.push_str(r);
                 Ok(Value::String(result))
             }
+            (&BinaryOperator::Greater, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Boolean(l > r))
+            }
+            (&BinaryOperator::Less, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Boolean(l < r))
+            }
+            (&BinaryOperator::GreaterEqual, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Boolean(l >= r))
+            }
+            (&BinaryOperator::LessEqual, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Boolean(l <= r))
+            }
+            (&BinaryOperator::NotEqual, ref l, ref r) => Ok(Value::Boolean(!l.equals(&r))),
+            (&BinaryOperator::Equal, ref l, ref r) => Ok(Value::Boolean(l.equals(&r))),
             _ => unimplemented!(),
         }
     }
