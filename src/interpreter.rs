@@ -149,4 +149,14 @@ mod tests {
         assert_eq!(Value::Boolean(true), expr.interpret().unwrap());
     }
 
+    #[test]
+    fn binary() {
+        let expr = BinaryExpr {
+            operator: BinaryOperator::Plus,
+            left: Expr::Literal(Literal::NumberLiteral(1.0f64)),
+            right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
+        };
+        assert_eq!(Value::Number(2.0f64), expr.interpret().unwrap());
+    }
+
 }
