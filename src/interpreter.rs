@@ -75,7 +75,15 @@ impl Interpret for BinaryExpr {
         let left = try!(self.left.interpret());
         let right = try!(self.right.interpret());
         match (&self.operator, &left, &right) {
-            (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => Ok(Value::Number(l - r)),
+            (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Number(l - r))
+            }
+            (&BinaryOperator::Slash, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Number(l / r))
+            }
+            (&BinaryOperator::Star, &Value::Number(l), &Value::Number(r)) => {
+                Ok(Value::Number(l * r))
+            }
             _ => unimplemented!(),
         }
     }
