@@ -87,7 +87,7 @@ impl Interpret for BinaryExpr {
             (&BinaryOperator::Plus, &Value::Number(l), &Value::Number(r)) => {
                 Ok(Value::Number(l + r))
             }
-            (&BinaryOperator::Minus, &Value::String(ref l), &Value::String(ref r)) => {
+            (&BinaryOperator::Plus, &Value::String(ref l), &Value::String(ref r)) => {
                 let mut result : String = "".into();
                 result.push_str(l);
                 result.push_str(r);
