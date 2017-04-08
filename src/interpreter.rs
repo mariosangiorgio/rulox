@@ -8,6 +8,16 @@ pub enum Value {
     String(String),
 }
 
+impl Value {
+    fn is_true(&self) -> bool {
+        match self {
+            &Value::Nil => false,
+            &Value::Boolean(b) => b,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum RuntimeError {
     RuntimeError,
@@ -21,7 +31,7 @@ impl Interpret for Expr {
     fn interpret(&self) -> Result<Value, RuntimeError> {
         match self {
             &Expr::Literal(ref l) => l.interpret(),
-            &Expr::Unary(ref u) => unimplemented!(),
+            &Expr::Unary(ref u) => u.interpret(),
             &Expr::Binary(ref b) => unimplemented!(),
             &Expr::Grouping(ref g) => g.interpret(),
         }
@@ -45,6 +55,21 @@ impl Interpret for Grouping {
     }
 }
 
+impl Interpret for UnaryExpr {
+    fn interpret(&self) -> Result<Value, RuntimeError> {
+        let value = try!(self.right.interpret());
+        match self.operator {
+            UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
+            UnaryOperator::Minus => {
+                match value {
+                    Value::Number(n) => Ok(Value::Number(-n)),
+                    _ => Err(RuntimeError::RuntimeError),
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ast::*;
@@ -61,4 +86,14 @@ mod tests {
         let expr = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
         assert_eq!(Value::Number(45.67f64), expr.interpret().unwrap());
     }
+
+    #[test]
+    fn unary() {
+        let expr = UnaryExpr {
+            operator: UnaryOperator::Bang,
+            right: Expr::Literal(Literal::BoolLiteral(false)),
+        };
+        assert_eq!(Value::Boolean(true), expr.interpret().unwrap());
+    }
+
 }
