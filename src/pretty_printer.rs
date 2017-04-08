@@ -13,9 +13,9 @@ impl PrettyPrint for Expr {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         match self {
             &Expr::Literal(ref l) => l.pretty_print_into(pretty_printed),
-            &Expr::Unary(ref u) => (*u).pretty_print_into(pretty_printed),
-            &Expr::Binary(ref b) => (*b).pretty_print_into(pretty_printed),
-            &Expr::Grouping(ref g) => (*g).pretty_print_into(pretty_printed),
+            &Expr::Unary(ref u) => u.pretty_print_into(pretty_printed),
+            &Expr::Binary(ref b) => b.pretty_print_into(pretty_printed),
+            &Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
         }
     }
 }
