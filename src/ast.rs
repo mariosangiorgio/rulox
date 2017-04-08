@@ -1,8 +1,10 @@
+#[derive(Debug)]
 pub enum UnaryOperator {
     Bang,
     Minus,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOperator {
     Minus,
     Plus,

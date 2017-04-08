@@ -1,6 +1,6 @@
 use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
@@ -30,7 +30,8 @@ impl Value {
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    RuntimeError,
+    UnaryMinusTypeMismatch(Value),
+    BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
 }
 
 pub trait Interpret {
@@ -73,7 +74,7 @@ impl Interpret for UnaryExpr {
             UnaryOperator::Minus => {
                 match value {
                     Value::Number(n) => Ok(Value::Number(-n)),
-                    _ => Err(RuntimeError::RuntimeError),
+                    _ => Err(RuntimeError::UnaryMinusTypeMismatch(value)),
                 }
             }
         }
@@ -117,7 +118,11 @@ impl Interpret for BinaryExpr {
             }
             (&BinaryOperator::NotEqual, ref l, ref r) => Ok(Value::Boolean(!l.equals(&r))),
             (&BinaryOperator::Equal, ref l, ref r) => Ok(Value::Boolean(l.equals(&r))),
-            _ => unimplemented!(),
+            _ => {
+                Err(RuntimeError::BinaryOperatorTypeMismatch(self.operator,
+                                                             left.clone(),
+                                                             right.clone()))
+            }
         }
     }
 }
