@@ -116,8 +116,8 @@ impl Interpret for BinaryExpr {
             (&BinaryOperator::LessEqual, &Value::Number(l), &Value::Number(r)) => {
                 Ok(Value::Boolean(l <= r))
             }
-            (&BinaryOperator::NotEqual, ref l, ref r) => Ok(Value::Boolean(!l.equals(&r))),
-            (&BinaryOperator::Equal, ref l, ref r) => Ok(Value::Boolean(l.equals(&r))),
+            (&BinaryOperator::NotEqual, l, r) => Ok(Value::Boolean(!l.equals(r))),
+            (&BinaryOperator::Equal, l, r) => Ok(Value::Boolean(l.equals(r))),
             _ => {
                 Err(RuntimeError::BinaryOperatorTypeMismatch(self.operator,
                                                              left.clone(),
