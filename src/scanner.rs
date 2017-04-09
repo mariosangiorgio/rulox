@@ -180,12 +180,11 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_context(&mut self, token: Token, initial_position: Position) -> TokenWithContext {
-        let result = TokenWithContext {
+        TokenWithContext {
             token: token,
             lexeme: self.current_lexeme.clone(),
             position: initial_position,
-        };
-        result
+        }
     }
 
     fn string(&mut self) -> Result<Token, ScannerError> {
