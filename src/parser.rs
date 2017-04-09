@@ -18,7 +18,7 @@ pub enum ParseError {
     MissingClosingParen(Lexeme, Position),
 }
 
-pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
+pub fn parse(tokens: &Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
     let mut iter = tokens.iter().peekable();
     if let Some(result) = parse_expression(&mut iter) {
         match result {
@@ -257,47 +257,47 @@ mod tests {
     fn literal() {
         let string = String::from("123");
         let (tokens, _) = scan(&string);
-        let expr = parse(tokens).unwrap();
+        let expr = parse(&tokens).unwrap();
         assert_eq!(&string, &expr.pretty_print());
     }
 
     #[test]
     fn binary() {
         let (tokens, _) = scan(&"123+456");
-        let expr = parse(tokens).unwrap();
+        let expr = parse(&tokens).unwrap();
         assert_eq!("(+ 123 456)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_add_mul() {
         let (tokens, _) = scan(&"123+456*789");
-        let expr = parse(tokens).unwrap();
+        let expr = parse(&tokens).unwrap();
         assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add() {
         let (tokens, _) = scan(&"123*456+789");
-        let expr = parse(tokens).unwrap();
+        let expr = parse(&tokens).unwrap();
         assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add_unary() {
         let (tokens, _) = scan(&"-123*456+789");
-        let expr = parse(tokens).unwrap();
+        let expr = parse(&tokens).unwrap();
         assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn unclosed_group() {
         let (tokens, _) = scan(&"(2");
-        assert!(parse(tokens).is_err());
+        assert!(parse(&tokens).is_err());
     }
 
     #[test]
     fn unopened_group() {
         let (tokens, _) = scan(&"2)");
-        assert!(parse(tokens).is_err());
+        assert!(parse(&tokens).is_err());
     }
 }
