@@ -23,7 +23,7 @@ pub fn parse(tokens: Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
     if let Some(result) = parse_expression(&mut iter) {
         match result {
             Ok(expr) => {
-                if let None = iter.next() {
+                if iter.next().is_none() {
                     Ok(expr)
                 } else {
                     Err(vec![ParseError::UnconsumedTokens])
