@@ -40,22 +40,22 @@ pub trait Interpret {
 
 impl Interpret for Expr {
     fn interpret(&self) -> Result<Value, RuntimeError> {
-        match self {
-            &Expr::Literal(ref l) => l.interpret(),
-            &Expr::Unary(ref u) => u.interpret(),
-            &Expr::Binary(ref b) => b.interpret(),
-            &Expr::Grouping(ref g) => g.interpret(),
+        match *self {
+            Expr::Literal(ref l) => l.interpret(),
+            Expr::Unary(ref u) => u.interpret(),
+            Expr::Binary(ref b) => b.interpret(),
+            Expr::Grouping(ref g) => g.interpret(),
         }
     }
 }
 
 impl Interpret for Literal {
     fn interpret(&self) -> Result<Value, RuntimeError> {
-        match self {
-            &Literal::NilLiteral => Ok(Value::Nil),
-            &Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
-            &Literal::StringLiteral(ref s) => Ok(Value::String(s.clone())),
-            &Literal::NumberLiteral(n) => Ok(Value::Number(n)),
+        match *self {
+            Literal::NilLiteral => Ok(Value::Nil),
+            Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
+            Literal::StringLiteral(ref s) => Ok(Value::String(s.clone())),
+            Literal::NumberLiteral(n) => Ok(Value::Number(n)),
         }
     }
 }
