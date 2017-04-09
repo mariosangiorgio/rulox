@@ -10,9 +10,9 @@ pub enum Value {
 
 impl Value {
     fn is_true(&self) -> bool {
-        match self {
-            &Value::Nil => false,
-            &Value::Boolean(b) => b,
+        match *self {
+            Value::Nil => false,
+            Value::Boolean(b) => b,
             _ => true,
         }
     }
