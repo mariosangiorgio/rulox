@@ -18,7 +18,7 @@ pub enum ParseError {
     MissingClosingParen(Lexeme, Position),
 }
 
-pub fn parse(tokens: &Vec<TokenWithContext>) -> Result<Expr, Vec<ParseError>> {
+pub fn parse(tokens: &[TokenWithContext]) -> Result<Expr, Vec<ParseError>> {
     let mut iter = tokens.iter().peekable();
     if let Some(result) = parse_expression(&mut iter) {
         match result {
