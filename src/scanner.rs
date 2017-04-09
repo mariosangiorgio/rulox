@@ -156,17 +156,14 @@ impl<'a> Scanner<'a> {
 
     fn advance(&mut self) -> Option<char> {
         let next = self.source.next();
-        match next {
-            Some(c) => {
-                self.current_lexeme.push(c);
-                if c == '\n' {
-                    self.current_position.increment_line();
-                } else {
-                    self.current_position.increment_column();;
-                }
+        if let Some(c) = next {
+            self.current_lexeme.push(c);
+            if c == '\n' {
+                self.current_position.increment_line();
+            } else {
+                self.current_position.increment_column();;
             }
-            None => (),
-        }
+        };
         next
     }
 
