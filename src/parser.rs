@@ -51,16 +51,10 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
         EndOfConstruct,
     };
     fn classify(token: &Token) -> TokenKind {
-        match token {
-            &Token::Semicolon => TokenKind::EndOfConstruct,
-            &Token::Class => TokenKind::StartOfConstruct,
-            &Token::Fun => TokenKind::StartOfConstruct,
-            &Token::Var => TokenKind::StartOfConstruct,
-            &Token::For => TokenKind::StartOfConstruct,
-            &Token::If => TokenKind::StartOfConstruct,
-            &Token::While => TokenKind::StartOfConstruct,
-            &Token::Print => TokenKind::StartOfConstruct,
-            &Token::Return => TokenKind::StartOfConstruct,
+        match *token {
+            Token::Semicolon => TokenKind::EndOfConstruct,
+            Token::Class | Token::Fun | Token::Var | Token::For | Token::If | Token::While |
+            Token::Print | Token::Return => TokenKind::StartOfConstruct,
             _ => TokenKind::BodyOfConstruct,
         }
     }
