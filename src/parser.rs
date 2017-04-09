@@ -45,28 +45,28 @@ pub fn parse(tokens: &[TokenWithContext]) -> Result<Expr, Vec<ParseError>> {
 fn synchronise<'a, I>(tokens: &mut Peekable<I>)
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    enum TokenKind {
-        StartOfConstruct,
-        BodyOfConstruct,
-        EndOfConstruct,
+    enum PositionInConstruct {
+        Start,
+        Body,
+        End,
     };
-    fn classify(token: &Token) -> TokenKind {
+    fn classify(token: &Token) -> PositionInConstruct {
         match *token {
-            Token::Semicolon => TokenKind::EndOfConstruct,
+            Token::Semicolon => PositionInConstruct::End,
             Token::Class | Token::Fun | Token::Var | Token::For | Token::If | Token::While |
-            Token::Print | Token::Return => TokenKind::StartOfConstruct,
-            _ => TokenKind::BodyOfConstruct,
+            Token::Print | Token::Return => PositionInConstruct::Start,
+            _ => PositionInConstruct::Body,
         }
     }
     while let Some(token_kind) = tokens.peek().map(|t| classify(&t.token)) {
         match token_kind {
-            TokenKind::StartOfConstruct => {
+            PositionInConstruct::Start => {
                 break;
             }
-            TokenKind::BodyOfConstruct => {
+            PositionInConstruct::Body => {
                 let _ = tokens.next();
             }
-            TokenKind::EndOfConstruct => {
+            PositionInConstruct::End => {
                 let _ = tokens.next();
                 break;
             }
