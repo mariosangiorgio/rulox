@@ -107,14 +107,11 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
         {
             operator = tokens.next().unwrap();
         }
-        let right;
-        {
-            if let Some(result) = parse_subexpression(tokens) {
-                right = try_wrap_err!(result);
-            } else {
-                return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
-                                                                 operator.position)));
-            }
+        let right = if let Some(result) = parse_subexpression(tokens) {
+            try_wrap_err!(result)
+        } else {
+            return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
+                                                             operator.position)));
         };
         let binary_expression = BinaryExpr {
             left: expr,
