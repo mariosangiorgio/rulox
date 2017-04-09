@@ -315,8 +315,7 @@ pub fn scan(source: &str) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
             Ok(token_with_context) => {
                 match token_with_context.token {
                     // Ignoring tokens we don't care about
-                    Token::Comment => {}
-                    Token::Whitespace => {}
+                    Token::Comment | Token::Whitespace => {}
                     _ => tokens.push(token_with_context),
                 };
             }
