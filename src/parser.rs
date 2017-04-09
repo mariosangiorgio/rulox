@@ -195,14 +195,11 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
         {
             operator = tokens.next().unwrap();
         }
-        let right;
-        {
-            if let Some(result) = parse_unary(tokens) {
-                right = try_wrap_err!(result);
-            } else {
-                return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
-                                                                 operator.position)));
-            }
+        let right = if let Some(result) = parse_unary(tokens) {
+            try_wrap_err!(result)
+        } else {
+            return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
+                                                             operator.position)));
         };
         let unary_expression = UnaryExpr {
             operator: mapped_operator,
@@ -229,13 +226,10 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
             Token::NumberLiteral(n) => Expr::Literal(Literal::NumberLiteral(n)),
             Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
             Token::LeftParen => {
-                let expr;
-                {
-                    if let Some(result) = parse_expression(tokens) {
-                        expr = try_wrap_err!(result);
-                    } else {
-                        return Some(Err(ParseError::UnexpectedEndOfFile));
-                    }
+                let expr = if let Some(result) = parse_expression(tokens) {
+                    try_wrap_err!(result)
+                } else {
+                    return Some(Err(ParseError::UnexpectedEndOfFile));
                 };
                 {
                     if let Some(token) = tokens.next() {
