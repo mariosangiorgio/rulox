@@ -116,10 +116,7 @@ fn is_alphanumeric(c: char) -> bool {
 
 fn is_whitespace(c: char) -> bool {
     match c {
-        ' ' => true,
-        '\r' => true,
-        '\t' => true,
-        '\n' => true,
+        ' ' | '\r' | '\t' | '\n' => true,
         _ => false,
     }
 }
