@@ -15,7 +15,7 @@ pub enum ParseError {
     UnexpectedToken(Lexeme, Position),
     MissingSubexpression(Lexeme, Position),
     MissingClosingParen(Lexeme, Position),
-    MissingSemicolon, // TOOD: add details
+    MissingSemicolon(Lexeme, Position),
 }
 
 pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseError>> {
@@ -84,11 +84,15 @@ fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, 
         None => None,
     };
     if let Some(Ok(statement)) = result {
-        if let Some(&Token::Semicolon) = tokens.peek().map(|t| &t.token) {
-            let _ = tokens.next();
-            Some(Ok(statement))
-        } else {
-            Some(Err(ParseError::MissingSemicolon))
+        match tokens.peek(){
+            Some(&&TokenWithContext{token: Token::Semicolon, lexeme: _, position: _}) => {
+                let _ = tokens.next();
+                Some(Ok(statement))
+            },
+            Some(&&TokenWithContext{token: _, ref lexeme, ref position}) => {
+                Some(Err(ParseError::MissingSemicolon(lexeme.clone(), position.clone())))
+            },
+            None => Some(Err(ParseError::UnexpectedEndOfFile)),
         }
     } else {
         result
