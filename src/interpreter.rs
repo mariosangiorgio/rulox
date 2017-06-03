@@ -18,6 +18,15 @@ impl Value {
             _ => true,
         }
     }
+
+    fn to_string(&self) -> String {
+        match *self {
+            Value::Nil => "nil".into(),
+            Value::Boolean(ref b) => b.to_string(),
+            Value::Number(ref n) => n.to_string(),
+            Value::String(ref s) => s.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -136,7 +145,7 @@ impl Execute for Statement {
                 match e.interpret() {
                     Err(e) => Some(e),
                     Ok(value) => {
-                        println!("{:?}", value); //TODO: pretty print
+                        println!("{}", value.to_string());
                         let _ = io::stdout().flush(); //TODO: is this okay?
                         None
                     }
