@@ -72,6 +72,12 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
     }
 }
 
+fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    unimplemented!();
+}
+
 fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
@@ -84,14 +90,14 @@ fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, 
         None => None,
     };
     if let Some(Ok(statement)) = result {
-        match tokens.peek(){
-            Some(&&TokenWithContext{token: Token::Semicolon, lexeme: _, position: _}) => {
+        match tokens.peek() {
+            Some(&&TokenWithContext { token: Token::Semicolon, lexeme: _, position: _ }) => {
                 let _ = tokens.next();
                 Some(Ok(statement))
-            },
-            Some(&&TokenWithContext{token: _, ref lexeme, ref position}) => {
+            }
+            Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
                 Some(Err(ParseError::MissingSemicolon(lexeme.clone(), position.clone())))
-            },
+            }
             None => Some(Err(ParseError::UnexpectedEndOfFile)),
         }
     } else {
