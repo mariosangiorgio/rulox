@@ -46,3 +46,8 @@ pub enum Expr {
     Binary(Box<BinaryExpr>),
     Grouping(Box<Grouping>),
 }
+
+pub enum Statement {
+    Print(Expr),
+    Expression(Expr),
+}

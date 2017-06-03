@@ -1,4 +1,4 @@
-use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping};
+use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping, Statement};
 
 pub trait PrettyPrint {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
@@ -84,6 +84,18 @@ impl PrettyPrint for BinaryExpr {
         pretty_printed.push_str(" ");
         self.right.pretty_print_into(pretty_printed);
         pretty_printed.push_str(")");
+    }
+}
+
+impl PrettyPrint for Statement {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match self {
+            &Statement::Print(ref e) => {
+                pretty_printed.push_str("print ");
+                e.pretty_print_into(pretty_printed);
+            }
+            &Statement::Expression(ref e) => e.pretty_print_into(pretty_printed),
+        };
     }
 }
 

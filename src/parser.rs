@@ -11,34 +11,32 @@ macro_rules! try_wrap_err {
 
 #[derive(Debug)]
 pub enum ParseError {
-    UnconsumedTokens,
     UnexpectedEndOfFile,
     UnexpectedToken(Lexeme, Position),
     MissingSubexpression(Lexeme, Position),
     MissingClosingParen(Lexeme, Position),
+    MissingSemicolon, // TOOD: add details
 }
 
-pub fn parse(tokens: &[TokenWithContext]) -> Result<Expr, Vec<ParseError>> {
+pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseError>> {
     let mut iter = tokens.iter().peekable();
-    if let Some(result) = parse_expression(&mut iter) {
+    let mut statements = Vec::new();
+    let mut errors = Vec::new();
+    while let Some(result) = parse_statement(&mut iter) {
         match result {
-            Ok(expr) => {
-                if iter.next().is_none() {
-                    Ok(expr)
-                } else {
-                    Err(vec![ParseError::UnconsumedTokens])
-                }
+            Ok(statement) => {
+                statements.push(statement);
             }
             Err(error) => {
-                {
-                    synchronise(&mut iter);
-                }
-                Err(vec![error])
+                errors.push(error);
+                synchronise(&mut iter);
             }
         }
-
+    }
+    if errors.is_empty() {
+        Ok(statements)
     } else {
-        Err(vec![ParseError::UnexpectedEndOfFile])
+        Err(errors)
     }
 }
 
@@ -72,6 +70,42 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
             }
         }
     }
+}
+
+fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let result = match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Print) => {
+            let _ = tokens.next();
+            parse_print_statement(tokens)
+        }
+        Some(_) => parse_expression_statement(tokens),
+        None => None,
+    };
+    if let Some(Ok(statement)) = result {
+        if let Some(&Token::Semicolon) = tokens.peek().map(|t| &t.token) {
+            let _ = tokens.next();
+            Some(Ok(statement))
+        } else {
+            Some(Err(ParseError::MissingSemicolon))
+        }
+    } else {
+        result
+    }
+}
+
+fn parse_print_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    parse_expression(tokens).map(|r| r.map(|e| Statement::Print(e)))
+}
+
+fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
+                                     -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    parse_expression(tokens).map(|r| r.map(|e| Statement::Expression(e)))
 }
 
 fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
@@ -257,35 +291,35 @@ mod tests {
     fn literal() {
         let string = String::from("123");
         let (tokens, _) = scan(&string);
-        let expr = parse(&tokens).unwrap();
+        let expr = parse_expression(&mut tokens.iter().peekable()).unwrap().unwrap();
         assert_eq!(&string, &expr.pretty_print());
     }
 
     #[test]
     fn binary() {
         let (tokens, _) = scan(&"123+456");
-        let expr = parse(&tokens).unwrap();
+        let expr = parse_expression(&mut tokens.iter().peekable()).unwrap().unwrap();
         assert_eq!("(+ 123 456)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_add_mul() {
         let (tokens, _) = scan(&"123+456*789");
-        let expr = parse(&tokens).unwrap();
+        let expr = parse_expression(&mut tokens.iter().peekable()).unwrap().unwrap();
         assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add() {
         let (tokens, _) = scan(&"123*456+789");
-        let expr = parse(&tokens).unwrap();
+        let expr = parse_expression(&mut tokens.iter().peekable()).unwrap().unwrap();
         assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
     }
 
     #[test]
     fn precedence_mul_add_unary() {
         let (tokens, _) = scan(&"-123*456+789");
-        let expr = parse(&tokens).unwrap();
+        let expr = parse_expression(&mut tokens.iter().peekable()).unwrap().unwrap();
         assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
     }
 

@@ -1,4 +1,6 @@
-use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping};
+use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping, Statement};
+use std::io;
+use std::io::prelude::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -26,6 +28,10 @@ pub enum RuntimeError {
 
 pub trait Interpret {
     fn interpret(&self) -> Result<Value, RuntimeError>;
+}
+
+pub trait Execute {
+    fn execute(&self) -> Option<RuntimeError>;
 }
 
 impl Interpret for Expr {
@@ -112,6 +118,29 @@ impl Interpret for BinaryExpr {
                 Err(RuntimeError::BinaryOperatorTypeMismatch(self.operator,
                                                              left.clone(),
                                                              right.clone()))
+            }
+        }
+    }
+}
+
+impl Execute for Statement {
+    fn execute(&self) -> Option<RuntimeError> {
+        match self {
+            &Statement::Expression(ref e) => {
+                match e.interpret() {
+                    Err(e) => Some(e),
+                    _ => None,
+                }
+            }
+            &Statement::Print(ref e) => {
+                match e.interpret() {
+                    Err(e) => Some(e),
+                    Ok(value) => {
+                        println!("{:?}", value); //TODO: pretty print
+                        let _ = io::stdout().flush(); //TODO: is this okay?
+                        None
+                    }
+                }
             }
         }
     }

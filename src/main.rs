@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
-use interpreter::{Interpret, RuntimeError};
+use interpreter::{Interpret, Execute, RuntimeError};
 
 #[derive(Debug)]
 enum RunResult {
@@ -27,7 +27,7 @@ enum InputError {
     ParserError(parser::ParseError),
 }
 
-fn scan_and_parse(source: &str) -> Result<ast::Expr, Vec<InputError>> {
+fn scan_and_parse(source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
     let mut errors: Vec<InputError> =
         scanner_errors.iter().map(|e| InputError::ScannerError(e.clone())).collect();
@@ -50,15 +50,14 @@ fn scan_and_parse(source: &str) -> Result<ast::Expr, Vec<InputError>> {
 
 fn run(source: &str) -> RunResult {
     match scan_and_parse(source) {
-        Ok(expr) => {
-            println!("{:?}", expr.pretty_print());
-            match expr.interpret() {
-                Ok(value) => {
-                    println!("{:?}", value);
-                    RunResult::Ok
+        Ok(statements) => {
+            for statement in statements {
+                println!("{:?}", statement.pretty_print());
+                if let Some(e) = statement.execute() {
+                    return RunResult::RuntimeError(e);
                 }
-                Err(e) => RunResult::RuntimeError(e),
             }
+            return RunResult::Ok;
         }
         Err(e) => RunResult::InputError(e),
     }
