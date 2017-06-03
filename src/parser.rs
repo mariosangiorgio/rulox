@@ -22,7 +22,7 @@ pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseErr
     let mut iter = tokens.iter().peekable();
     let mut statements = Vec::new();
     let mut errors = Vec::new();
-    while let Some(result) = parse_statement(&mut iter) {
+    while let Some(result) = parse_declaration(&mut iter) {
         match result {
             Ok(statement) => {
                 statements.push(statement);
@@ -75,7 +75,20 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
 fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    unimplemented!();
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Var) => {
+            let _ = tokens.next();
+            parse_var_declaration(tokens)
+        }
+        Some(_) => parse_statement(tokens),
+        None => None,
+    }
+}
+
+fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    unimplemented!()
 }
 
 fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
