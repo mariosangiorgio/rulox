@@ -16,6 +16,7 @@ pub enum ParseError {
     MissingSubexpression(Lexeme, Position),
     MissingClosingParen(Lexeme, Position),
     MissingSemicolon(Lexeme, Position),
+    MissingIdentifier(Lexeme, Position),
 }
 
 pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseError>> {
@@ -72,15 +73,39 @@ fn synchronise<'a, I>(tokens: &mut Peekable<I>)
     }
 }
 
+fn parse_semicolon_terminated_statement<'a, I>(tokens: &mut Peekable<I>,
+                                               parse_statement: &Fn(&mut Peekable<I>)
+                                                                    -> Option<Result<Statement,
+                                                                                      ParseError>>)
+                                               -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    match parse_statement(tokens) {
+        Some(Ok(statement)) => {
+            match tokens.peek() {
+                Some(&&TokenWithContext { token: Token::Semicolon, lexeme: _, position: _ }) => {
+                    let _ = tokens.next();
+                    Some(Ok(statement))
+                }
+                Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
+                    Some(Err(ParseError::MissingSemicolon(lexeme.clone(), position.clone())))
+                }
+                None => Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        }
+        e => e,
+    }
+}
+
 fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     match tokens.peek().map(|t| &t.token) {
         Some(&Token::Var) => {
             let _ = tokens.next();
-            parse_var_declaration(tokens)
+            parse_semicolon_terminated_statement(tokens, &parse_var_declaration)
         }
-        Some(_) => parse_statement(tokens),
+        Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
     }
 }
@@ -88,33 +113,37 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
 fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    unimplemented!()
+    let identifier = match tokens.peek() {
+        Some(&&TokenWithContext { token: Token::Identifier(ref identifier),
+                                  lexeme: _,
+                                  position: _ }) => {
+            let _ = tokens.next();
+            identifier.clone()
+        }
+        Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
+            return Some(Err(ParseError::MissingIdentifier(lexeme.clone(), position.clone())))
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    let statement = if let Some(&&TokenWithContext { token: Token::Equal,
+                                                     lexeme: _,
+                                                     position: _ }) = tokens.peek() {
+        unimplemented!();
+    } else {
+        unimplemented!();
+    };
 }
 
 fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    let result = match tokens.peek().map(|t| &t.token) {
+    match tokens.peek().map(|t| &t.token) {
         Some(&Token::Print) => {
             let _ = tokens.next();
             parse_print_statement(tokens)
         }
         Some(_) => parse_expression_statement(tokens),
         None => None,
-    };
-    if let Some(Ok(statement)) = result {
-        match tokens.peek() {
-            Some(&&TokenWithContext { token: Token::Semicolon, lexeme: _, position: _ }) => {
-                let _ = tokens.next();
-                Some(Ok(statement))
-            }
-            Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
-                Some(Err(ParseError::MissingSemicolon(lexeme.clone(), position.clone())))
-            }
-            None => Some(Err(ParseError::UnexpectedEndOfFile)),
-        }
-    } else {
-        result
     }
 }
 
