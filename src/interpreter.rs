@@ -1,6 +1,12 @@
 use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping, Statement};
+use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
+
+#[derive(Hash, Eq, PartialEq, Debug)]
+struct Identifier {
+    name: String, //TODO: should we use handles here?
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -29,33 +35,66 @@ impl Value {
     }
 }
 
+struct Environment {
+    values: HashMap<Identifier, Value>,
+}
+
+impl Environment {
+    fn new() -> Environment {
+        Environment { values: HashMap::new() }
+    }
+
+    fn define(&mut self, identifier: Identifier, value: Value) {
+        // NOTE that this allow for variable redefinition. See the chapter.
+        self.values.insert(identifier, value);
+    }
+
+    fn get(&self, identifier: &Identifier) -> Option<&Value> {
+        self.values.get(identifier)
+    }
+}
+
+pub struct Interpreter {
+    environment: Environment,
+}
+
+impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter { environment: Environment::new() }
+    }
+
+    pub fn execute(&mut self, statement: &Statement) -> Option<RuntimeError> {
+        statement.execute(&mut self.environment)
+    }
+}
+
 #[derive(Debug)]
 pub enum RuntimeError {
     UnaryMinusTypeMismatch(Value),
     BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
 }
 
-pub trait Interpret {
-    fn interpret(&self) -> Result<Value, RuntimeError>;
+trait Interpret {
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError>;
 }
 
-pub trait Execute {
-    fn execute(&self) -> Option<RuntimeError>;
+trait Execute {
+    fn execute(&self, environment: &mut Environment) -> Option<RuntimeError>;
 }
 
 impl Interpret for Expr {
-    fn interpret(&self) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
         match *self {
-            Expr::Literal(ref l) => l.interpret(),
-            Expr::Unary(ref u) => u.interpret(),
-            Expr::Binary(ref b) => b.interpret(),
-            Expr::Grouping(ref g) => g.interpret(),
+            Expr::Literal(ref l) => l.interpret(environment),
+            Expr::Unary(ref u) => u.interpret(environment),
+            Expr::Binary(ref b) => b.interpret(environment),
+            Expr::Grouping(ref g) => g.interpret(environment),
         }
     }
 }
 
 impl Interpret for Literal {
-    fn interpret(&self) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -66,14 +105,14 @@ impl Interpret for Literal {
 }
 
 impl Interpret for Grouping {
-    fn interpret(&self) -> Result<Value, RuntimeError> {
-        self.expr.interpret()
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+        self.expr.interpret(environment)
     }
 }
 
 impl Interpret for UnaryExpr {
-    fn interpret(&self) -> Result<Value, RuntimeError> {
-        let value = try!(self.right.interpret());
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+        let value = try!(self.right.interpret(environment));
         match self.operator {
             UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
             UnaryOperator::Minus => {
@@ -87,9 +126,9 @@ impl Interpret for UnaryExpr {
 }
 
 impl Interpret for BinaryExpr {
-    fn interpret(&self) -> Result<Value, RuntimeError> {
-        let left = try!(self.left.interpret());
-        let right = try!(self.right.interpret());
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+        let left = try!(self.left.interpret(environment));
+        let right = try!(self.right.interpret(environment));
         match (&self.operator, &left, &right) {
             (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => {
                 Ok(Value::Number(l - r))
@@ -133,16 +172,16 @@ impl Interpret for BinaryExpr {
 }
 
 impl Execute for Statement {
-    fn execute(&self) -> Option<RuntimeError> {
+    fn execute(&self, mut environment: &mut Environment) -> Option<RuntimeError> {
         match self {
             &Statement::Expression(ref e) => {
-                match e.interpret() {
+                match e.interpret(environment) {
                     Err(e) => Some(e),
                     _ => None,
                 }
             }
             &Statement::Print(ref e) => {
-                match e.interpret() {
+                match e.interpret(environment) {
                     Err(e) => Some(e),
                     Ok(value) => {
                         println!("{}", value.to_string());
@@ -151,8 +190,21 @@ impl Execute for Statement {
                     }
                 }
             }
-            &Statement::VariableDefinition(ref identifier) => unimplemented!(), //TODO: implement
-            &Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => unimplemented!(), //TODO: implement
+            &Statement::VariableDefinition(ref identifier) =>{
+                let identifier = Identifier{name:identifier.name.clone()};
+                environment.define(identifier, Value::Nil);
+                None
+            },
+            &Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) =>{
+                let identifier = Identifier{name:identifier.name.clone()};
+                match expression.interpret(&mut environment){
+                    Ok(initializer) => {
+                        environment.define(identifier, initializer);
+                        None
+                    }
+                    Err(error) => Some(error)
+                }
+            },
         }
     }
 }
@@ -160,38 +212,46 @@ impl Execute for Statement {
 #[cfg(test)]
 mod tests {
     use ast::*;
-    use interpreter::{Interpret, Value};
+    use interpreter::{Interpret, Environment, Value};
 
     #[test]
     fn literal() {
+        let mut environment = Environment::new();
         let string = String::from("abc");
         let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
-        assert_eq!(Value::String(string), expr.interpret().unwrap());
+        assert_eq!(Value::String(string),
+                   expr.interpret(&mut environment).unwrap());
     }
 
     #[test]
     fn grouping() {
+        let mut environment = Environment::new();
         let expr = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
-        assert_eq!(Value::Number(45.67f64), expr.interpret().unwrap());
+        assert_eq!(Value::Number(45.67f64),
+                   expr.interpret(&mut environment).unwrap());
     }
 
     #[test]
     fn unary() {
+        let mut environment = Environment::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Bang,
             right: Expr::Literal(Literal::BoolLiteral(false)),
         };
-        assert_eq!(Value::Boolean(true), expr.interpret().unwrap());
+        assert_eq!(Value::Boolean(true),
+                   expr.interpret(&mut environment).unwrap());
     }
 
     #[test]
     fn binary() {
+        let mut environment = Environment::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
             left: Expr::Literal(Literal::NumberLiteral(1.0f64)),
             right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
         };
-        assert_eq!(Value::Number(2.0f64), expr.interpret().unwrap());
+        assert_eq!(Value::Number(2.0f64),
+                   expr.interpret(&mut environment).unwrap());
     }
 
 }

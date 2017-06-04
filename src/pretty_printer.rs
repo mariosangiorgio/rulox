@@ -1,4 +1,5 @@
-use ast::{Expr, Identifier, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping, Statement};
+use ast::{Expr, Identifier, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr,
+          Grouping, Statement};
 
 pub trait PrettyPrint {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
@@ -105,14 +106,14 @@ impl PrettyPrint for Statement {
                 pretty_printed.push_str("var ");
                 identifier.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");
-            },
+            }
             &Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
                 pretty_printed.push_str("var ");
                 identifier.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(" = ");
                 initializer.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");
-            },
+            }
         };
     }
 }

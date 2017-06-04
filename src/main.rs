@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
-use interpreter::{Execute, RuntimeError};
+use interpreter::{Interpreter, RuntimeError};
 
 #[derive(Debug)]
 enum RunResult {
@@ -48,12 +48,12 @@ fn scan_and_parse(source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> 
     }
 }
 
-fn run(source: &str) -> RunResult {
+fn run(interpreter: &mut Interpreter, source: &str) -> RunResult {
     match scan_and_parse(source) {
         Ok(statements) => {
             for statement in statements {
                 println!("{:?}", statement.pretty_print());
-                if let Some(e) = statement.execute() {
+                if let Some(e) = interpreter.execute(&statement) {
                     return RunResult::RuntimeError(e);
                 }
             }
@@ -69,12 +69,13 @@ fn run_file(file_name: &str) -> RunResult {
             RunResult::IoError("Error opening file".into()) // TODO: add context
         }
         Ok(mut file) => {
+            let mut interpreter = Interpreter::new();
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
                     RunResult::IoError("Error reading file".into()) // TODO: add context
                 }
-                Ok(_) => run(&source),
+                Ok(_) => run(&mut interpreter, &source),
             }
         }
     }
@@ -82,6 +83,7 @@ fn run_file(file_name: &str) -> RunResult {
 
 fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
+    let mut interpreter = Interpreter::new();
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
         print!("> ");
@@ -89,10 +91,13 @@ fn run_prompt() -> RunResult {
         let mut source = String::new();
         let _ = io::stdin().read_line(&mut source);
         // TODO: add a way to exit
-        let result = run(&source);
+        let result = run(&mut interpreter, &source);
         match result {
             RunResult::Ok => (),
-            _ => return result,
+            _ => {
+                println!("{:?}", result);
+                let _ = io::stdout().flush();
+            }
         }
     }
 }
