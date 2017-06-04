@@ -96,18 +96,18 @@ impl PrettyPrint for BinaryExpr {
 
 impl PrettyPrint for Statement {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
-        match self {
-            &Statement::Print(ref e) => {
+        match *self {
+            Statement::Print(ref e) => {
                 pretty_printed.push_str("print ");
                 e.pretty_print_into(pretty_printed);
             }
-            &Statement::Expression(ref e) => e.pretty_print_into(pretty_printed),
-            &Statement::VariableDefinition(ref identifier) => {
+            Statement::Expression(ref e) => e.pretty_print_into(pretty_printed),
+            Statement::VariableDefinition(ref identifier) => {
                 pretty_printed.push_str("var ");
                 identifier.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");
             }
-            &Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
+            Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
                 pretty_printed.push_str("var ");
                 identifier.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(" = ");

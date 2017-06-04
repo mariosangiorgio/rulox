@@ -5,7 +5,7 @@ use std::io::prelude::*;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 struct Identifier {
-    name: String, //TODO: should we use handles here?
+    name: String, // TODO: should we use handles here?
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -94,7 +94,7 @@ impl Interpret for Expr {
 }
 
 impl Interpret for Literal {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, _: &mut Environment) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -190,21 +190,21 @@ impl Execute for Statement {
                     }
                 }
             }
-            Statement::VariableDefinition(ref identifier) =>{
-                let identifier = Identifier{name:identifier.name.clone()};
+            Statement::VariableDefinition(ref identifier) => {
+                let identifier = Identifier { name: identifier.name.clone() };
                 environment.define(identifier, Value::Nil);
                 None
-            },
-            Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) =>{
-                let identifier = Identifier{name:identifier.name.clone()};
-                match expression.interpret(&mut environment){
+            }
+            Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => {
+                let identifier = Identifier { name: identifier.name.clone() };
+                match expression.interpret(&mut environment) {
                     Ok(initializer) => {
                         environment.define(identifier, initializer);
                         None
                     }
-                    Err(error) => Some(error)
+                    Err(error) => Some(error),
                 }
-            },
+            }
         }
     }
 }

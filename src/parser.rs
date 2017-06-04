@@ -83,12 +83,12 @@ fn parse_semicolon_terminated_statement<'a, I>(tokens: &mut Peekable<I>,
     match parse_statement(tokens) {
         Some(Ok(statement)) => {
             match tokens.peek() {
-                Some(&&TokenWithContext { token: Token::Semicolon, lexeme: _, position: _ }) => {
+                Some(&&TokenWithContext { token: Token::Semicolon, .. }) => {
                     let _ = tokens.next();
                     Some(Ok(statement))
                 }
-                Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
-                    Some(Err(ParseError::MissingSemicolon(lexeme.clone(), position.clone())))
+                Some(&&TokenWithContext { ref lexeme, ref position, .. }) => {
+                    Some(Err(ParseError::MissingSemicolon(lexeme.clone(), *position)))
                 }
                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
             }
@@ -114,14 +114,12 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let identifier = match tokens.peek() {
-        Some(&&TokenWithContext { token: Token::Identifier(ref identifier),
-                                  lexeme: _,
-                                  position: _ }) => {
+        Some(&&TokenWithContext { token: Token::Identifier(ref identifier), .. }) => {
             let _ = tokens.next();
             Identifier { name: identifier.clone() }
         }
-        Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
-            return Some(Err(ParseError::MissingIdentifier(lexeme.clone(), position.clone())))
+        Some(&&TokenWithContext { ref lexeme, ref position, .. }) => {
+            return Some(Err(ParseError::MissingIdentifier(lexeme.clone(), *position)))
         }
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
@@ -133,7 +131,7 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
                 Some(Ok(Statement::VariableDefinitionWithInitalizer(identifier, expression)))
             }
             Some(Err(error)) => Some(Err(error)),
-            None => Some(Err(ParseError::MissingSubexpression(lexeme.clone(), position.clone()))),
+            None => Some(Err(ParseError::MissingSubexpression(lexeme.clone(), *position))),
         }
     } else {
         Some(Ok(Statement::VariableDefinition(identifier)))
@@ -156,14 +154,14 @@ fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, 
 fn parse_print_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    parse_expression(tokens).map(|r| r.map(|e| Statement::Print(e)))
+    parse_expression(tokens).map(|r| r.map(Statement::Print))
 }
 
 fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
                                      -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    parse_expression(tokens).map(|r| r.map(|e| Statement::Expression(e)))
+    parse_expression(tokens).map(|r| r.map(Statement::Expression))
 }
 
 fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>

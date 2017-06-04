@@ -57,7 +57,7 @@ fn run(interpreter: &mut Interpreter, source: &str) -> RunResult {
                     return RunResult::RuntimeError(e);
                 }
             }
-            return RunResult::Ok;
+            RunResult::Ok
         }
         Err(e) => RunResult::InputError(e),
     }
