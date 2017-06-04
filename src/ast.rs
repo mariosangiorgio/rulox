@@ -18,6 +18,10 @@ pub enum BinaryOperator {
     GreaterEqual,
 }
 
+pub struct Identifier {
+    pub name: String,
+}
+
 pub enum Literal {
     NilLiteral,
     BoolLiteral(bool),
@@ -50,4 +54,6 @@ pub enum Expr {
 pub enum Statement {
     Print(Expr),
     Expression(Expr),
+    VariableDefinition(Identifier),
+    VariableDefinitionWithInitalizer(Identifier, Expr),
 }

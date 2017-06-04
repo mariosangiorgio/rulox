@@ -151,6 +151,8 @@ impl Execute for Statement {
                     }
                 }
             }
+            &Statement::VariableDefinition(ref identifier) => unimplemented!(), //TODO: implement
+            &Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => unimplemented!(), //TODO: implement
         }
     }
 }

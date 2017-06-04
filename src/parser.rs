@@ -118,20 +118,26 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
                                   lexeme: _,
                                   position: _ }) => {
             let _ = tokens.next();
-            identifier.clone()
+            Identifier { name: identifier.clone() }
         }
         Some(&&TokenWithContext { token: _, ref lexeme, ref position }) => {
             return Some(Err(ParseError::MissingIdentifier(lexeme.clone(), position.clone())))
         }
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
-    let statement = if let Some(&&TokenWithContext { token: Token::Equal,
-                                                     lexeme: _,
-                                                     position: _ }) = tokens.peek() {
-        unimplemented!();
+    if let Some(&&TokenWithContext { token: Token::Equal, ref lexeme, ref position }) =
+        tokens.peek() {
+        let _ = tokens.next();
+        match parse_expression(tokens) {
+            Some(Ok(expression)) => {
+                Some(Ok(Statement::VariableDefinitionWithInitalizer(identifier, expression)))
+            }
+            Some(Err(error)) => Some(Err(error)),
+            None => Some(Err(ParseError::MissingSubexpression(lexeme.clone(), position.clone()))),
+        }
     } else {
-        unimplemented!();
-    };
+        Some(Ok(Statement::VariableDefinition(identifier)))
+    }
 }
 
 fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
