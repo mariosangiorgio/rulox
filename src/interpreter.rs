@@ -31,12 +31,23 @@ impl Value {
 }
 
 struct Environment {
+    enclosing: Option<Box<Environment>>,
     values: HashMap<Identifier, Value>,
 }
 
 impl Environment {
     fn new() -> Environment {
-        Environment { values: HashMap::new() }
+        Environment {
+            values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+
+    fn new_with_parent(environment: Environment) -> Environment {
+        Environment {
+            values: HashMap::new(),
+            enclosing: Some(Box::new(environment)),
+        }
     }
 
     fn define(&mut self, identifier: Identifier, value: Value) {
@@ -50,12 +61,23 @@ impl Environment {
             self.values.insert(identifier, value);
             None
         } else {
-            Some(identifier)
+            match self.enclosing {
+                None => Some(identifier),
+                Some(ref mut enclosing) => enclosing.try_set(identifier, value),
+            }
         }
     }
 
     fn get(&self, identifier: &Identifier) -> Option<&Value> {
-        self.values.get(identifier)
+        match self.values.get(identifier) {
+            None => {
+                match self.enclosing {
+                    None => None,
+                    Some(ref enclosing) => enclosing.get(identifier),
+                }
+            }
+            value => value,
+        }
     }
 }
 
@@ -135,7 +157,7 @@ impl Interpret for Assignment {
             Ok(value) => {
                 match environment.try_set(target, value.clone()) {
                     None => Ok(value.clone()),
-                    Some(target) => Err(RuntimeError::UndefinedIdentifier(target))
+                    Some(target) => Err(RuntimeError::UndefinedIdentifier(target)),
                 }
             }
             Err(error) => Err(error),
