@@ -50,16 +50,21 @@ impl Environment {
     }
 }
 
-pub struct Interpreter {
+pub trait Interpreter {
+    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError>;
+}
+
+pub struct StatementInterpreter {
     environment: Environment,
 }
 
-impl Interpreter {
-    pub fn new() -> Interpreter {
-        Interpreter { environment: Environment::new() }
+impl StatementInterpreter {
+    pub fn new() -> StatementInterpreter {
+        StatementInterpreter { environment: Environment::new() }
     }
-
-    pub fn execute(&mut self, statement: &Statement) -> Option<RuntimeError> {
+}
+impl Interpreter for StatementInterpreter {
+    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError> {
         statement.execute(&mut self.environment)
     }
 }
@@ -76,7 +81,7 @@ trait Interpret {
 }
 
 trait Execute {
-    fn execute(&self, environment: &mut Environment) -> Option<RuntimeError>;
+    fn execute(&self, environment: &mut Environment) -> Result<Option<Value>, RuntimeError>;
 }
 
 impl Interpret for Expr {
@@ -104,9 +109,9 @@ impl Interpret for Literal {
 
 impl Interpret for Identifier {
     fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        match environment.get(&self) {
+        match environment.get(self) {
             Some(value) => Ok(value.clone()),
-            None => Err(RuntimeError::UndefinedIdentifier((*self).clone())),
+            None => Err(RuntimeError::UndefinedIdentifier(self.clone())),
         }
     }
 }
@@ -179,38 +184,27 @@ impl Interpret for BinaryExpr {
 }
 
 impl Execute for Statement {
-    fn execute(&self, mut environment: &mut Environment) -> Option<RuntimeError> {
+    fn execute(&self, mut environment: &mut Environment) -> Result<Option<Value>, RuntimeError> {
         match *self {
-            Statement::Expression(ref e) => {
-                match e.interpret(environment) {
-                    Err(e) => Some(e),
-                    _ => None,
-                }
-            }
+            Statement::Expression(ref e) => e.interpret(environment).map(Some),
             Statement::Print(ref e) => {
-                match e.interpret(environment) {
-                    Err(e) => Some(e),
-                    Ok(value) => {
-                        println!("{}", value.to_string());
-                        let _ = io::stdout().flush(); //TODO: is this okay?
-                        None
-                    }
-                }
+                e.interpret(environment).map(|value| {
+                    println!("{}", value.to_string());
+                    let _ = io::stdout().flush(); //TODO: is this okay?
+                    None
+                })
             }
             Statement::VariableDefinition(ref identifier) => {
                 let identifier = Identifier { name: identifier.name.clone() };
                 environment.define(identifier, Value::Nil);
-                None
+                Ok(None)
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => {
                 let identifier = Identifier { name: identifier.name.clone() };
-                match expression.interpret(&mut environment) {
-                    Ok(initializer) => {
-                        environment.define(identifier, initializer);
-                        None
-                    }
-                    Err(error) => Some(error),
-                }
+                expression.interpret(environment).map(|initializer| {
+                    environment.define(identifier, initializer);
+                    None
+                })
             }
         }
     }

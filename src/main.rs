@@ -11,7 +11,8 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
-use interpreter::{Interpreter, RuntimeError};
+use interpreter::{Interpreter, StatementInterpreter, Value, RuntimeError};
+use ast::Statement;
 
 #[derive(Debug)]
 enum RunResult {
@@ -52,9 +53,9 @@ fn run(interpreter: &mut Interpreter, source: &str) -> RunResult {
     match scan_and_parse(source) {
         Ok(statements) => {
             for statement in statements {
-                println!("{:?}", statement.pretty_print());
-                if let Some(e) = interpreter.execute(&statement) {
-                    return RunResult::RuntimeError(e);
+                match interpreter.execute(&statement) {
+                    Ok(_) => (),
+                    Err(e) => return RunResult::RuntimeError(e),
                 }
             }
             RunResult::Ok
@@ -69,7 +70,7 @@ fn run_file(file_name: &str) -> RunResult {
             RunResult::IoError("Error opening file".into()) // TODO: add context
         }
         Ok(mut file) => {
-            let mut interpreter = Interpreter::new();
+            let mut interpreter = StatementInterpreter::new();
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
@@ -81,9 +82,32 @@ fn run_file(file_name: &str) -> RunResult {
     }
 }
 
+struct LoggingInterpreter {
+    interpreter: StatementInterpreter,
+}
+
+impl LoggingInterpreter {
+    fn new() -> LoggingInterpreter {
+        LoggingInterpreter { interpreter: StatementInterpreter::new() }
+    }
+}
+
+impl Interpreter for LoggingInterpreter {
+    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError> {
+        println!("{:?}", statement.pretty_print());
+        let result = self.interpreter.execute(statement);
+        {
+            if let Ok(Some(ref value)) = result {
+                println!("{:?}", value);
+            };
+        }
+        result
+    }
+}
+
 fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = LoggingInterpreter::new();
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
         print!("> ");
