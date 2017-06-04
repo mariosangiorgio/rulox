@@ -44,12 +44,14 @@ impl Environment {
         self.values.insert(identifier, value);
     }
 
-    fn contains(&self, identifier: &Identifier) -> bool {
-        self.values.contains_key(identifier)
-    }
-
-    fn set(&mut self, identifier: Identifier, value: Value) {
-        self.values.insert(identifier, value);
+    // The signature is a bit weird, but saves a clone on every assignment
+    fn try_set(&mut self, identifier: Identifier, value: Value) -> Option<Identifier> {
+        if self.values.contains_key(&identifier) {
+            self.values.insert(identifier, value);
+            None
+        } else {
+            Some(identifier)
+        }
     }
 
     fn get(&self, identifier: &Identifier) -> Option<&Value> {
@@ -131,11 +133,9 @@ impl Interpret for Assignment {
         };
         match self.rvalue.interpret(environment) {
             Ok(value) => {
-                if environment.contains(&target) {
-                    environment.set(target, value.clone());
-                    Ok(value)
-                } else {
-                    Err(RuntimeError::UndefinedIdentifier(target))
+                match environment.try_set(target, value.clone()) {
+                    None => Ok(value.clone()),
+                    Some(target) => Err(RuntimeError::UndefinedIdentifier(target))
                 }
             }
             Err(error) => Err(error),
