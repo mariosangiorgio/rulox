@@ -1,12 +1,8 @@
-use ast::{Expr, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr, Grouping, Statement};
+use ast::{Expr, Literal, Identifier, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr,
+          Grouping, Statement};
 use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
-
-#[derive(Hash, Eq, PartialEq, Debug)]
-struct Identifier {
-    name: String, // TODO: should we use handles here?
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -72,10 +68,11 @@ impl Interpreter {
 pub enum RuntimeError {
     UnaryMinusTypeMismatch(Value),
     BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
+    UndefinedIdentifier(Identifier),
 }
 
 trait Interpret {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError>;
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError>;
 }
 
 trait Execute {
@@ -83,18 +80,19 @@ trait Execute {
 }
 
 impl Interpret for Expr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         match *self {
             Expr::Literal(ref l) => l.interpret(environment),
             Expr::Unary(ref u) => u.interpret(environment),
             Expr::Binary(ref b) => b.interpret(environment),
             Expr::Grouping(ref g) => g.interpret(environment),
+            Expr::Identifier(ref i) => i.interpret(environment),
         }
     }
 }
 
 impl Interpret for Literal {
-    fn interpret(&self, _: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, _: &Environment) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -104,14 +102,23 @@ impl Interpret for Literal {
     }
 }
 
+impl Interpret for Identifier {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
+        match environment.get(&self) {
+            Some(value) => Ok(value.clone()),
+            None => Err(RuntimeError::UndefinedIdentifier((*self).clone())),
+        }
+    }
+}
+
 impl Interpret for Grouping {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         self.expr.interpret(environment)
     }
 }
 
 impl Interpret for UnaryExpr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         let value = try!(self.right.interpret(environment));
         match self.operator {
             UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
@@ -126,7 +133,7 @@ impl Interpret for UnaryExpr {
 }
 
 impl Interpret for BinaryExpr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         let left = try!(self.left.interpret(environment));
         let right = try!(self.right.interpret(environment));
         match (&self.operator, &left, &right) {

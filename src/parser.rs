@@ -306,6 +306,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
             Token::Nil => Expr::Literal(Literal::NilLiteral),
             Token::NumberLiteral(n) => Expr::Literal(Literal::NumberLiteral(n)),
             Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
+            Token::Identifier(ref i) => Expr::Identifier(Identifier { name: i.clone() }),
             Token::LeftParen => {
                 let expr = if let Some(result) = parse_expression(tokens) {
                     try_wrap_err!(result)

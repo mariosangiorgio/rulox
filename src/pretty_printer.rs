@@ -17,6 +17,7 @@ impl PrettyPrint for Expr {
             Expr::Unary(ref u) => u.pretty_print_into(pretty_printed),
             Expr::Binary(ref b) => b.pretty_print_into(pretty_printed),
             Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
+            Expr::Identifier(ref i) => i.pretty_print_into(pretty_printed),
         }
     }
 }

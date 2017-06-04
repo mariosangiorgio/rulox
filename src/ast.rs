@@ -18,6 +18,7 @@ pub enum BinaryOperator {
     GreaterEqual,
 }
 
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Identifier {
     pub name: String,
 }
@@ -46,6 +47,7 @@ pub struct Grouping {
 
 pub enum Expr {
     Literal(Literal),
+    Identifier(Identifier),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Grouping(Box<Grouping>),
