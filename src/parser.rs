@@ -17,6 +17,7 @@ pub enum ParseError {
     MissingClosingParen(Lexeme, Position),
     MissingSemicolon(Lexeme, Position),
     MissingIdentifier(Lexeme, Position),
+    InvalidAssignmentTarget(Lexeme, Position),
 }
 
 pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseError>> {
@@ -167,7 +168,7 @@ fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
 fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    parse_equality(tokens)
+    parse_assignment(tokens)
 }
 
 fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
@@ -205,6 +206,41 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
         expr = Expr::Binary(Box::new(binary_expression));
     }
     Some(Ok(expr))
+}
+
+fn parse_assignment<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    match parse_equality(tokens) {
+        Some(Ok(lvalue)) => {
+            if let Some(&Token::Equal) = tokens.peek().map(|t| &t.token) {
+                let equal = tokens.next().unwrap();
+                match lvalue {
+                    Expr::Identifier(identifier) => {
+                        let target = Target::Identifier(Identifier { name: identifier.name });
+                        match parse_assignment(tokens) {
+                            None => Some(Err(ParseError::UnexpectedEndOfFile)),
+                            Some(result) => {
+                                Some(result.map(|rvalue| {
+                                    Expr::Assignment(Box::new(Assignment {
+                                        lvalue: target,
+                                        rvalue: rvalue,
+                                    }))
+                                }))
+                            }
+                        }
+                    }
+                    _ => {
+                        Some(Err(ParseError::InvalidAssignmentTarget(equal.lexeme.clone(),
+                                                                     equal.position)))
+                    }
+                }
+            } else {
+                Some(Ok(lvalue))
+            }
+        }
+        result => result,
+    }
 }
 
 fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>

@@ -1,5 +1,4 @@
-use ast::{Expr, Identifier, Literal, UnaryOperator, UnaryExpr, BinaryOperator, BinaryExpr,
-          Grouping, Statement};
+use ast::*;
 
 pub trait PrettyPrint {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> ();
@@ -18,6 +17,7 @@ impl PrettyPrint for Expr {
             Expr::Binary(ref b) => b.pretty_print_into(pretty_printed),
             Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
             Expr::Identifier(ref i) => i.pretty_print_into(pretty_printed),
+            Expr::Assignment(ref a) => a.pretty_print_into(pretty_printed),
         }
     }
 }
@@ -62,6 +62,22 @@ impl PrettyPrint for Literal {
 impl PrettyPrint for Identifier {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         pretty_printed.push_str(&self.name)
+    }
+}
+
+impl PrettyPrint for Target {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match *self {
+            Target::Identifier(ref i) => i.pretty_print_into(pretty_printed),
+        }
+    }
+}
+
+impl PrettyPrint for Assignment {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        self.lvalue.pretty_print_into(pretty_printed);
+        pretty_printed.push_str(" = ");
+        self.rvalue.pretty_print_into(pretty_printed);
     }
 }
 
