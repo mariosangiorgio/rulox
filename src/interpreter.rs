@@ -44,8 +44,8 @@ impl Environment {
         self.values.insert(identifier, value);
     }
 
-    fn contains(&self, identifier: &Identifier) -> bool{
-        self.values.contains_key(&identifier)
+    fn contains(&self, identifier: &Identifier) -> bool {
+        self.values.contains_key(identifier)
     }
 
     fn set(&mut self, identifier: Identifier, value: Value) {
@@ -129,17 +129,16 @@ impl Interpret for Assignment {
         let target = match self.lvalue {
             Target::Identifier(ref i) => Identifier { name: i.name.clone() },
         };
-        match self.rvalue.interpret(environment){
-            Ok(value) =>{
-            if environment.contains(&target){
-                environment.set(target, value.clone());
-                Ok(value)
+        match self.rvalue.interpret(environment) {
+            Ok(value) => {
+                if environment.contains(&target) {
+                    environment.set(target, value.clone());
+                    Ok(value)
+                } else {
+                    Err(RuntimeError::UndefinedIdentifier(target))
+                }
             }
-            else{
-                Err(RuntimeError::UndefinedIdentifier(target))
-            }
-            },
-            Err(error) => Err(error)
+            Err(error) => Err(error),
         }
     }
 }
