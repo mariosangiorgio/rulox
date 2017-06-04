@@ -173,14 +173,14 @@ impl Interpret for BinaryExpr {
 
 impl Execute for Statement {
     fn execute(&self, mut environment: &mut Environment) -> Option<RuntimeError> {
-        match self {
-            &Statement::Expression(ref e) => {
+        match *self {
+            Statement::Expression(ref e) => {
                 match e.interpret(environment) {
                     Err(e) => Some(e),
                     _ => None,
                 }
             }
-            &Statement::Print(ref e) => {
+            Statement::Print(ref e) => {
                 match e.interpret(environment) {
                     Err(e) => Some(e),
                     Ok(value) => {
@@ -190,12 +190,12 @@ impl Execute for Statement {
                     }
                 }
             }
-            &Statement::VariableDefinition(ref identifier) =>{
+            Statement::VariableDefinition(ref identifier) =>{
                 let identifier = Identifier{name:identifier.name.clone()};
                 environment.define(identifier, Value::Nil);
                 None
             },
-            &Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) =>{
+            Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) =>{
                 let identifier = Identifier{name:identifier.name.clone()};
                 match expression.interpret(&mut environment){
                     Ok(initializer) => {
