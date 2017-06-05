@@ -106,6 +106,10 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
             let _ = tokens.next();
             parse_semicolon_terminated_statement(tokens, &parse_var_declaration)
         }
+        Some(&Token::LeftBrace) => {
+            let _ = tokens.next();
+            parse_block(tokens)
+        }
         Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
     }
@@ -136,6 +140,31 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
         }
     } else {
         Some(Ok(Statement::VariableDefinition(identifier)))
+    }
+}
+
+fn parse_block<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let mut statements = Vec::new();
+    fn is_block_end(token: &&TokenWithContext) -> bool {
+        match **token {
+            TokenWithContext { token: Token::RightBrace, .. } => true,
+            _ => false,
+        }
+    }
+    while let Some(false) = tokens.peek().map(&is_block_end) {
+        match parse_declaration(tokens) {
+            Some(Ok(statement)) => statements.push(statement),
+            None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            Some(Err(error)) => return Some(Err(error)),
+        }
+    }
+    if let Some(true) = tokens.peek().map(&is_block_end) {
+        let _ = tokens.next();
+        Some(Ok(Statement::Block(Box::new(Block { statements: statements }))))
+    } else {
+        Some(Err(ParseError::UnexpectedEndOfFile)) //TODO: better message
     }
 }
 

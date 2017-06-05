@@ -68,4 +68,9 @@ pub enum Statement {
     Expression(Expr),
     VariableDefinition(Identifier),
     VariableDefinitionWithInitalizer(Identifier, Expr),
+    Block(Box<Block>),
+}
+
+pub struct Block {
+    pub statements: Vec<Statement>,
 }

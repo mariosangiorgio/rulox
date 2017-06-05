@@ -31,53 +31,49 @@ impl Value {
 }
 
 struct Environment {
-    enclosing: Option<Box<Environment>>,
-    values: HashMap<Identifier, Value>,
+    values: Vec<HashMap<Identifier, Value>>,
 }
 
 impl Environment {
     fn new() -> Environment {
-        Environment {
-            values: HashMap::new(),
-            enclosing: None,
-        }
+        Environment { values: vec![HashMap::new()] }
     }
 
-    fn new_with_parent(environment: Environment) -> Environment {
-        Environment {
-            values: HashMap::new(),
-            enclosing: Some(Box::new(environment)),
-        }
+    fn push(&mut self) {
+        self.values.push(HashMap::new());
+    }
+
+    fn pop(&mut self) {
+        self.values.pop();
+    }
+
+    fn top(&self) -> usize {
+        self.values.len() - 1
     }
 
     fn define(&mut self, identifier: Identifier, value: Value) {
         // NOTE that this allow for variable redefinition. See the chapter.
-        self.values.insert(identifier, value);
+        let index = self.top();
+        self.values[index].insert(identifier, value);
     }
 
-    // The signature is a bit weird, but saves a clone on every assignment
-    fn try_set(&mut self, identifier: Identifier, value: Value) -> Option<Identifier> {
-        if self.values.contains_key(&identifier) {
-            self.values.insert(identifier, value);
-            None
-        } else {
-            match self.enclosing {
-                None => Some(identifier),
-                Some(ref mut enclosing) => enclosing.try_set(identifier, value),
+    fn try_set(&mut self, identifier: Identifier, value: Value) -> bool {
+        for index in (0..self.values.len()).rev() {
+            if self.values[index].contains_key(&identifier) {
+                self.values[index].insert(identifier, value);
+                return true;
             }
         }
+        false
     }
 
     fn get(&self, identifier: &Identifier) -> Option<&Value> {
-        match self.values.get(identifier) {
-            None => {
-                match self.enclosing {
-                    None => None,
-                    Some(ref enclosing) => enclosing.get(identifier),
-                }
+        for index in (0..self.values.len()).rev() {
+            if let Some(value) = self.values[index].get(identifier) {
+                return Some(value);
             }
-            value => value,
         }
+        None
     }
 }
 
@@ -155,9 +151,10 @@ impl Interpret for Assignment {
         };
         match self.rvalue.interpret(environment) {
             Ok(value) => {
-                match environment.try_set(target, value.clone()) {
-                    None => Ok(value.clone()),
-                    Some(target) => Err(RuntimeError::UndefinedIdentifier(target)),
+                if environment.try_set(target.clone(), value.clone()) {
+                    Ok(value.clone())
+                } else {
+                    Err(RuntimeError::UndefinedIdentifier(target))
                 }
             }
             Err(error) => Err(error),
@@ -254,6 +251,15 @@ impl Execute for Statement {
                     environment.define(identifier, initializer);
                     None
                 })
+            }
+            Statement::Block(ref b) => {
+                environment.push();
+                let mut result = Ok(None);
+                for statement in &b.statements {
+                    result = statement.execute(environment);
+                }
+                environment.pop();
+                result
             }
         }
     }

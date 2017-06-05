@@ -117,6 +117,7 @@ impl PrettyPrint for Statement {
             Statement::Print(ref e) => {
                 pretty_printed.push_str("print ");
                 e.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(";");
             }
             Statement::Expression(ref e) => e.pretty_print_into(pretty_printed),
             Statement::VariableDefinition(ref identifier) => {
@@ -130,6 +131,13 @@ impl PrettyPrint for Statement {
                 pretty_printed.push_str(" = ");
                 initializer.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");
+            }
+            Statement::Block(ref b) => {
+                pretty_printed.push_str("{");
+                for statement in &b.statements {
+                    statement.pretty_print_into(pretty_printed);
+                }
+                pretty_printed.push_str("}");
             }
         };
     }
