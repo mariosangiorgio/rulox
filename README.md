@@ -1,5 +1,6 @@
 # rulox
 A lox interpreter written in Rust
+[![Build Status](https://travis-ci.org/mariosangiorgio/rulox.svg?branch=master)](https://travis-ci.org/mariosangiorgio/rulox)
 
 http://www.craftinginterpreters.com
 
