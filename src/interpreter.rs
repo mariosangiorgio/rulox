@@ -234,11 +234,12 @@ impl Execute for Statement {
         match *self {
             Statement::Expression(ref e) => e.interpret(environment).map(Some),
             Statement::Print(ref e) => {
-                e.interpret(environment).map(|value| {
-                    println!("{}", value.to_string());
-                    let _ = io::stdout().flush(); //TODO: is this okay?
-                    None
-                })
+                e.interpret(environment)
+                    .map(|value| {
+                             println!("{}", value.to_string());
+                             let _ = io::stdout().flush(); //TODO: is this okay?
+                             None
+                         })
             }
             Statement::VariableDefinition(ref identifier) => {
                 let identifier = Identifier { name: identifier.name.clone() };
@@ -247,10 +248,12 @@ impl Execute for Statement {
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => {
                 let identifier = Identifier { name: identifier.name.clone() };
-                expression.interpret(environment).map(|initializer| {
-                    environment.define(identifier, initializer);
-                    None
-                })
+                expression
+                    .interpret(environment)
+                    .map(|initializer| {
+                             environment.define(identifier, initializer);
+                             None
+                         })
             }
             Statement::Block(ref b) => {
                 environment.push();

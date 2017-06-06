@@ -63,10 +63,7 @@ pub struct Position {
 
 impl Position {
     fn initial() -> Position {
-        Position {
-            line: 1,
-            column: 1,
-        }
+        Position { line: 1, column: 1 }
     }
 
     fn increment_column(&mut self) -> () {
@@ -194,7 +191,11 @@ impl<'a> Scanner<'a> {
         }
         let literal_length = self.current_lexeme.len() - 2;
         // Trims delimiters
-        let literal = self.current_lexeme.chars().skip(1).take(literal_length).collect();
+        let literal = self.current_lexeme
+            .chars()
+            .skip(1)
+            .take(literal_length)
+            .collect();
         Ok(Token::StringLiteral(literal))
     }
 

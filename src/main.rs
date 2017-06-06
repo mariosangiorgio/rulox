@@ -30,8 +30,10 @@ enum InputError {
 
 fn scan_and_parse(source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
-    let mut errors: Vec<InputError> =
-        scanner_errors.iter().map(|e| InputError::ScannerError(e.clone())).collect();
+    let mut errors: Vec<InputError> = scanner_errors
+        .iter()
+        .map(|e| InputError::ScannerError(e.clone()))
+        .collect();
     match parser::parse(&tokens) {
         Ok(expr) => {
             if errors.is_empty() {
