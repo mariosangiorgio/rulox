@@ -18,7 +18,7 @@ addons:
     sources:
       - kalakris-cmake
 cache: cargo
-before_script: (cargo install cargo-travis && cargo install rustfmt)
+before_script: ((cargo install cargo-travis && cargo install rustfmt) || true)
 script:
 - |
   cargo fmt -- --write-mode=diff &&
