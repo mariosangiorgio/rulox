@@ -482,4 +482,28 @@ mod tests {
         assert_eq!("{ var x = 10; print x; }", statements[1].pretty_print());
         assert_eq!("print x;", statements[2].pretty_print());
     }
+
+    #[test]
+    fn wrong_variable_declaration_target() {
+        let (tokens, _) = scan(&"var 1 = 1;");
+        assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn wrong_assigment_target() {
+        let (tokens, _) = scan(&"1 = 1;");
+        assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn missing_initializer() {
+        let (tokens, _) = scan(&"var a =;");
+        assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn unfinished_block() {
+        let (tokens, _) = scan(&"{var a = 1;");
+        assert!(parse(&tokens).is_err());
+    }
 }
