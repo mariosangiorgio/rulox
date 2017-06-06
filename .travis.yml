@@ -6,3 +6,10 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+cache: cargo
+before_script: (cargo install rustfmt || true)
+script:
+- |
+  cargo fmt -- --write-mode=diff &&
+  cargo build &&
+  cargo test
