@@ -133,9 +133,10 @@ impl PrettyPrint for Statement {
                 pretty_printed.push_str(";");
             }
             Statement::Block(ref b) => {
-                pretty_printed.push_str("{");
+                pretty_printed.push_str("{ ");
                 for statement in &b.statements {
                     statement.pretty_print_into(pretty_printed);
+                    pretty_printed.push_str(" ");
                 }
                 pretty_printed.push_str("}");
             }
@@ -169,5 +170,17 @@ mod tests {
         };
         let expr = Expr::Binary(Box::new(binary_expr));
         assert_eq!("(* (- 123) (group 45.67))", &expr.pretty_print());
+    }
+
+    #[test]
+    fn block() {
+        let identifier = Identifier { name: "x".into() };
+        let statements = vec![
+            Statement::VariableDefinitionWithInitalizer(
+                identifier.clone(),
+                Expr::Literal(Literal::BoolLiteral(true))),
+            Statement::Print(Expr::Identifier(identifier.clone()))];
+        let block = Statement::Block(Box::new(Block { statements: statements }));
+        assert_eq!("{ var x = true; print x; }", &block.pretty_print());
     }
 }
