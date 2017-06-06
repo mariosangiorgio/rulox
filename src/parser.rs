@@ -473,4 +473,13 @@ mod tests {
         let (tokens, _) = scan(&"2)");
         assert!(parse(&tokens).is_err());
     }
+
+    #[test]
+    fn multiple_statements() {
+        let (tokens, _) = scan(&"var x; {var x=10; print x;} print x;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("var x;", statements[0].pretty_print());
+        assert_eq!("{ var x = 10; print x; }", statements[1].pretty_print());
+        assert_eq!("print x;", statements[2].pretty_print());
+    }
 }
