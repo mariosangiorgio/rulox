@@ -271,7 +271,7 @@ impl Execute for Statement {
 #[cfg(test)]
 mod tests {
     use ast::*;
-    use interpreter::{Interpret, Environment, Value};
+    use interpreter::{Interpret, Execute, Environment, Value};
 
     #[test]
     fn literal() {
@@ -311,6 +311,66 @@ mod tests {
         };
         assert_eq!(Value::Number(2.0f64),
                    expr.interpret(&mut environment).unwrap());
+    }
+
+    #[test]
+    fn expression_statement() {
+        let mut environment = Environment::new();
+        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let statement = Statement::Expression(expr);
+        assert_eq!(Some(Value::Number(1.0f64)),
+                   statement.execute(&mut environment).unwrap());
+    }
+
+    #[test]
+    fn variable_definition() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let statement = Statement::VariableDefinition(identifier.clone());
+        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(&Value::Nil, environment.get(&identifier).unwrap());
+    }
+
+    #[test]
+    fn variable_definition_with_initializer() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
+        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(&Value::Number(1.0f64),
+                   environment.get(&identifier).unwrap());
+    }
+
+    #[test]
+    fn block_affects_outer_scope() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let outer_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
+        assert_eq!(None, outer_statement.execute(&mut environment).unwrap());
+
+        let statements = vec![
+            Statement::Expression(
+                Expr::Assignment(Box::new(Assignment{
+                    lvalue: Target::Identifier(Identifier{name: "x".into()}),
+                    rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
+        let block = Statement::Block(Box::new(Block { statements: statements }));
+        assert!(block.execute(&mut environment).is_ok());
+        assert_eq!(&Value::Boolean(false),
+                   environment.get(&identifier).unwrap());
+    }
+    #[test]
+    fn block_variable_dont_escape_scope() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let statements = vec![Statement::VariableDefinitionWithInitalizer(identifier.clone(),
+                                                                          expr)];
+        let block = Statement::Block(Box::new(Block { statements: statements }));
+        assert_eq!(None, block.execute(&mut environment).unwrap());
+        // The variable declaration gets lost when we exit the scope
+        assert_eq!(None, environment.get(&identifier));
     }
 
 }
