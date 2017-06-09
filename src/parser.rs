@@ -484,6 +484,20 @@ mod tests {
     }
 
     #[test]
+    fn expr_with_equality() {
+        let (tokens, _) = scan(&"x/2 == 1;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("(== (/ x 2) 1);", statements[0].pretty_print());
+    }
+
+    #[test]
+    fn assignment() {
+        let (tokens, _) = scan(&"a = 1;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("a = 1;", statements[0].pretty_print());
+    }
+
+    #[test]
     fn wrong_variable_declaration_target() {
         let (tokens, _) = scan(&"var 1 = 1;");
         assert!(parse(&tokens).is_err());
