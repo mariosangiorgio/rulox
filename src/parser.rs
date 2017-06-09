@@ -10,13 +10,18 @@ macro_rules! try_wrap_err {
 }
 
 #[derive(Debug)]
+pub enum RequiredElement {
+    Subexpression,
+    ClosingParen,
+    Semincolon,
+    Identifier,
+}
+
+#[derive(Debug)]
 pub enum ParseError {
     UnexpectedEndOfFile,
     UnexpectedToken(Lexeme, Position),
-    MissingSubexpression(Lexeme, Position),
-    MissingClosingParen(Lexeme, Position),
-    MissingSemicolon(Lexeme, Position),
-    MissingIdentifier(Lexeme, Position),
+    Missing(RequiredElement, Lexeme, Position),
     InvalidAssignmentTarget(Lexeme, Position),
 }
 
@@ -92,7 +97,11 @@ fn parse_semicolon_terminated_statement<'a, I>(tokens: &mut Peekable<I>,
                          ref lexeme,
                          ref position,
                          ..
-                     }) => Some(Err(ParseError::MissingSemicolon(lexeme.clone(), *position))),
+                     }) => {
+                    Some(Err(ParseError::Missing(RequiredElement::Semincolon,
+                                                 lexeme.clone(),
+                                                 *position)))
+                }
                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
             }
         }
@@ -129,7 +138,11 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
                  ref lexeme,
                  ref position,
                  ..
-             }) => return Some(Err(ParseError::MissingIdentifier(lexeme.clone(), *position))),
+             }) => {
+            return Some(Err(ParseError::Missing(RequiredElement::Identifier,
+                                                lexeme.clone(),
+                                                *position)))
+        }
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
     if let Some(&&TokenWithContext {
@@ -143,7 +156,11 @@ fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
                 Some(Ok(Statement::VariableDefinitionWithInitalizer(identifier, expression)))
             }
             Some(Err(error)) => Some(Err(error)),
-            None => Some(Err(ParseError::MissingSubexpression(lexeme.clone(), *position))),
+            None => {
+                Some(Err(ParseError::Missing(RequiredElement::Subexpression,
+                                             lexeme.clone(),
+                                             *position)))
+            }
         }
     } else {
         Some(Ok(Statement::VariableDefinition(identifier)))
@@ -231,8 +248,9 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
         let right = if let Some(result) = parse_subexpression(tokens) {
             try_wrap_err!(result)
         } else {
-            return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
-                                                             operator.position)));
+            return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
+                                                operator.lexeme.clone(),
+                                                operator.position)));
         };
         let binary_expression = BinaryExpr {
             left: expr,
@@ -351,8 +369,9 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
         let right = if let Some(result) = parse_unary(tokens) {
             try_wrap_err!(result)
         } else {
-            return Some(Err(ParseError::MissingSubexpression(operator.lexeme.clone(),
-                                                             operator.position)));
+            return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
+                                                operator.lexeme.clone(),
+                                                operator.position)));
         };
         let unary_expression = UnaryExpr {
             operator: mapped_operator,
@@ -391,8 +410,9 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
                             let grouping_expression = Grouping { expr: expr };
                             return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
                         } else {
-                            return Some(Err(ParseError::MissingClosingParen(token.lexeme.clone(),
-                                                                            token.position)));
+                            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
+                                                                token.lexeme.clone(),
+                                                                token.position)));
                         }
 
                     }
