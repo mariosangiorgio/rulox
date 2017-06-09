@@ -332,6 +332,26 @@ mod tests {
     }
 
     #[test]
+    fn error_accessing_undefined_variable() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let statement = Statement::Expression(Expr::Identifier(identifier));
+        assert!(statement.execute(&mut environment).is_err());
+    }
+
+    #[test]
+    fn error_assigning_undefined_variable() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let statement = Statement::Expression(
+            Expr::Assignment(Box::new(Assignment{
+                lvalue: Target::Identifier(identifier),
+                rvalue: Expr::Literal(Literal::BoolLiteral(true))}))
+            );
+        assert!(statement.execute(&mut environment).is_err());
+    }
+
+    #[test]
     fn variable_definition_with_initializer() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
