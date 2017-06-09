@@ -412,4 +412,16 @@ mod tests {
         assert_eq!(None, environment.get(&identifier));
     }
 
+    #[test]
+    fn truth_table() {
+        // Note that lox follows Ruby's rules, not Javascript's
+        assert_eq!(false, Value::Nil.is_true());
+        assert_eq!(true, Value::Boolean(true).is_true());
+        assert_eq!(false, Value::Boolean(false).is_true());
+        assert_eq!(true, Value::Number(1.0f64).is_true());
+        assert_eq!(true, Value::Number(0.0f64).is_true());
+        assert_eq!(true, Value::String("".into()).is_true());
+        assert_eq!(true, Value::String("Hello World!".into()).is_true());
+    }
+
 }
