@@ -323,6 +323,25 @@ mod tests {
     }
 
     #[test]
+    fn complex_expression_statement() {
+        let mut environment = Environment::new();
+        let subexpr1 = UnaryExpr {
+            operator: UnaryOperator::Minus,
+            right: Expr::Literal(Literal::NumberLiteral(2f64)),
+        };
+        let subexpr2 = Grouping { expr: Expr::Literal(Literal::NumberLiteral(5f64)) };
+        let binary_expr = BinaryExpr {
+            left: Expr::Unary(Box::new(subexpr1)),
+            operator: BinaryOperator::Star,
+            right: Expr::Grouping(Box::new(subexpr2)),
+        };
+        let expr = Expr::Binary(Box::new(binary_expr));
+        let statement = Statement::Expression(expr);
+        assert_eq!(Some(Value::Number(-10.0f64)),
+                   statement.execute(&mut environment).unwrap());
+    }
+
+    #[test]
     fn variable_definition() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
