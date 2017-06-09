@@ -325,6 +325,18 @@ mod tests {
     }
 
     #[test]
+    fn string_concatenation() {
+        let mut environment = Environment::new();
+        let expr = BinaryExpr {
+            operator: BinaryOperator::Plus,
+            left: Expr::Literal(Literal::StringLiteral("Foo".into())),
+            right: Expr::Literal(Literal::StringLiteral("Bar".into())),
+        };
+        assert_eq!(Value::String("FooBar".into()),
+                   expr.interpret(&mut environment).unwrap());
+    }
+
+    #[test]
     fn expression_statement() {
         let mut environment = Environment::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
