@@ -271,7 +271,7 @@ impl Execute for Statement {
 #[cfg(test)]
 mod tests {
     use ast::*;
-    use interpreter::{Interpret, Execute, Environment, Value};
+    use interpreter::{Interpreter, StatementInterpreter, Interpret, Execute, Environment, Value};
 
     #[test]
     fn literal() {
@@ -299,6 +299,17 @@ mod tests {
         };
         assert_eq!(Value::Boolean(true),
                    expr.interpret(&mut environment).unwrap());
+    }
+
+    #[test]
+    fn unary_minus_only_applies_to_numbers() {
+        let mut interpreter = StatementInterpreter::new();
+        let expr = UnaryExpr {
+            operator: UnaryOperator::Minus,
+            right: Expr::Literal(Literal::NilLiteral),
+        };
+        let statement = Statement::Expression(Expr::Unary(Box::new(expr)));
+        assert!(interpreter.execute(&statement).is_err());
     }
 
     #[test]
