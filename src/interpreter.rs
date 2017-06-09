@@ -337,6 +337,17 @@ mod tests {
     }
 
     #[test]
+    fn binary_expression_with_mismatching_types() {
+        let mut environment = Environment::new();
+        let expr = BinaryExpr {
+            operator: BinaryOperator::LessEqual,
+            left: Expr::Literal(Literal::NilLiteral),
+            right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
+        };
+        assert!(expr.interpret(&mut environment).is_err());
+    }
+
+    #[test]
     fn expression_statement() {
         let mut environment = Environment::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
