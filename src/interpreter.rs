@@ -424,4 +424,16 @@ mod tests {
         assert_eq!(true, Value::String("Hello World!".into()).is_true());
     }
 
+    #[test]
+    fn to_string() {
+        // Note that lox follows Ruby's rules, not Javascript's
+        assert_eq!("nil", Value::Nil.to_string());
+        assert_eq!("true", Value::Boolean(true).to_string());
+        assert_eq!("false", Value::Boolean(false).to_string());
+        assert_eq!("1", Value::Number(1.0f64).to_string());
+        assert_eq!("0", Value::Number(0.0f64).to_string());
+        assert_eq!("", Value::String("".into()).to_string());
+        assert_eq!("Hello World!",
+                   Value::String("Hello World!".into()).to_string());
+    }
 }
