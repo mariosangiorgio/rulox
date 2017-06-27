@@ -304,6 +304,12 @@ impl Execute for Statement {
                     c.else_branch.execute(environment)
                 }
             }
+            Statement::While(ref l) => {
+                while try!{l.condition.interpret(environment).map(|v|v.is_true())} {
+                    try!{l.body.execute(environment)};
+                }
+                Ok(None)
+            }
         }
     }
 }
@@ -312,6 +318,8 @@ impl Execute for Statement {
 mod tests {
     use ast::*;
     use interpreter::{Interpreter, StatementInterpreter, Interpret, Execute, Environment, Value};
+    use scanner::*;
+    use parser::*;
 
     #[test]
     fn literal() {
@@ -530,5 +538,19 @@ mod tests {
         assert_eq!(None, block.execute(&mut environment).unwrap());
         assert_eq!(&Value::Number(2.0f64),
                    environment.get(&identifier).unwrap());
+    }
+
+    #[test]
+    fn while_loop() {
+        let mut environment = Environment::new();
+        let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
+        let statements = parse(&tokens).unwrap();
+        for statement in statements {
+            let _ = statement.execute(&mut environment);
+        }
+        assert_eq!(&Value::Number(0.0f64),
+                   environment.get(&Identifier { name: "a".into() }).unwrap());
+        assert_eq!(&Value::Number(2.0f64),
+                   environment.get(&Identifier { name: "b".into() }).unwrap());
     }
 }

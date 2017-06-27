@@ -179,6 +179,12 @@ impl PrettyPrint for Statement {
                 pretty_printed.push_str(" else ");
                 c.else_branch.pretty_print_into(pretty_printed);
             }
+            Statement::While(ref l) => {
+                pretty_printed.push_str("while ( ");
+                l.condition.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(" ) ");
+                l.body.pretty_print_into(pretty_printed);
+            }
         };
     }
 }

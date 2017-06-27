@@ -126,6 +126,10 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
             let _ = tokens.next();
             parse_if_statement(tokens)
         }
+        Some(&Token::While) => {
+            let _ = tokens.next();
+            parse_while_statement(tokens)
+        }
         Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
     }
@@ -273,6 +277,51 @@ fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statemen
                                                then_branch: then_branch,
                                            }))))
     }
+}
+
+fn parse_while_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::LeftParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    let condition = match parse_expression(tokens) {
+        Some(Ok(expression)) => expression,
+        Some(Err(error)) => return Some(Err(error)),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::RightParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    // I'd rather use parse_block instead of parse_declaration
+    // that would require the presence of the brackets
+    let body = match parse_declaration(tokens) {
+        Some(Ok(statement)) => statement,
+        Some(Err(error)) => return Some(Err(error)),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    Some(Ok(Statement::While(Box::new(While {
+                                          condition: condition,
+                                          body: body,
+                                      }))))
 }
 
 fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
@@ -697,6 +746,14 @@ mod tests {
         let (tokens, _) = scan(&"if(a and b) { x = 2;} else{x = 3;}");
         let statements = parse(&tokens).unwrap();
         assert_eq!("if ( (and a b) ) { x = 2; } else { x = 3; }",
+                   statements[0].pretty_print());
+    }
+
+    #[test]
+    fn while_statement() {
+        let (tokens, _) = scan(&"while(a > 0){ a = a - 1;}");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("while ( (> a 0) ) { a = (- a 1); }",
                    statements[0].pretty_print());
     }
 }

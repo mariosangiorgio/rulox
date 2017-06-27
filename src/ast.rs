@@ -85,6 +85,7 @@ pub enum Statement {
     Block(Box<Block>),
     IfThen(Box<IfThen>),
     IfThenElse(Box<IfThenElse>),
+    While(Box<While>),
 }
 
 pub struct Block {
@@ -100,4 +101,9 @@ pub struct IfThenElse {
     pub condition: Expr,
     pub then_branch: Statement,
     pub else_branch: Statement,
+}
+
+pub struct While {
+    pub condition: Expr,
+    pub body: Statement,
 }
