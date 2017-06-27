@@ -69,8 +69,21 @@ pub enum Statement {
     VariableDefinition(Identifier),
     VariableDefinitionWithInitalizer(Identifier, Expr),
     Block(Box<Block>),
+    IfThen(Box<IfThen>),
+    IfThenElse(Box<IfThenElse>),
 }
 
 pub struct Block {
     pub statements: Vec<Statement>,
+}
+
+pub struct IfThen {
+    pub condition: Expr,
+    pub then_branch: Statement,
+}
+
+pub struct IfThenElse {
+    pub condition: Expr,
+    pub then_branch: Statement,
+    pub else_branch: Statement,
 }

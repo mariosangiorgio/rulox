@@ -12,6 +12,7 @@ macro_rules! try_wrap_err {
 #[derive(Debug)]
 pub enum RequiredElement {
     Subexpression,
+    LeftParen,
     ClosingParen,
     Semincolon,
     Identifier,
@@ -121,6 +122,10 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
             let _ = tokens.next();
             parse_block(tokens)
         }
+        Some(&Token::If) => {
+            let _ = tokens.next();
+            parse_if_statement(tokens)
+        }
         Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
     }
@@ -209,6 +214,65 @@ fn parse_print_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
     where I: Iterator<Item = &'a TokenWithContext>
 {
     parse_expression(tokens).map(|r| r.map(Statement::Print))
+}
+
+fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::LeftParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    let condition = match parse_expression(tokens) {
+        Some(Ok(expression)) => expression,
+        Some(Err(error)) => return Some(Err(error)),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::RightParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    // I'd rather use parse_block instead of parse_declaration
+    // that would require the presence of the brackets
+    let then_branch = match parse_declaration(tokens) {
+        Some(Ok(statement)) => statement,
+        Some(Err(error)) => return Some(Err(error)),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    if let Some(&Token::Else) = tokens.peek().map(|t| &t.token) {
+        let _ = tokens.next();
+        let else_branch = match parse_declaration(tokens) {
+            Some(Ok(statement)) => statement,
+            Some(Err(error)) => return Some(Err(error)),
+            None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+        };
+        Some(Ok(Statement::IfThenElse(Box::new(IfThenElse {
+                                                   condition: condition,
+                                                   then_branch: then_branch,
+                                                   else_branch: else_branch,
+                                               }))))
+    } else {
+        Some(Ok(Statement::IfThen(Box::new(IfThen {
+                                               condition: condition,
+                                               then_branch: then_branch,
+                                           }))))
+    }
 }
 
 fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
@@ -539,5 +603,20 @@ mod tests {
     fn unfinished_block() {
         let (tokens, _) = scan(&"{var a = 1;");
         assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn if_then_statement() {
+        let (tokens, _) = scan(&"if(a) x = 2;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("if ( a ) x = 2;", statements[0].pretty_print());
+    }
+
+    #[test]
+    fn if_then_else_statement() {
+        let (tokens, _) = scan(&"if(a) { x = 2;} else{x = 3;}");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("if ( a ) { x = 2; } else { x = 3; }",
+                   statements[0].pretty_print());
     }
 }

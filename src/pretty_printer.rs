@@ -143,6 +143,20 @@ impl PrettyPrint for Statement {
                 }
                 pretty_printed.push_str("}");
             }
+            Statement::IfThen(ref c) => {
+                pretty_printed.push_str("if ( ");
+                c.condition.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(" ) ");
+                c.then_branch.pretty_print_into(pretty_printed);
+            }
+            Statement::IfThenElse(ref c) => {
+                pretty_printed.push_str("if ( ");
+                c.condition.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(" ) ");
+                c.then_branch.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(" else ");
+                c.else_branch.pretty_print_into(pretty_printed);
+            }
         };
     }
 }

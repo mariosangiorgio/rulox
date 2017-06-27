@@ -264,6 +264,22 @@ impl Execute for Statement {
                 environment.pop();
                 result
             }
+            Statement::IfThen(ref c) => {
+                let condition = try!{c.condition.interpret(environment).map(|v|v.is_true())};
+                if condition {
+                    c.then_branch.execute(environment)
+                } else {
+                    Ok(None)
+                }
+            }
+            Statement::IfThenElse(ref c) => {
+                let condition = try!{c.condition.interpret(environment).map(|v|v.is_true())};
+                if condition {
+                    c.then_branch.execute(environment)
+                } else {
+                    c.else_branch.execute(environment)
+                }
+            }
         }
     }
 }
