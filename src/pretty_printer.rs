@@ -15,6 +15,7 @@ impl PrettyPrint for Expr {
             Expr::Literal(ref l) => l.pretty_print_into(pretty_printed),
             Expr::Unary(ref u) => u.pretty_print_into(pretty_printed),
             Expr::Binary(ref b) => b.pretty_print_into(pretty_printed),
+            Expr::Logic(ref b) => b.pretty_print_into(pretty_printed),
             Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
             Expr::Identifier(ref i) => i.pretty_print_into(pretty_printed),
             Expr::Assignment(ref a) => a.pretty_print_into(pretty_printed),
@@ -44,6 +45,15 @@ impl PrettyPrint for BinaryOperator {
             BinaryOperator::LessEqual => pretty_printed.push_str("<="),
             BinaryOperator::Greater => pretty_printed.push_str(">"),
             BinaryOperator::GreaterEqual => pretty_printed.push_str(">="),
+        }
+    }
+}
+
+impl PrettyPrint for LogicOperator {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        match *self {
+            LogicOperator::Or => pretty_printed.push_str("||"),
+            LogicOperator::And => pretty_printed.push_str("&&"),
         }
     }
 }
@@ -93,6 +103,18 @@ impl PrettyPrint for UnaryExpr {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         pretty_printed.push_str("(");
         self.operator.pretty_print_into(pretty_printed);
+        pretty_printed.push_str(" ");
+        self.right.pretty_print_into(pretty_printed);
+        pretty_printed.push_str(")");
+    }
+}
+
+impl PrettyPrint for LogicExpr {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        pretty_printed.push_str("(");
+        self.operator.pretty_print_into(pretty_printed);
+        pretty_printed.push_str(" ");
+        self.left.pretty_print_into(pretty_printed);
         pretty_printed.push_str(" ");
         self.right.pretty_print_into(pretty_printed);
         pretty_printed.push_str(")");

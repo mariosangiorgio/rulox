@@ -18,6 +18,12 @@ pub enum BinaryOperator {
     GreaterEqual,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum LogicOperator {
+    Or,
+    And,
+}
+
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Identifier {
     pub name: String,
@@ -45,6 +51,13 @@ pub struct BinaryExpr {
     pub right: Expr,
 }
 
+// Same as BinaryExpr, but with short-circuiting
+pub struct LogicExpr {
+    pub left: Expr,
+    pub operator: LogicOperator,
+    pub right: Expr,
+}
+
 pub struct Grouping {
     pub expr: Expr,
 }
@@ -59,6 +72,7 @@ pub enum Expr {
     Identifier(Identifier),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
+    Logic(Box<LogicExpr>),
     Grouping(Box<Grouping>),
     Assignment(Box<Assignment>),
 }

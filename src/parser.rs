@@ -288,6 +288,44 @@ fn parse_expression<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, Pars
     parse_assignment(tokens)
 }
 
+fn parse_logic<'a, I>(tokens: &mut Peekable<I>,
+                      map_operator: &Fn(&Token) -> Option<LogicOperator>,
+                      parse_subexpression: &Fn(&mut Peekable<I>)
+                                               -> Option<Result<Expr, ParseError>>)
+                      -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let mut expr;
+    {
+        let result = parse_subexpression(tokens);
+        if let Some(Ok(subexpression)) = result {
+            expr = subexpression;
+        } else {
+            return result;
+        }
+    };
+    while let Some(Some(mapped_operator)) = tokens.peek().map(|pt| map_operator(&pt.token)) {
+        let operator; // We know it's right, we read it just for error reporting
+        {
+            operator = tokens.next().unwrap();
+        }
+        let right = if let Some(result) = parse_subexpression(tokens) {
+            try_wrap_err!(result)
+        } else {
+            return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
+                                                operator.lexeme.clone(),
+                                                operator.position)));
+        };
+        let binary_expression = LogicExpr {
+            left: expr,
+            operator: mapped_operator,
+            right: right,
+        };
+        expr = Expr::Logic(Box::new(binary_expression));
+    }
+    Some(Ok(expr))
+}
+
 fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
                        map_operator: &Fn(&Token) -> Option<BinaryOperator>,
                        parse_subexpression: &Fn(&mut Peekable<I>)
@@ -329,7 +367,7 @@ fn parse_binary<'a, I>(tokens: &mut Peekable<I>,
 fn parse_assignment<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    match parse_equality(tokens) {
+    match parse_or(tokens) {
         Some(Ok(lvalue)) => {
             if let Some(&Token::Equal) = tokens.peek().map(|t| &t.token) {
                 let equal = tokens.next().unwrap();
@@ -359,6 +397,30 @@ fn parse_assignment<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, Pars
         }
         result => result,
     }
+}
+
+fn parse_or<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    fn map_operator(token: &Token) -> Option<LogicOperator> {
+        match *token {
+            Token::Or => Some(LogicOperator::Or),
+            _ => None,
+        }
+    }
+    parse_logic(tokens, &map_operator, &parse_and)
+}
+
+fn parse_and<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    fn map_operator(token: &Token) -> Option<LogicOperator> {
+        match *token {
+            Token::And => Some(LogicOperator::And),
+            _ => None,
+        }
+    }
+    parse_logic(tokens, &map_operator, &parse_equality)
 }
 
 fn parse_equality<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>

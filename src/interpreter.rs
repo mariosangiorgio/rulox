@@ -117,6 +117,7 @@ impl Interpret for Expr {
             Expr::Literal(ref l) => l.interpret(environment),
             Expr::Unary(ref u) => u.interpret(environment),
             Expr::Binary(ref b) => b.interpret(environment),
+            Expr::Logic(ref b) => b.interpret(environment),
             Expr::Grouping(ref g) => g.interpret(environment),
             Expr::Identifier(ref i) => i.interpret(environment),
             Expr::Assignment(ref a) => a.interpret(environment),
@@ -224,6 +225,29 @@ impl Interpret for BinaryExpr {
                 Err(RuntimeError::BinaryOperatorTypeMismatch(self.operator,
                                                              left.clone(),
                                                              right.clone()))
+            }
+        }
+    }
+}
+
+impl Interpret for LogicExpr {
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+        match &self.operator {
+            &LogicOperator::Or => {
+                let left = try!(self.left.interpret(environment));
+                if left.is_true() {
+                    Ok(left)
+                } else {
+                    self.right.interpret(environment)
+                }
+            }
+            &LogicOperator::And => {
+                let left = try!(self.left.interpret(environment));
+                if !left.is_true() {
+                    Ok(left)
+                } else {
+                    self.right.interpret(environment)
+                }
             }
         }
     }
@@ -485,5 +509,26 @@ mod tests {
         assert_eq!("", Value::String("".into()).to_string());
         assert_eq!("Hello World!",
                    Value::String("Hello World!".into()).to_string());
+    }
+
+    #[test]
+    fn if_then_else() {
+        let mut environment = Environment::new();
+        let identifier = Identifier { name: "x".into() };
+        let condition = Expr::Literal(Literal::BoolLiteral(false));
+        let then_expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let else_expr = Expr::Literal(Literal::NumberLiteral(2.0f64));
+        let then_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(),
+                                                                         then_expr);
+        let else_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(),
+                                                                         else_expr);
+        let block = Statement::IfThenElse(Box::new(IfThenElse {
+                                                       condition: condition,
+                                                       then_branch: then_statement,
+                                                       else_branch: else_statement,
+                                                   }));
+        assert_eq!(None, block.execute(&mut environment).unwrap());
+        assert_eq!(&Value::Number(2.0f64),
+                   environment.get(&identifier).unwrap());
     }
 }
