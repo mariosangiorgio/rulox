@@ -52,8 +52,8 @@ impl PrettyPrint for BinaryOperator {
 impl PrettyPrint for LogicOperator {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
         match *self {
-            LogicOperator::Or => pretty_printed.push_str("||"),
-            LogicOperator::And => pretty_printed.push_str("&&"),
+            LogicOperator::Or => pretty_printed.push_str("or"),
+            LogicOperator::And => pretty_printed.push_str("and"),
         }
     }
 }

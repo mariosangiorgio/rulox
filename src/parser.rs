@@ -609,6 +609,24 @@ mod tests {
     }
 
     #[test]
+    fn logic() {
+        let (tokens, _) = scan(&"123 and 456");
+        let expr = parse_expression(&mut tokens.iter().peekable())
+            .unwrap()
+            .unwrap();
+        assert_eq!("(and 123 456)", &expr.pretty_print());
+    }
+
+    #[test]
+    fn precedence_or_and() {
+        let (tokens, _) = scan(&"a or b and c");
+        let expr = parse_expression(&mut tokens.iter().peekable())
+            .unwrap()
+            .unwrap();
+        assert_eq!("(or a (and b c))", &expr.pretty_print());
+    }
+
+    #[test]
     fn unclosed_group() {
         let (tokens, _) = scan(&"(2");
         assert!(parse(&tokens).is_err());
@@ -676,9 +694,9 @@ mod tests {
 
     #[test]
     fn if_then_else_statement() {
-        let (tokens, _) = scan(&"if(a) { x = 2;} else{x = 3;}");
+        let (tokens, _) = scan(&"if(a and b) { x = 2;} else{x = 3;}");
         let statements = parse(&tokens).unwrap();
-        assert_eq!("if ( a ) { x = 2; } else { x = 3; }",
+        assert_eq!("if ( (and a b) ) { x = 2; } else { x = 3; }",
                    statements[0].pretty_print());
     }
 }
