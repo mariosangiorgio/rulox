@@ -31,7 +31,6 @@ pub enum RequiredElement {
     Subexpression,
     LeftParen,
     RightParen,
-    ClosingParen,
     Semincolon,
     Identifier,
 }
@@ -251,7 +250,7 @@ fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statemen
         Some(Err(error)) => return Some(Err(error)),
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
-    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::ClosingParen);
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen);
     // I'd rather use parse_block instead of parse_declaration
     // that would require the presence of the brackets
     let then_branch = match parse_declaration(tokens) {
@@ -288,7 +287,7 @@ fn parse_while_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
         Some(Err(error)) => return Some(Err(error)),
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
-    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::ClosingParen);
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen);
     // I'd rather use parse_block instead of parse_declaration
     // that would require the presence of the brackets
     let body = match parse_declaration(tokens) {
@@ -638,7 +637,7 @@ fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseEr
                             let grouping_expression = Grouping { expr: expr };
                             return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
                         } else {
-                            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
+                            return Some(Err(ParseError::Missing(RequiredElement::RightParen,
                                                                 token.lexeme.clone(),
                                                                 token.position)));
                         }
