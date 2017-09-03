@@ -9,6 +9,23 @@ macro_rules! try_wrap_err {
     ($e:expr) => (match $e {Ok(e) => e, Err(e) => return Some(Err(e))})
 }
 
+macro_rules! consume_expected_token {
+    ($tokens:ident, $expected: pat, $required_element: expr) => (
+    match $tokens.peek().map(|t| &t.token) {
+        Some($expected) => {
+            let _ = $tokens.next();
+        }
+        Some(_) => {
+            let token = $tokens.next().unwrap();
+            return Some(Err(ParseError::Missing($required_element,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    )
+}
+
 #[derive(Debug)]
 pub enum RequiredElement {
     Subexpression,
@@ -228,35 +245,13 @@ fn parse_print_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
 fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::LeftParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
     let condition = match parse_expression(tokens) {
         Some(Ok(expression)) => expression,
         Some(Err(error)) => return Some(Err(error)),
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::RightParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::ClosingParen);
     // I'd rather use parse_block instead of parse_declaration
     // that would require the presence of the brackets
     let then_branch = match parse_declaration(tokens) {
@@ -287,35 +282,13 @@ fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statemen
 fn parse_while_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::LeftParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
     let condition = match parse_expression(tokens) {
         Some(Ok(expression)) => expression,
         Some(Err(error)) => return Some(Err(error)),
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     };
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::RightParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::ClosingParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::ClosingParen);
     // I'd rather use parse_block instead of parse_declaration
     // that would require the presence of the brackets
     let body = match parse_declaration(tokens) {
@@ -332,22 +305,9 @@ fn parse_while_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
 fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::LeftParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
     let initializer = match tokens.peek().map(|t| &t.token) {
-        Some(&Token::Semicolon) => {
-            None
-        }
+        Some(&Token::Semicolon) => None,
         Some(&Token::Var) => {
             let _ = tokens.next();
             match parse_var_declaration(tokens) {
@@ -364,19 +324,8 @@ fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Stateme
             }
         }
     };
-    // Consume semicolon
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::Semicolon) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::Semincolon,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semincolon);
+
     let condition = match tokens.peek().map(|t| &t.token) {
         Some(&Token::Semicolon) => Expr::Literal(Literal::BoolLiteral(true)),
         _ => {
@@ -387,19 +336,9 @@ fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Stateme
             }
         }
     };
-    // Consume semicolon
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::Semicolon) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::Semincolon,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+
+    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semincolon);
+
     let increment = match tokens.peek().map(|t| &t.token) {
         Some(&Token::RightParen) => None,
         _ => {
@@ -410,19 +349,8 @@ fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Stateme
             }
         }
     };
-    // Consume right parenthesis
-    match tokens.peek().map(|t| &t.token) {
-        Some(&Token::RightParen) => {
-            let _ = tokens.next();
-        }
-        Some(_) => {
-            let token = tokens.next().unwrap();
-            return Some(Err(ParseError::Missing(RequiredElement::RightParen,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen);
+
     // I'd rather use parse_block instead of parse_declaration
     // that would require the presence of the brackets
     let body = match parse_declaration(tokens) {
@@ -889,14 +817,14 @@ mod tests {
         assert_eq!("{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
                    statements[0].pretty_print());
     }
-        #[test]
+    #[test]
     fn for_statement_no_initializer() {
         let (tokens, _) = scan(&"for (; i < 10; i = i + 1) print i;");
         let statements = parse(&tokens).unwrap();
         assert_eq!("while ( (< i 10) ) { print i; i = (+ i 1); }",
                    statements[0].pretty_print());
     }
-            #[test]
+    #[test]
     fn for_statement_no_condition() {
         let (tokens, _) = scan(&"for (var i = 0;; i = i + 1) print i;");
         let statements = parse(&tokens).unwrap();
@@ -904,7 +832,7 @@ mod tests {
                    statements[0].pretty_print());
     }
 
-                #[test]
+    #[test]
     fn for_statement_no_increment() {
         let (tokens, _) = scan(&"for (var i = 0; i < 10;) print i;");
         let statements = parse(&tokens).unwrap();
