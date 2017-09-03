@@ -13,6 +13,7 @@ macro_rules! try_wrap_err {
 pub enum RequiredElement {
     Subexpression,
     LeftParen,
+    RightParen,
     ClosingParen,
     Semincolon,
     Identifier,
@@ -129,6 +130,10 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
         Some(&Token::While) => {
             let _ = tokens.next();
             parse_while_statement(tokens)
+        }
+        Some(&Token::For) => {
+            let _ = tokens.next();
+            parse_for_statement(tokens)
         }
         Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
@@ -322,6 +327,126 @@ fn parse_while_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
                                           condition: condition,
                                           body: body,
                                       }))))
+}
+
+fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::LeftParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::LeftParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    let initializer = match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Semicolon) => {
+            None
+        }
+        Some(&Token::Var) => {
+            let _ = tokens.next();
+            match parse_var_declaration(tokens) {
+                Some(Ok(expression)) => Some(expression),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        }
+        _ => {
+            match parse_expression_statement(tokens) {
+                Some(Ok(expression)) => Some(expression),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        }
+    };
+    // Consume semicolon
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Semicolon) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::Semincolon,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    let condition = match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Semicolon) => Expr::Literal(Literal::BoolLiteral(true)),
+        _ => {
+            match parse_expression(tokens) {
+                Some(Ok(expression)) => expression,
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        }
+    };
+    // Consume semicolon
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::Semicolon) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::Semincolon,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    let increment = match tokens.peek().map(|t| &t.token) {
+        Some(&Token::RightParen) => None,
+        _ => {
+            match parse_expression(tokens) {
+                Some(Ok(expression)) => Some(expression),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        }
+    };
+    // Consume right parenthesis
+    match tokens.peek().map(|t| &t.token) {
+        Some(&Token::RightParen) => {
+            let _ = tokens.next();
+        }
+        Some(_) => {
+            let token = tokens.next().unwrap();
+            return Some(Err(ParseError::Missing(RequiredElement::RightParen,
+                                                token.lexeme.clone(),
+                                                token.position)));
+        }
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    }
+    // I'd rather use parse_block instead of parse_declaration
+    // that would require the presence of the brackets
+    let body = match parse_declaration(tokens) {
+        Some(Ok(statement)) => statement,
+        Some(Err(error)) => return Some(Err(error)),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    // Desugaring
+    let desugared_body = if let Some(increment_expression) = increment {
+        let desugared_statements = vec![body, Statement::Expression(increment_expression)];
+        Statement::Block(Box::new(Block { statements: desugared_statements }))
+    } else {
+        body
+    };
+    let while_statement = Statement::While(Box::new(While {
+                                                        condition: condition,
+                                                        body: desugared_body,
+                                                    }));
+    Some(Ok(if let Some(initializer) = initializer {
+                let desugared_statements = vec![initializer, while_statement];
+                Statement::Block(Box::new(Block { statements: desugared_statements }))
+            } else {
+                while_statement
+            }))
 }
 
 fn parse_expression_statement<'a, I>(tokens: &mut Peekable<I>)
@@ -754,6 +879,36 @@ mod tests {
         let (tokens, _) = scan(&"while(a > 0){ a = a - 1;}");
         let statements = parse(&tokens).unwrap();
         assert_eq!("while ( (> a 0) ) { a = (- a 1); }",
+                   statements[0].pretty_print());
+    }
+
+    #[test]
+    fn for_statement() {
+        let (tokens, _) = scan(&"for (var i = 0; i < 10; i = i + 1) print i;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
+                   statements[0].pretty_print());
+    }
+        #[test]
+    fn for_statement_no_initializer() {
+        let (tokens, _) = scan(&"for (; i < 10; i = i + 1) print i;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("while ( (< i 10) ) { print i; i = (+ i 1); }",
+                   statements[0].pretty_print());
+    }
+            #[test]
+    fn for_statement_no_condition() {
+        let (tokens, _) = scan(&"for (var i = 0;; i = i + 1) print i;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( true ) { print i; i = (+ i 1); } }",
+                   statements[0].pretty_print());
+    }
+
+                #[test]
+    fn for_statement_no_increment() {
+        let (tokens, _) = scan(&"for (var i = 0; i < 10;) print i;");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
                    statements[0].pretty_print());
     }
 }
