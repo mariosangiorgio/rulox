@@ -4,6 +4,7 @@ use std::io;
 use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
@@ -15,7 +16,7 @@ pub enum Callable {
 impl Callable {
     fn to_string(&self) -> String {
         match *self {
-            Callable::Function(ref function) => function.name.name.clone(),
+            Callable::Function(ref function) => format!("<fn {} >", &function.name.name),
             Callable::Clock => "clock".into(),
         }
     }
@@ -43,13 +44,12 @@ impl Callable {
                 if arguments.len() != function_definition.arguments.len() {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
-                environment.push();
+                let mut local_environment = environment.new_with_globals();
                 for i in 0..arguments.len() {
-                    environment.define(function_definition.arguments[i].clone(),
+                    local_environment.define(function_definition.arguments[i].clone(),
                                        arguments[i].clone());
                 }
-                let result = function_definition.body.execute(environment);
-                environment.pop();
+                let result = function_definition.body.execute(&mut local_environment);
                 result.map(|ok| match ok {
                                Some(value) => value,
                                None => Value::Nil, // For when the function didn't return
@@ -89,16 +89,23 @@ impl Value {
 }
 
 struct Environment {
-    values: Vec<HashMap<Identifier, Value>>,
+    // This needs to be reference counted because of:
+    // - functions that need to reference the global scope
+    // - closures
+    values: Vec<RefCell<HashMap<Identifier, Value>>>,
 }
 
 impl Environment {
     fn new() -> Environment {
-        Environment { values: vec![HashMap::new()] }
+        Environment { values: vec![RefCell::new(HashMap::new())] }
+    }
+
+    fn new_with_globals(&self) -> Environment{
+        Environment { values: vec![self.values[0].clone(), RefCell::new(HashMap::new())] }
     }
 
     fn push(&mut self) {
-        self.values.push(HashMap::new());
+        self.values.push(RefCell::new(HashMap::new()));
     }
 
     fn pop(&mut self) {
@@ -112,23 +119,25 @@ impl Environment {
     fn define(&mut self, identifier: Identifier, value: Value) {
         // NOTE that this allow for variable redefinition. See the chapter.
         let index = self.top();
-        self.values[index].insert(identifier, value);
+        self.values[index].borrow_mut().insert(identifier, value);
     }
 
     fn try_set(&mut self, identifier: Identifier, value: Value) -> bool {
         for index in (0..self.values.len()).rev() {
-            if self.values[index].contains_key(&identifier) {
-                self.values[index].insert(identifier, value);
+            let mut values = self.values[index].borrow_mut();
+            if values.contains_key(&identifier) {
+                values.insert(identifier, value);
                 return true;
             }
         }
         false
     }
 
-    fn get(&self, identifier: &Identifier) -> Option<&Value> {
+    fn get(&self, identifier: &Identifier) -> Option<Value> {
         for index in (0..self.values.len()).rev() {
-            if let Some(value) = self.values[index].get(identifier) {
-                return Some(value);
+            let values = self.values[index].borrow();
+            if let Some(value) = values.get(identifier) {
+                return Some(value.clone());
             }
         }
         None
@@ -516,7 +525,7 @@ mod tests {
         let identifier = Identifier { name: "x".into() };
         let statement = Statement::VariableDefinition(identifier.clone());
         assert_eq!(None, statement.execute(&mut environment).unwrap());
-        assert_eq!(&Value::Nil, environment.get(&identifier).unwrap());
+        assert_eq!(Value::Nil, environment.get(&identifier).unwrap());
     }
 
     #[test]
@@ -546,7 +555,7 @@ mod tests {
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(None, statement.execute(&mut environment).unwrap());
-        assert_eq!(&Value::Number(1.0f64),
+        assert_eq!(Value::Number(1.0f64),
                    environment.get(&identifier).unwrap());
     }
 
@@ -565,7 +574,7 @@ mod tests {
                     rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
         let block = Statement::Block(Box::new(Block { statements: statements }));
         assert!(block.execute(&mut environment).is_ok());
-        assert_eq!(&Value::Boolean(false),
+        assert_eq!(Value::Boolean(false),
                    environment.get(&identifier).unwrap());
     }
     #[test]
@@ -623,7 +632,7 @@ mod tests {
                                                        else_branch: else_statement,
                                                    }));
         assert_eq!(None, block.execute(&mut environment).unwrap());
-        assert_eq!(&Value::Number(2.0f64),
+        assert_eq!(Value::Number(2.0f64),
                    environment.get(&identifier).unwrap());
     }
 
@@ -635,9 +644,9 @@ mod tests {
         for statement in statements {
             let _ = statement.execute(&mut environment);
         }
-        assert_eq!(&Value::Number(0.0f64),
+        assert_eq!(Value::Number(0.0f64),
                    environment.get(&Identifier { name: "a".into() }).unwrap());
-        assert_eq!(&Value::Number(2.0f64),
+        assert_eq!(Value::Number(2.0f64),
                    environment.get(&Identifier { name: "b".into() }).unwrap());
     }
 }

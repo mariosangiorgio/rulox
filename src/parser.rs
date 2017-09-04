@@ -925,4 +925,28 @@ mod tests {
         assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
                    statements[0].pretty_print());
     }
+
+    #[test]
+    fn function_with_no_arguments() {
+        let (tokens, _) = scan(&"fun add(){return 1;}");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+                   statements[0].pretty_print());
+    }
+
+    #[test]
+    fn function_with_one_argument() {
+        let (tokens, _) = scan(&"fun add(x){return 2*x;}");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+                   statements[0].pretty_print());
+    }
+
+    #[test]
+    fn function_with_two_arguments() {
+        let (tokens, _) = scan(&"fun add(x,y){return x + y;}");
+        let statements = parse(&tokens).unwrap();
+        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+                   statements[0].pretty_print());
+    }
 }
