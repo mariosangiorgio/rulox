@@ -29,7 +29,7 @@ macro_rules! consume_expected_token_with_action {
 
 macro_rules! consume_expected_token {
     ($tokens:ident, $expected: pat, $required_element: expr) => (
-    try_wrap_err!(consume_expected_token_with_action!($tokens, $expected, (), $required_element))
+    consume_expected_token_with_action!($tokens, $expected, (), $required_element)
     )
 }
 
@@ -156,6 +156,10 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
             let _ = tokens.next();
             parse_block(tokens)
         }
+        Some(&Token::Fun) => {
+            let _ = tokens.next();
+            parse_function_declaration(tokens)
+        }
         Some(&Token::If) => {
             let _ = tokens.next();
             parse_if_statement(tokens)
@@ -172,6 +176,14 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
         None => None,
     }
 }
+
+fn parse_function_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let identifier = try_wrap_err!(consume_expected_identifier(tokens));
+    unimplemented!()
+}
+
 
 fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
@@ -628,7 +640,8 @@ fn parse_call<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError
     Some(Ok(expression))
 }
 
-fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<Expr, ParseError>>
+fn parse_function_arguments<'a, I, A>(tokens: &mut Peekable<I>, parse_argument: &Fn(&mut Peekable<I>)
+                                                -> Option<Result<A, ParseError>>) -> Result<Vec<A>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
@@ -636,14 +649,15 @@ fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<E
     if let Some(&Token::RightParen) = tokens.peek().map(|t| &t.token) {
     } else {
         loop {
-            match parse_expression(tokens) {
+            match parse_argument(tokens) {
                 Some(Ok(expression)) => {
                     if arguments.len() >= 8 {
-                        return Some(Err(ParseError::TooManyArguments));
+                        return Err(ParseError::TooManyArguments);
                     }
                     arguments.push(expression)
                 }
-                error => return error,
+                Some(Err(error)) => return Err(error),
+                None => return Err(ParseError::UnexpectedEndOfFile)
             };
             if let Some(&Token::Comma) = tokens.peek().map(|t| &t.token) {
 
@@ -653,6 +667,13 @@ fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<E
         }
     }
     consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen);
+    Ok(arguments)
+}
+
+fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let arguments = try_wrap_err!(parse_function_arguments(tokens, &parse_expression));
     Some(Ok(Expr::Call(Box::new(Call {
                                     callee: callee,
                                     arguments: arguments,
