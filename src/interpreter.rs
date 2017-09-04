@@ -40,20 +40,21 @@ impl Callable {
                                      .as_secs() as f64))
             }
             Callable::Function(ref function_definition) => {
-                if arguments.len() != function_definition.arguments.len(){
+                if arguments.len() != function_definition.arguments.len() {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
                 environment.push();
                 for i in 0..arguments.len() {
-                    environment.define(function_definition.arguments[i].clone(), arguments[i].clone());
+                    environment.define(function_definition.arguments[i].clone(),
+                                       arguments[i].clone());
                 }
                 let result = function_definition.body.execute(environment);
                 environment.pop();
-                result.map(|ok|match ok {
-                    Some(value) => value,
-                    None => Value::Nil // For when the function didn't return
-                })
-            },
+                result.map(|ok| match ok {
+                               Some(value) => value,
+                               None => Value::Nil, // For when the function didn't return
+                           })
+            }
         }
     }
 }
