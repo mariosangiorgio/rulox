@@ -18,29 +18,18 @@ macro_rules! consume_expected_token_with_action {
         }
         Some(_) => {
             let token = $tokens.next().unwrap();
-            return Err(ParseError::Missing($required_element,
+            Err(ParseError::Missing($required_element,
                                                 token.lexeme.clone(),
-                                                token.position));
+                                                token.position))
         }
-        None => return Err(ParseError::UnexpectedEndOfFile),
+        None => Err(ParseError::UnexpectedEndOfFile),
     }
     )
 }
 
 macro_rules! consume_expected_token {
     ($tokens:ident, $expected: pat, $required_element: expr) => (
-    match $tokens.peek().map(|t| &t.token) {
-        Some($expected) => {
-            let _ = $tokens.next();
-        }
-        Some(_) => {
-            let token = $tokens.next().unwrap();
-            return Some(Err(ParseError::Missing($required_element,
-                                                token.lexeme.clone(),
-                                                token.position)));
-        }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    }
+    try_wrap_err!(consume_expected_token_with_action!($tokens, $expected, (), $required_element))
     )
 }
 
