@@ -1,3 +1,7 @@
+use std::fmt::{Debug, Formatter, Error};
+use std::cmp::PartialEq;
+use std::rc::Rc;
+
 #[derive(Debug)]
 pub enum UnaryOperator {
     Bang,
@@ -92,6 +96,7 @@ pub enum Statement {
     IfThen(Box<IfThen>),
     IfThenElse(Box<IfThenElse>),
     While(Box<While>),
+    FunctionDefinition(Rc<FunctionDefinition>),
 }
 
 pub struct Block {
@@ -112,4 +117,22 @@ pub struct IfThenElse {
 pub struct While {
     pub condition: Expr,
     pub body: Statement,
+}
+
+pub struct FunctionDefinition {
+    pub name: Identifier,
+    pub arguments: Vec<Identifier>,
+    pub body: Statement, //This should be a block
+}
+
+impl Debug for FunctionDefinition {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        f.write_str(&self.name.name)
+    }
+}
+
+impl PartialEq for FunctionDefinition {
+    fn eq(&self, other: &FunctionDefinition) -> bool {
+        false
+    }
 }

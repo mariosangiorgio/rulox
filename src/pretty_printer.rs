@@ -187,6 +187,17 @@ impl PrettyPrint for Statement {
                 pretty_printed.push_str(" ) ");
                 l.body.pretty_print_into(pretty_printed);
             }
+            Statement::FunctionDefinition(ref f) => {
+                pretty_printed.push_str("fun ");
+                f.name.pretty_print_into(pretty_printed);
+                pretty_printed.push_str(" (");
+                for argument in &f.arguments {
+                    argument.pretty_print_into(pretty_printed);
+                    pretty_printed.push_str(" ");
+                }
+                pretty_printed.push_str(") ");
+                f.body.pretty_print_into(pretty_printed);
+            }
         };
     }
 }

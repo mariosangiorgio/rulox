@@ -3,9 +3,11 @@ use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
+    Function(Rc<FunctionDefinition>),
     // Native functions
     Clock,
 }
@@ -13,6 +15,7 @@ pub enum Callable {
 impl Callable {
     fn to_string(&self) -> String {
         match *self {
+            Callable::Function(ref function) => function.name.name.clone(),
             Callable::Clock => "clock".into(),
         }
     }
@@ -36,6 +39,21 @@ impl Callable {
                                      .unwrap()
                                      .as_secs() as f64))
             }
+            Callable::Function(ref function_definition) => {
+                if arguments.len() != function_definition.arguments.len(){
+                    return Err(RuntimeError::WrongNumberOfArguments);
+                }
+                environment.push();
+                for i in 0..arguments.len() {
+                    environment.define(function_definition.arguments[i].clone(), arguments[i].clone());
+                }
+                let result = function_definition.body.execute(environment);
+                environment.pop();
+                result.map(|ok|match ok {
+                    Some(value) => value,
+                    None => Value::Nil // For when the function didn't return
+                })
+            },
         }
     }
 }
@@ -371,6 +389,11 @@ impl Execute for Statement {
                 while try!{l.condition.interpret(environment).map(|v|v.is_true())} {
                     try!{l.body.execute(environment)};
                 }
+                Ok(None)
+            }
+            Statement::FunctionDefinition(ref f) => {
+                environment.define(f.name.clone(),
+                                   Value::Callable(Callable::Function(f.clone())));
                 Ok(None)
             }
         }

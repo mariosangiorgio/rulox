@@ -1,6 +1,7 @@
 use ast::*;
 use scanner::{Lexeme, Position, Token, TokenWithContext};
 use std::iter::Peekable;
+use std::rc::Rc;
 
 /// This behave exactly as try! but wraps the returned result in a Some.
 /// It's useful to remove some boilerplate in the code introduced by
@@ -49,6 +50,7 @@ pub enum RequiredElement {
     RightParen,
     Semincolon,
     Identifier,
+    Block,
 }
 
 #[derive(Debug)]
@@ -177,11 +179,24 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
     }
 }
 
-fn parse_function_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+fn parse_function_declaration<'a, I>(tokens: &mut Peekable<I>)
+                                     -> Option<Result<Statement, ParseError>>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     let identifier = try_wrap_err!(consume_expected_identifier(tokens));
-    unimplemented!()
+    let parse_identifier = |tokens: &mut Peekable<I>| Some(consume_expected_identifier(tokens));
+    let arguments = try_wrap_err!(parse_function_arguments(tokens, &parse_identifier));
+    consume_expected_token!(tokens, &Token::LeftBrace, RequiredElement::Block);
+    let block = match parse_block(tokens) {
+        Some(Ok(block)) => block,
+        Some(err) => return Some(err),
+        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+    };
+    Some(Ok(Statement::FunctionDefinition(Rc::new(FunctionDefinition {
+                                                      name: identifier,
+                                                      arguments: arguments,
+                                                      body: block,
+                                                  }))))
 }
 
 
@@ -640,8 +655,10 @@ fn parse_call<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError
     Some(Ok(expression))
 }
 
-fn parse_function_arguments<'a, I, A>(tokens: &mut Peekable<I>, parse_argument: &Fn(&mut Peekable<I>)
-                                                -> Option<Result<A, ParseError>>) -> Result<Vec<A>, ParseError>
+fn parse_function_arguments<'a, I, A>(tokens: &mut Peekable<I>,
+                                      parse_argument: &Fn(&mut Peekable<I>)
+                                                          -> Option<Result<A, ParseError>>)
+                                      -> Result<Vec<A>, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
@@ -657,7 +674,7 @@ fn parse_function_arguments<'a, I, A>(tokens: &mut Peekable<I>, parse_argument: 
                     arguments.push(expression)
                 }
                 Some(Err(error)) => return Err(error),
-                None => return Err(ParseError::UnexpectedEndOfFile)
+                None => return Err(ParseError::UnexpectedEndOfFile),
             };
             if let Some(&Token::Comma) = tokens.peek().map(|t| &t.token) {
 
