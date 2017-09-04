@@ -2,6 +2,39 @@ use ast::*;
 use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Callable {
+    // Native functions
+    Clock
+}
+
+impl Callable {
+    fn to_string(&self) -> String {
+        match *self{
+            Callable::Clock => "clock".into()
+        }
+    }
+
+    fn register_natives(environment: &mut Environment) -> (){
+        environment.define(Identifier{name: "clock".into()}, Value::Callable(Callable::Clock))
+    }
+
+    fn call(&self,
+            arguments: &Vec<Value>,
+            environment: &mut Environment)
+            -> Result<Value, RuntimeError> {
+        match *self{
+            Callable::Clock =>{
+                if arguments.len() != 0{
+                    return Err(RuntimeError::WrongNumberOfArguments);
+                }
+                Ok(Value::Number(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as f64))
+            }
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -9,6 +42,7 @@ pub enum Value {
     Boolean(bool),
     Number(f64),
     String(String),
+    Callable(Callable),
 }
 
 impl Value {
@@ -26,6 +60,7 @@ impl Value {
             Value::Boolean(ref b) => b.to_string(),
             Value::Number(ref n) => n.to_string(),
             Value::String(ref s) => s.clone(),
+            Value::Callable(ref c) => c.to_string(),
         }
     }
 }
@@ -87,7 +122,9 @@ pub struct StatementInterpreter {
 
 impl StatementInterpreter {
     pub fn new() -> StatementInterpreter {
-        StatementInterpreter { environment: Environment::new() }
+        let mut environment = Environment::new();
+        Callable::register_natives(&mut environment);
+        StatementInterpreter { environment:  environment}
     }
 }
 impl Interpreter for StatementInterpreter {
@@ -101,6 +138,8 @@ pub enum RuntimeError {
     UnaryMinusTypeMismatch(Value),
     BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
     UndefinedIdentifier(Identifier),
+    NotCallable(Value),
+    WrongNumberOfArguments,
 }
 
 trait Interpret {
@@ -121,6 +160,7 @@ impl Interpret for Expr {
             Expr::Grouping(ref g) => g.interpret(environment),
             Expr::Identifier(ref i) => i.interpret(environment),
             Expr::Assignment(ref a) => a.interpret(environment),
+            Expr::Call(ref c) => c.interpret(environment),
         }
     }
 }
@@ -249,6 +289,25 @@ impl Interpret for LogicExpr {
                     self.right.interpret(environment)
                 }
             }
+        }
+    }
+}
+
+impl Interpret for Call {
+    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+        match self.callee.interpret(environment) {
+            Ok(Value::Callable(c)) => {
+                let mut evaluated_arguments = vec![];
+                for argument in self.arguments.iter() {
+                    match argument.interpret(environment) {
+                        Ok(value) => evaluated_arguments.push(value),
+                        error => return error,
+                    }
+                }
+                c.call(&evaluated_arguments, environment)
+            }
+            Ok(value) => return Err(RuntimeError::NotCallable(value)),
+            error => return error,
         }
     }
 }

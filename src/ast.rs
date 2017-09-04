@@ -67,6 +67,11 @@ pub struct Assignment {
     pub rvalue: Expr,
 }
 
+pub struct Call {
+    pub callee: Expr,
+    pub arguments: Vec<Expr>,
+}
+
 pub enum Expr {
     Literal(Literal),
     Identifier(Identifier),
@@ -75,6 +80,7 @@ pub enum Expr {
     Logic(Box<LogicExpr>),
     Grouping(Box<Grouping>),
     Assignment(Box<Assignment>),
+    Call(Box<Call>),
 }
 
 pub enum Statement {

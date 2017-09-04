@@ -19,6 +19,8 @@ impl PrettyPrint for Expr {
             Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
             Expr::Identifier(ref i) => i.pretty_print_into(pretty_printed),
             Expr::Assignment(ref a) => a.pretty_print_into(pretty_printed),
+            Expr::Call(ref c) => c.pretty_print_into(pretty_printed),
+
         }
     }
 }
@@ -186,6 +188,18 @@ impl PrettyPrint for Statement {
                 l.body.pretty_print_into(pretty_printed);
             }
         };
+    }
+}
+
+impl PrettyPrint for Call {
+    fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
+        self.callee.pretty_print_into(pretty_printed);
+        pretty_printed.push_str("( ");
+        for arg in self.arguments.iter() {
+            arg.pretty_print_into(pretty_printed);
+            pretty_printed.push_str(" ");
+        }
+        pretty_printed.push_str(")");
     }
 }
 

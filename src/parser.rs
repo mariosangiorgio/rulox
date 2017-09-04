@@ -41,6 +41,7 @@ pub enum ParseError {
     UnexpectedToken(Lexeme, Position),
     Missing(RequiredElement, Lexeme, Position),
     InvalidAssignmentTarget(Lexeme, Position),
+    TooManyArguments,
 }
 
 pub fn parse(tokens: &[TokenWithContext]) -> Result<Vec<Statement>, Vec<ParseError>> {
@@ -606,8 +607,55 @@ fn parse_unary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseErro
         };
         return Some(Ok(Expr::Unary(Box::new(unary_expression))));
     } else {
-        parse_primary(tokens)
+        parse_call(tokens)
     }
+}
+
+fn parse_call<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let mut expression = match parse_primary(tokens) {
+        Some(Ok(expression)) => expression,
+        error => return error,
+    };
+    while let Some(&Token::LeftParen) = tokens.peek().map(|t| &t.token) {
+        expression = match finish_call(tokens, expression) {
+            Some(Ok(expression)) => expression,
+            error => return error,
+        };
+    }
+    Some(Ok(expression))
+}
+
+fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<Expr, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
+    let mut arguments = vec![];
+    if let Some(&Token::RightParen) = tokens.peek().map(|t| &t.token) {}
+    else{
+        loop {
+            match parse_expression(tokens) {
+                Some(Ok(expression)) => {
+                    if arguments.len() >= 8 {
+                        return Some(Err(ParseError::TooManyArguments));
+                    }
+                    arguments.push(expression)
+                }
+                error => return error,
+            };
+            if let Some(&Token::Comma) = tokens.peek().map(|t| &t.token) {
+
+            } else {
+                break;
+            }
+        }
+    }
+    consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen);
+    Some(Ok(Expr::Call(Box::new(Call {
+                                    callee: callee,
+                                    arguments: arguments,
+                                }))))
 }
 
 fn parse_primary<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
