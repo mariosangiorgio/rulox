@@ -157,25 +157,31 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
     }
 }
 
-fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+fn consume_expected_identifier<'a, I>(tokens: &mut Peekable<I>) -> Result<Identifier, ParseError>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    let identifier = match tokens.peek() {
+    match tokens.peek() {
         Some(&&TokenWithContext { token: Token::Identifier(ref identifier), .. }) => {
             let _ = tokens.next();
-            Identifier { name: identifier.clone() }
+            Ok(Identifier { name: identifier.clone() })
         }
         Some(&&TokenWithContext {
                  ref lexeme,
                  ref position,
                  ..
              }) => {
-            return Some(Err(ParseError::Missing(RequiredElement::Identifier,
+            return Err(ParseError::Missing(RequiredElement::Identifier,
                                                 lexeme.clone(),
-                                                *position)))
+                                                *position))
         }
-        None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-    };
+        None => return Err(ParseError::UnexpectedEndOfFile),
+    }
+}
+
+fn parse_var_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    let identifier = try_wrap_err!(consume_expected_identifier(tokens));
     if let Some(&&TokenWithContext {
                     token: Token::Equal,
                     ref lexeme,
