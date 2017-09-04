@@ -632,8 +632,8 @@ fn finish_call<'a, I>(tokens: &mut Peekable<I>, callee: Expr) -> Option<Result<E
 {
     consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen);
     let mut arguments = vec![];
-    if let Some(&Token::RightParen) = tokens.peek().map(|t| &t.token) {}
-    else{
+    if let Some(&Token::RightParen) = tokens.peek().map(|t| &t.token) {
+    } else {
         loop {
             match parse_expression(tokens) {
                 Some(Ok(expression)) => {

@@ -7,30 +7,34 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
     // Native functions
-    Clock
+    Clock,
 }
 
 impl Callable {
     fn to_string(&self) -> String {
-        match *self{
-            Callable::Clock => "clock".into()
+        match *self {
+            Callable::Clock => "clock".into(),
         }
     }
 
-    fn register_natives(environment: &mut Environment) -> (){
-        environment.define(Identifier{name: "clock".into()}, Value::Callable(Callable::Clock))
+    fn register_natives(environment: &mut Environment) -> () {
+        environment.define(Identifier { name: "clock".into() },
+                           Value::Callable(Callable::Clock))
     }
 
     fn call(&self,
             arguments: &Vec<Value>,
             environment: &mut Environment)
             -> Result<Value, RuntimeError> {
-        match *self{
-            Callable::Clock =>{
-                if arguments.len() != 0{
+        match *self {
+            Callable::Clock => {
+                if arguments.len() != 0 {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
-                Ok(Value::Number(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as f64))
+                Ok(Value::Number(SystemTime::now()
+                                     .duration_since(UNIX_EPOCH)
+                                     .unwrap()
+                                     .as_secs() as f64))
             }
         }
     }
@@ -124,7 +128,7 @@ impl StatementInterpreter {
     pub fn new() -> StatementInterpreter {
         let mut environment = Environment::new();
         Callable::register_natives(&mut environment);
-        StatementInterpreter { environment:  environment}
+        StatementInterpreter { environment: environment }
     }
 }
 impl Interpreter for StatementInterpreter {
