@@ -9,6 +9,24 @@ macro_rules! try_wrap_err {
     ($e:expr) => (match $e {Ok(e) => e, Err(e) => return Some(Err(e))})
 }
 
+macro_rules! consume_expected_token_with_action {
+    ($tokens:ident, $expected: pat, $transform_token: expr, $required_element: expr) => (
+    match $tokens.peek().map(|t| &t.token) {
+        Some($expected) => {
+            let _ = $tokens.next();
+            Ok($transform_token)
+        }
+        Some(_) => {
+            let token = $tokens.next().unwrap();
+            return Err(ParseError::Missing($required_element,
+                                                token.lexeme.clone(),
+                                                token.position));
+        }
+        None => return Err(ParseError::UnexpectedEndOfFile),
+    }
+    )
+}
+
 macro_rules! consume_expected_token {
     ($tokens:ident, $expected: pat, $required_element: expr) => (
     match $tokens.peek().map(|t| &t.token) {
@@ -24,6 +42,15 @@ macro_rules! consume_expected_token {
         None => return Some(Err(ParseError::UnexpectedEndOfFile)),
     }
     )
+}
+
+fn consume_expected_identifier<'a, I>(tokens: &mut Peekable<I>) -> Result<Identifier, ParseError>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    consume_expected_token_with_action!(tokens,
+    &Token::Identifier(ref identifier),
+    Identifier { name: identifier.clone() },
+    RequiredElement::Identifier)
 }
 
 #[derive(Debug)]
@@ -154,27 +181,6 @@ fn parse_declaration<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement
         }
         Some(_) => parse_semicolon_terminated_statement(tokens, &parse_statement),
         None => None,
-    }
-}
-
-fn consume_expected_identifier<'a, I>(tokens: &mut Peekable<I>) -> Result<Identifier, ParseError>
-    where I: Iterator<Item = &'a TokenWithContext>
-{
-    match tokens.peek() {
-        Some(&&TokenWithContext { token: Token::Identifier(ref identifier), .. }) => {
-            let _ = tokens.next();
-            Ok(Identifier { name: identifier.clone() })
-        }
-        Some(&&TokenWithContext {
-                 ref lexeme,
-                 ref position,
-                 ..
-             }) => {
-            return Err(ParseError::Missing(RequiredElement::Identifier,
-                                                lexeme.clone(),
-                                                *position))
-        }
-        None => return Err(ParseError::UnexpectedEndOfFile),
     }
 }
 
