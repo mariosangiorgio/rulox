@@ -347,7 +347,8 @@ impl Interpret for Call {
 impl Execute for Statement {
     fn execute(&self, mut environment: &mut Environment) -> Result<Option<Value>, RuntimeError> {
         match *self {
-            Statement::Expression(ref e) => e.interpret(environment).map(Some),
+            Statement::Expression(ref e) => e.interpret(environment).map(|_| None),
+            // Expression statement are only for side effects
             Statement::Print(ref e) => {
                 e.interpret(environment)
                     .map(|value| {
@@ -378,12 +379,15 @@ impl Execute for Statement {
             }
             Statement::Block(ref b) => {
                 environment.push();
-                let mut result = Ok(None);
                 for statement in &b.statements {
-                    result = statement.execute(environment);
+                    let result = try!(statement.execute(environment));
+                    if let Some(value) = result {
+                        environment.pop();
+                        return Ok(Some(value));
+                    }
                 }
                 environment.pop();
-                result
+                Ok(None)
             }
             Statement::IfThen(ref c) => {
                 let condition = try!{c.condition.interpret(environment).map(|v|v.is_true())};
@@ -502,8 +506,7 @@ mod tests {
         let mut environment = Environment::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::Expression(expr);
-        assert_eq!(Some(Value::Number(1.0f64)),
-                   statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&mut environment).unwrap());
     }
 
     #[test]
@@ -521,8 +524,7 @@ mod tests {
         };
         let expr = Expr::Binary(Box::new(binary_expr));
         let statement = Statement::Expression(expr);
-        assert_eq!(Some(Value::Number(-10.0f64)),
-                   statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&mut environment).unwrap());
     }
 
     #[test]
@@ -651,5 +653,29 @@ mod tests {
                    environment.get(&Identifier { name: "a".into() }).unwrap());
         assert_eq!(Value::Number(2.0f64),
                    environment.get(&Identifier { name: "b".into() }).unwrap());
+    }
+
+    #[test]
+    fn function_declaration_and_call() {
+        let mut environment = Environment::new();
+        let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
+        let statements = parse(&tokens).unwrap();
+        for statement in statements {
+            let _ = statement.execute(&mut environment);
+        }
+        assert_eq!(Value::Number(6.0f64),
+                   environment.get(&Identifier { name: "a".into() }).unwrap());
+    }
+
+    #[test]
+    fn function_declaration_and_call_no_return() {
+        let mut environment = Environment::new();
+        let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
+        let statements = parse(&tokens).unwrap();
+        for statement in statements {
+            let _ = statement.execute(&mut environment);
+        }
+        assert_eq!(Value::Nil,
+                   environment.get(&Identifier { name: "a".into() }).unwrap());
     }
 }
