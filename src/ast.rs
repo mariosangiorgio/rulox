@@ -90,6 +90,7 @@ pub enum Expr {
 pub enum Statement {
     Print(Expr),
     Expression(Expr),
+    Return(Option<Expr>),
     VariableDefinition(Identifier),
     VariableDefinitionWithInitalizer(Identifier, Expr),
     Block(Box<Block>),

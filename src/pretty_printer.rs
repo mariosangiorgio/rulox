@@ -143,6 +143,14 @@ impl PrettyPrint for Statement {
                 e.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");
             }
+            Statement::Return(ref e) => {
+                pretty_printed.push_str("return");
+                if let &Some(ref e) = e {
+                    pretty_printed.push_str(" ");
+                    e.pretty_print_into(pretty_printed);
+                }
+                pretty_printed.push_str(";");
+            }
             Statement::Expression(ref e) => {
                 e.pretty_print_into(pretty_printed);
                 pretty_printed.push_str(";");

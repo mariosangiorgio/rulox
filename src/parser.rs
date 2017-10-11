@@ -48,7 +48,7 @@ pub enum RequiredElement {
     Subexpression,
     LeftParen,
     RightParen,
-    Semincolon,
+    Semicolon,
     Identifier,
     Block,
 }
@@ -135,7 +135,7 @@ fn parse_semicolon_terminated_statement<'a, I>(tokens: &mut Peekable<I>,
                          ref position,
                          ..
                      }) => {
-                    Some(Err(ParseError::Missing(RequiredElement::Semincolon,
+                    Some(Err(ParseError::Missing(RequiredElement::Semicolon,
                                                  lexeme.clone(),
                                                  *position)))
                 }
@@ -259,6 +259,10 @@ fn parse_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, 
             let _ = tokens.next();
             parse_print_statement(tokens)
         }
+        Some(&Token::Return) => {
+            let _ = tokens.next();
+            parse_return_statement(tokens)
+        }
         Some(_) => parse_expression_statement(tokens),
         None => None,
     }
@@ -268,6 +272,17 @@ fn parse_print_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<State
     where I: Iterator<Item = &'a TokenWithContext>
 {
     parse_expression(tokens).map(|r| r.map(Statement::Print))
+}
+
+fn parse_return_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
+    where I: Iterator<Item = &'a TokenWithContext>
+{
+    if let Some(&Token::Semicolon) = tokens.peek().map(|t| &t.token) {
+        Some(Ok(Statement::Return(None)))
+    } else {
+        parse_expression(tokens)
+            .map(|result| result.map(|expression| Statement::Return(Some(expression))))
+    }
 }
 
 fn parse_if_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Statement, ParseError>>
@@ -352,7 +367,7 @@ fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Stateme
             }
         }
     };
-    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semincolon);
+    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semicolon);
 
     let condition = match tokens.peek().map(|t| &t.token) {
         Some(&Token::Semicolon) => Expr::Literal(Literal::BoolLiteral(true)),
@@ -365,7 +380,7 @@ fn parse_for_statement<'a, I>(tokens: &mut Peekable<I>) -> Option<Result<Stateme
         }
     };
 
-    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semincolon);
+    consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semicolon);
 
     let increment = match tokens.peek().map(|t| &t.token) {
         Some(&Token::RightParen) => None,
@@ -677,7 +692,7 @@ fn parse_function_arguments<'a, I, A>(tokens: &mut Peekable<I>,
                 None => return Err(ParseError::UnexpectedEndOfFile),
             };
             if let Some(&Token::Comma) = tokens.peek().map(|t| &t.token) {
-
+                let _ = tokens.next();
             } else {
                 break;
             }
@@ -930,7 +945,7 @@ mod tests {
     fn function_with_no_arguments() {
         let (tokens, _) = scan(&"fun add(){return 1;}");
         let statements = parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+        assert_eq!("fun add () { return 1; }",
                    statements[0].pretty_print());
     }
 
@@ -938,7 +953,7 @@ mod tests {
     fn function_with_one_argument() {
         let (tokens, _) = scan(&"fun add(x){return 2*x;}");
         let statements = parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+        assert_eq!("fun add (x ) { return (* 2 x); }",
                    statements[0].pretty_print());
     }
 
@@ -946,7 +961,7 @@ mod tests {
     fn function_with_two_arguments() {
         let (tokens, _) = scan(&"fun add(x,y){return x + y;}");
         let statements = parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
+        assert_eq!("fun add (x y ) { return (+ x y); }",
                    statements[0].pretty_print());
     }
 }

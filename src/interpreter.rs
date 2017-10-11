@@ -47,7 +47,7 @@ impl Callable {
                 let mut local_environment = environment.new_with_globals();
                 for i in 0..arguments.len() {
                     local_environment.define(function_definition.arguments[i].clone(),
-                                       arguments[i].clone());
+                                             arguments[i].clone());
                 }
                 let result = function_definition.body.execute(&mut local_environment);
                 result.map(|ok| match ok {
@@ -100,7 +100,7 @@ impl Environment {
         Environment { values: vec![RefCell::new(HashMap::new())] }
     }
 
-    fn new_with_globals(&self) -> Environment{
+    fn new_with_globals(&self) -> Environment {
         Environment { values: vec![self.values[0].clone(), RefCell::new(HashMap::new())] }
     }
 
@@ -356,6 +356,12 @@ impl Execute for Statement {
                              None
                          })
             }
+            Statement::Return(ref e) => {
+                match e {
+                    &Some(ref e) => e.interpret(environment).map(Some),
+                    &None => Ok(Some(Value::Nil)),
+                }
+            }
             Statement::VariableDefinition(ref identifier) => {
                 let identifier = Identifier { name: identifier.name.clone() };
                 environment.define(identifier, Value::Nil);
@@ -555,8 +561,7 @@ mod tests {
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(None, statement.execute(&mut environment).unwrap());
-        assert_eq!(Value::Number(1.0f64),
-                   environment.get(&identifier).unwrap());
+        assert_eq!(Value::Number(1.0f64), environment.get(&identifier).unwrap());
     }
 
     #[test]
@@ -574,8 +579,7 @@ mod tests {
                     rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
         let block = Statement::Block(Box::new(Block { statements: statements }));
         assert!(block.execute(&mut environment).is_ok());
-        assert_eq!(Value::Boolean(false),
-                   environment.get(&identifier).unwrap());
+        assert_eq!(Value::Boolean(false), environment.get(&identifier).unwrap());
     }
     #[test]
     fn block_variable_dont_escape_scope() {
@@ -632,8 +636,7 @@ mod tests {
                                                        else_branch: else_statement,
                                                    }));
         assert_eq!(None, block.execute(&mut environment).unwrap());
-        assert_eq!(Value::Number(2.0f64),
-                   environment.get(&identifier).unwrap());
+        assert_eq!(Value::Number(2.0f64), environment.get(&identifier).unwrap());
     }
 
     #[test]
