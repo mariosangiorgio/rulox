@@ -678,4 +678,18 @@ mod tests {
         assert_eq!(Value::Nil,
                    environment.get(&Identifier { name: "a".into() }).unwrap());
     }
+
+    #[test]
+    fn local_variables_dont_pollute_outer_scope() {
+        let mut environment = Environment::new();
+        let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
+        let statements = parse(&tokens).unwrap();
+        for statement in statements {
+            let _ = statement.execute(&mut environment);
+        }
+        assert_eq!(Value::Number(21.0f64),
+                   environment.get(&Identifier { name: "a".into() }).unwrap());
+        assert_eq!(None,
+                   environment.get(&Identifier { name: "b".into() }));
+    }
 }
