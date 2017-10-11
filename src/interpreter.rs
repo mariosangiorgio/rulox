@@ -345,7 +345,7 @@ impl Interpret for Call {
 }
 
 impl Execute for Statement {
-    fn execute(&self, mut environment: &mut Environment) -> Result<Option<Value>, RuntimeError> {
+    fn execute(&self, environment: &mut Environment) -> Result<Option<Value>, RuntimeError> {
         match *self {
             Statement::Expression(ref e) => e.interpret(environment).map(|_| None),
             // Expression statement are only for side effects
