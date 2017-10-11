@@ -689,7 +689,6 @@ mod tests {
         }
         assert_eq!(Value::Number(21.0f64),
                    environment.get(&Identifier { name: "a".into() }).unwrap());
-        assert_eq!(None,
-                   environment.get(&Identifier { name: "b".into() }));
+        assert_eq!(None, environment.get(&Identifier { name: "b".into() }));
     }
 }
