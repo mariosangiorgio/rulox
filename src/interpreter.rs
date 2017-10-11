@@ -8,7 +8,7 @@ use std::cell::RefCell;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
-    Function(Rc<FunctionDefinition>),
+    Function(Rc<FunctionDefinition>, Environment),
     // Native functions
     Clock,
 }
@@ -16,19 +16,19 @@ pub enum Callable {
 impl Callable {
     fn to_string(&self) -> String {
         match *self {
-            Callable::Function(ref function) => format!("<fn {} >", &function.name.name),
+            Callable::Function(ref function, _) => format!("<fn {} >", &function.name.name),
             Callable::Clock => "clock".into(),
         }
     }
 
-    fn register_natives(environment: &mut Environment) -> () {
+    fn register_natives(environment: &Environment) -> () {
         environment.define(Identifier { name: "clock".into() },
                            Value::Callable(Callable::Clock))
     }
 
     fn call(&self,
             arguments: &Vec<Value>,
-            environment: &mut Environment)
+            environment: &Environment)
             -> Result<Value, RuntimeError> {
         match *self {
             Callable::Clock => {
@@ -40,16 +40,16 @@ impl Callable {
                                      .unwrap()
                                      .as_secs() as f64))
             }
-            Callable::Function(ref function_definition) => {
+            Callable::Function(ref function_definition, ref environment) => {
                 if arguments.len() != function_definition.arguments.len() {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
-                let mut local_environment = environment.new_with_globals();
+                let local_environment = Environment::new_with_parent(environment);
                 for i in 0..arguments.len() {
                     local_environment.define(function_definition.arguments[i].clone(),
                                              arguments[i].clone());
                 }
-                let result = function_definition.body.execute(&mut local_environment);
+                let result = function_definition.body.execute(&local_environment);
                 result.map(|ok| match ok {
                                Some(value) => value,
                                None => Value::Nil, // For when the function didn't return
@@ -88,59 +88,64 @@ impl Value {
     }
 }
 
-struct Environment {
-    // This needs to be reference counted because of:
-    // - functions that need to reference the global scope
-    // - closures
-    values: Vec<RefCell<HashMap<Identifier, Value>>>,
+#[derive(Debug)]
+struct EnvironmentImpl {
+    parent: Option<Environment>,
+    values: HashMap<Identifier, Value>,
+}
+
+#[derive(Clone, Debug)]
+struct Environment{
+    actual: Rc<RefCell<EnvironmentImpl>>
+}
+
+impl PartialEq for Environment{
+    fn eq(&self, other: &Environment) -> bool{
+        false
+    }
 }
 
 impl Environment {
     fn new() -> Environment {
-        Environment { values: vec![RefCell::new(HashMap::new())] }
+        let actual = EnvironmentImpl { parent: None, values: HashMap::new() };
+        Environment { actual: Rc::new(RefCell::new(actual))}
     }
 
-    fn new_with_globals(&self) -> Environment {
-        Environment { values: vec![self.values[0].clone(), RefCell::new(HashMap::new())] }
+    fn new_with_parent(parent: &Environment) -> Environment {
+        let actual = EnvironmentImpl { parent: Some(parent.clone()), values: HashMap::new() };
+        Environment { actual: Rc::new(RefCell::new(actual))}
     }
 
-    fn push(&mut self) {
-        self.values.push(RefCell::new(HashMap::new()));
-    }
-
-    fn pop(&mut self) {
-        self.values.pop();
-    }
-
-    fn top(&self) -> usize {
-        self.values.len() - 1
-    }
-
-    fn define(&mut self, identifier: Identifier, value: Value) {
+    fn define(&self, identifier: Identifier, value: Value) {
         // NOTE that this allow for variable redefinition. See the chapter.
-        let index = self.top();
-        self.values[index].borrow_mut().insert(identifier, value);
+        self.actual.borrow_mut().values.insert(identifier, value);
     }
 
-    fn try_set(&mut self, identifier: Identifier, value: Value) -> bool {
-        for index in (0..self.values.len()).rev() {
-            let mut values = self.values[index].borrow_mut();
-            if values.contains_key(&identifier) {
-                values.insert(identifier, value);
-                return true;
+    fn try_set(&self, identifier: Identifier, value: Value) -> bool {
+        let mut actual = self.actual.borrow_mut();
+        if actual.values.contains_key(&identifier) {
+            actual.values.insert(identifier, value);
+            return true;
+        }
+        else{
+            match &actual.parent{
+                &Some(ref parent) => parent.try_set(identifier, value),
+                &None => false
             }
         }
-        false
     }
 
     fn get(&self, identifier: &Identifier) -> Option<Value> {
-        for index in (0..self.values.len()).rev() {
-            let values = self.values[index].borrow();
-            if let Some(value) = values.get(identifier) {
-                return Some(value.clone());
+        let actual = self.actual.borrow();
+        if let Some(value) = actual.values.get(identifier) {
+            return Some(value.clone());
+        }
+        else{
+            match &actual.parent{
+                &Some(ref parent) => parent.get(identifier),
+                &None => None
             }
         }
-        None
     }
 }
 
@@ -154,14 +159,14 @@ pub struct StatementInterpreter {
 
 impl StatementInterpreter {
     pub fn new() -> StatementInterpreter {
-        let mut environment = Environment::new();
-        Callable::register_natives(&mut environment);
+        let environment = Environment::new();
+        Callable::register_natives(&environment);
         StatementInterpreter { environment: environment }
     }
 }
 impl Interpreter for StatementInterpreter {
     fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError> {
-        statement.execute(&mut self.environment)
+        statement.execute(&self.environment)
     }
 }
 
@@ -175,15 +180,15 @@ pub enum RuntimeError {
 }
 
 trait Interpret {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError>;
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError>;
 }
 
 trait Execute {
-    fn execute(&self, environment: &mut Environment) -> Result<Option<Value>, RuntimeError>;
+    fn execute(&self, environment: &Environment) -> Result<Option<Value>, RuntimeError>;
 }
 
 impl Interpret for Expr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         match *self {
             Expr::Literal(ref l) => l.interpret(environment),
             Expr::Unary(ref u) => u.interpret(environment),
@@ -198,7 +203,7 @@ impl Interpret for Expr {
 }
 
 impl Interpret for Literal {
-    fn interpret(&self, _: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, _: &Environment) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -209,7 +214,7 @@ impl Interpret for Literal {
 }
 
 impl Interpret for Identifier {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         match environment.get(self) {
             Some(value) => Ok(value.clone()),
             None => Err(RuntimeError::UndefinedIdentifier(self.clone())),
@@ -218,7 +223,7 @@ impl Interpret for Identifier {
 }
 
 impl Interpret for Assignment {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         let target = match self.lvalue {
             Target::Identifier(ref i) => Identifier { name: i.name.clone() },
         };
@@ -236,13 +241,13 @@ impl Interpret for Assignment {
 }
 
 impl Interpret for Grouping {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         self.expr.interpret(environment)
     }
 }
 
 impl Interpret for UnaryExpr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         let value = try!(self.right.interpret(environment));
         match self.operator {
             UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
@@ -257,7 +262,7 @@ impl Interpret for UnaryExpr {
 }
 
 impl Interpret for BinaryExpr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         let left = try!(self.left.interpret(environment));
         let right = try!(self.right.interpret(environment));
         match (&self.operator, &left, &right) {
@@ -303,7 +308,7 @@ impl Interpret for BinaryExpr {
 }
 
 impl Interpret for LogicExpr {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         match &self.operator {
             &LogicOperator::Or => {
                 let left = try!(self.left.interpret(environment));
@@ -326,7 +331,7 @@ impl Interpret for LogicExpr {
 }
 
 impl Interpret for Call {
-    fn interpret(&self, environment: &mut Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
         match self.callee.interpret(environment) {
             Ok(Value::Callable(c)) => {
                 let mut evaluated_arguments = vec![];
@@ -345,7 +350,7 @@ impl Interpret for Call {
 }
 
 impl Execute for Statement {
-    fn execute(&self, environment: &mut Environment) -> Result<Option<Value>, RuntimeError> {
+    fn execute(&self, environment: &Environment) -> Result<Option<Value>, RuntimeError> {
         match *self {
             Statement::Expression(ref e) => e.interpret(environment).map(|_| None),
             // Expression statement are only for side effects
@@ -378,15 +383,13 @@ impl Execute for Statement {
                          })
             }
             Statement::Block(ref b) => {
-                environment.push();
+                let environment = Environment::new_with_parent(environment);
                 for statement in &b.statements {
-                    let result = try!(statement.execute(environment));
+                    let result = try!(statement.execute(&environment));
                     if let Some(value) = result {
-                        environment.pop();
                         return Ok(Some(value));
                     }
                 }
-                environment.pop();
                 Ok(None)
             }
             Statement::IfThen(ref c) => {
@@ -412,8 +415,9 @@ impl Execute for Statement {
                 Ok(None)
             }
             Statement::FunctionDefinition(ref f) => {
+                //TODO: capture the environment for closures to work
                 environment.define(f.name.clone(),
-                                   Value::Callable(Callable::Function(f.clone())));
+                                   Value::Callable(Callable::Function(f.clone(), environment.clone())));
                 Ok(None)
             }
         }
@@ -433,7 +437,7 @@ mod tests {
         let string = String::from("abc");
         let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
         assert_eq!(Value::String(string),
-                   expr.interpret(&mut environment).unwrap());
+                   expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -441,7 +445,7 @@ mod tests {
         let mut environment = Environment::new();
         let expr = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
         assert_eq!(Value::Number(45.67f64),
-                   expr.interpret(&mut environment).unwrap());
+                   expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -452,7 +456,7 @@ mod tests {
             right: Expr::Literal(Literal::BoolLiteral(false)),
         };
         assert_eq!(Value::Boolean(true),
-                   expr.interpret(&mut environment).unwrap());
+                   expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -475,7 +479,7 @@ mod tests {
             right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
         };
         assert_eq!(Value::Number(2.0f64),
-                   expr.interpret(&mut environment).unwrap());
+                   expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -487,7 +491,7 @@ mod tests {
             right: Expr::Literal(Literal::StringLiteral("Bar".into())),
         };
         assert_eq!(Value::String("FooBar".into()),
-                   expr.interpret(&mut environment).unwrap());
+                   expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -498,7 +502,7 @@ mod tests {
             left: Expr::Literal(Literal::NilLiteral),
             right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
         };
-        assert!(expr.interpret(&mut environment).is_err());
+        assert!(expr.interpret(&environment).is_err());
     }
 
     #[test]
@@ -506,7 +510,7 @@ mod tests {
         let mut environment = Environment::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::Expression(expr);
-        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&environment).unwrap());
     }
 
     #[test]
@@ -524,7 +528,7 @@ mod tests {
         };
         let expr = Expr::Binary(Box::new(binary_expr));
         let statement = Statement::Expression(expr);
-        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&environment).unwrap());
     }
 
     #[test]
@@ -532,7 +536,7 @@ mod tests {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let statement = Statement::VariableDefinition(identifier.clone());
-        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&environment).unwrap());
         assert_eq!(Value::Nil, environment.get(&identifier).unwrap());
     }
 
@@ -541,7 +545,7 @@ mod tests {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let statement = Statement::Expression(Expr::Identifier(identifier));
-        assert!(statement.execute(&mut environment).is_err());
+        assert!(statement.execute(&environment).is_err());
     }
 
     #[test]
@@ -553,7 +557,7 @@ mod tests {
                 lvalue: Target::Identifier(identifier),
                 rvalue: Expr::Literal(Literal::BoolLiteral(true))}))
             );
-        assert!(statement.execute(&mut environment).is_err());
+        assert!(statement.execute(&environment).is_err());
     }
 
     #[test]
@@ -562,7 +566,7 @@ mod tests {
         let identifier = Identifier { name: "x".into() };
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
-        assert_eq!(None, statement.execute(&mut environment).unwrap());
+        assert_eq!(None, statement.execute(&environment).unwrap());
         assert_eq!(Value::Number(1.0f64), environment.get(&identifier).unwrap());
     }
 
@@ -572,7 +576,7 @@ mod tests {
         let identifier = Identifier { name: "x".into() };
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let outer_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
-        assert_eq!(None, outer_statement.execute(&mut environment).unwrap());
+        assert_eq!(None, outer_statement.execute(&environment).unwrap());
 
         let statements = vec![
             Statement::Expression(
@@ -580,7 +584,7 @@ mod tests {
                     lvalue: Target::Identifier(Identifier{name: "x".into()}),
                     rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
         let block = Statement::Block(Box::new(Block { statements: statements }));
-        assert!(block.execute(&mut environment).is_ok());
+        assert!(block.execute(&environment).is_ok());
         assert_eq!(Value::Boolean(false), environment.get(&identifier).unwrap());
     }
     #[test]
@@ -591,7 +595,7 @@ mod tests {
         let statements = vec![Statement::VariableDefinitionWithInitalizer(identifier.clone(),
                                                                           expr)];
         let block = Statement::Block(Box::new(Block { statements: statements }));
-        assert_eq!(None, block.execute(&mut environment).unwrap());
+        assert_eq!(None, block.execute(&environment).unwrap());
         // The variable declaration gets lost when we exit the scope
         assert_eq!(None, environment.get(&identifier));
     }
@@ -637,7 +641,7 @@ mod tests {
                                                        then_branch: then_statement,
                                                        else_branch: else_statement,
                                                    }));
-        assert_eq!(None, block.execute(&mut environment).unwrap());
+        assert_eq!(None, block.execute(&environment).unwrap());
         assert_eq!(Value::Number(2.0f64), environment.get(&identifier).unwrap());
     }
 
@@ -647,7 +651,7 @@ mod tests {
         let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
-            let _ = statement.execute(&mut environment);
+            let _ = statement.execute(&environment);
         }
         assert_eq!(Value::Number(0.0f64),
                    environment.get(&Identifier { name: "a".into() }).unwrap());
@@ -661,7 +665,7 @@ mod tests {
         let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
-            let _ = statement.execute(&mut environment);
+            let _ = statement.execute(&environment);
         }
         assert_eq!(Value::Number(6.0f64),
                    environment.get(&Identifier { name: "a".into() }).unwrap());
@@ -673,7 +677,7 @@ mod tests {
         let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
-            let _ = statement.execute(&mut environment);
+            let _ = statement.execute(&environment);
         }
         assert_eq!(Value::Nil,
                    environment.get(&Identifier { name: "a".into() }).unwrap());
@@ -685,7 +689,7 @@ mod tests {
         let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
-            let _ = statement.execute(&mut environment);
+            let _ = statement.execute(&environment);
         }
         assert_eq!(Value::Number(21.0f64),
                    environment.get(&Identifier { name: "a".into() }).unwrap());
