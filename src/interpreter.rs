@@ -95,25 +95,31 @@ struct EnvironmentImpl {
 }
 
 #[derive(Clone, Debug)]
-struct Environment{
-    actual: Rc<RefCell<EnvironmentImpl>>
+struct Environment {
+    actual: Rc<RefCell<EnvironmentImpl>>,
 }
 
-impl PartialEq for Environment{
-    fn eq(&self, other: &Environment) -> bool{
+impl PartialEq for Environment {
+    fn eq(&self, other: &Environment) -> bool {
         false
     }
 }
 
 impl Environment {
     fn new() -> Environment {
-        let actual = EnvironmentImpl { parent: None, values: HashMap::new() };
-        Environment { actual: Rc::new(RefCell::new(actual))}
+        let actual = EnvironmentImpl {
+            parent: None,
+            values: HashMap::new(),
+        };
+        Environment { actual: Rc::new(RefCell::new(actual)) }
     }
 
     fn new_with_parent(parent: &Environment) -> Environment {
-        let actual = EnvironmentImpl { parent: Some(parent.clone()), values: HashMap::new() };
-        Environment { actual: Rc::new(RefCell::new(actual))}
+        let actual = EnvironmentImpl {
+            parent: Some(parent.clone()),
+            values: HashMap::new(),
+        };
+        Environment { actual: Rc::new(RefCell::new(actual)) }
     }
 
     fn define(&self, identifier: Identifier, value: Value) {
@@ -126,11 +132,10 @@ impl Environment {
         if actual.values.contains_key(&identifier) {
             actual.values.insert(identifier, value);
             return true;
-        }
-        else{
-            match &actual.parent{
+        } else {
+            match &actual.parent {
                 &Some(ref parent) => parent.try_set(identifier, value),
-                &None => false
+                &None => false,
             }
         }
     }
@@ -139,11 +144,10 @@ impl Environment {
         let actual = self.actual.borrow();
         if let Some(value) = actual.values.get(identifier) {
             return Some(value.clone());
-        }
-        else{
-            match &actual.parent{
+        } else {
+            match &actual.parent {
                 &Some(ref parent) => parent.get(identifier),
-                &None => None
+                &None => None,
             }
         }
     }
@@ -417,7 +421,8 @@ impl Execute for Statement {
             Statement::FunctionDefinition(ref f) => {
                 //TODO: capture the environment for closures to work
                 environment.define(f.name.clone(),
-                                   Value::Callable(Callable::Function(f.clone(), environment.clone())));
+                                   Value::Callable(Callable::Function(f.clone(),
+                                                                      environment.clone())));
                 Ok(None)
             }
         }
@@ -436,8 +441,7 @@ mod tests {
         let mut environment = Environment::new();
         let string = String::from("abc");
         let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
-        assert_eq!(Value::String(string),
-                   expr.interpret(&environment).unwrap());
+        assert_eq!(Value::String(string), expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -455,8 +459,7 @@ mod tests {
             operator: UnaryOperator::Bang,
             right: Expr::Literal(Literal::BoolLiteral(false)),
         };
-        assert_eq!(Value::Boolean(true),
-                   expr.interpret(&environment).unwrap());
+        assert_eq!(Value::Boolean(true), expr.interpret(&environment).unwrap());
     }
 
     #[test]
@@ -478,8 +481,7 @@ mod tests {
             left: Expr::Literal(Literal::NumberLiteral(1.0f64)),
             right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
         };
-        assert_eq!(Value::Number(2.0f64),
-                   expr.interpret(&environment).unwrap());
+        assert_eq!(Value::Number(2.0f64), expr.interpret(&environment).unwrap());
     }
 
     #[test]
