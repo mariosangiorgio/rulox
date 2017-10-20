@@ -28,7 +28,7 @@ impl Callable {
 
     fn call(&self,
             arguments: &Vec<Value>,
-            environment: &Environment)
+            _environment: &Environment)
             -> Result<Value, RuntimeError> {
         match *self {
             Callable::Clock => {
@@ -95,12 +95,12 @@ struct EnvironmentImpl {
 }
 
 #[derive(Clone, Debug)]
-struct Environment {
+pub struct Environment {
     actual: Rc<RefCell<EnvironmentImpl>>,
 }
 
 impl PartialEq for Environment {
-    fn eq(&self, other: &Environment) -> bool {
+    fn eq(&self, _other: &Environment) -> bool {
         false
     }
 }
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn literal() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let string = String::from("abc");
         let expr = Expr {
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     fn grouping() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = Grouping {
             expr: Expr {
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn unary() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Bang,
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn binary() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
@@ -514,7 +514,7 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn binary_expression_with_mismatching_types() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::LessEqual,
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn expression_statement() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = Expr {
             handle: expression_handle_factory.next(),
@@ -563,7 +563,7 @@ mod tests {
 
     #[test]
     fn complex_expression_statement() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let subexpr1 = UnaryExpr {
             operator: UnaryOperator::Minus,
@@ -599,7 +599,7 @@ mod tests {
 
     #[test]
     fn variable_definition() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let statement = Statement::VariableDefinition(identifier.clone());
         assert_eq!(None, statement.execute(&environment).unwrap());
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn error_accessing_undefined_variable() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let statement = Statement::Expression(Expr {
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn error_assigning_undefined_variable() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let statement = Statement::Expression(
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn variable_definition_with_initializer() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = Expr {
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn block_affects_outer_scope() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = Expr {
@@ -679,7 +679,7 @@ mod tests {
     }
     #[test]
     fn block_variable_dont_escape_scope() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = Expr {
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn if_then_else() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let condition = Expr {
@@ -751,7 +751,7 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
@@ -765,7 +765,7 @@ mod tests {
 
     #[test]
     fn function_declaration_and_call() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
@@ -777,7 +777,7 @@ mod tests {
 
     #[test]
     fn function_declaration_and_call_no_return() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
         let statements = parse(&tokens).unwrap();
         for statement in statements {
@@ -789,7 +789,7 @@ mod tests {
 
     #[test]
     fn local_variables_dont_pollute_outer_scope() {
-        let mut environment = Environment::new();
+        let environment = Environment::new();
         let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
         let statements = parse(&tokens).unwrap();
         for statement in statements {

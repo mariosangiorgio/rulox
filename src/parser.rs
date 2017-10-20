@@ -19,9 +19,11 @@ macro_rules! consume_expected_token_with_action {
         }
         Some(_) => {
             let token = $tokens.next().unwrap();
-            Err(ParseError::Missing($required_element,
-                                                token.lexeme.clone(),
-                                                token.position))
+            Err(
+                ParseError::Missing(
+                    $required_element,
+                    token.lexeme.clone(),
+                    token.position))
         }
         None => Err(ParseError::UnexpectedEndOfFile),
     }
@@ -30,7 +32,7 @@ macro_rules! consume_expected_token_with_action {
 
 macro_rules! consume_expected_token {
     ($tokens:expr, $expected: pat, $required_element: expr) => (
-    consume_expected_token_with_action!($tokens, $expected, (), $required_element)
+        consume_expected_token_with_action!($tokens, $expected, (), $required_element)
     )
 }
 
@@ -79,16 +81,16 @@ pub struct Parser<'a, I>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     tokens: Peekable<I>,
-    expressionHandleFactory: ExpressionHandleFactory,
+    expression_handle_factory: ExpressionHandleFactory,
 }
 
 impl<'a, I> Parser<'a, I>
     where I: Iterator<Item = &'a TokenWithContext>
 {
-    fn new(mut tokens: Peekable<I>) -> Parser<'a, I> {
+    fn new(tokens: Peekable<I>) -> Parser<'a, I> {
         Parser {
             tokens: tokens,
-            expressionHandleFactory: ExpressionHandleFactory::new(),
+            expression_handle_factory: ExpressionHandleFactory::new(),
         }
     }
 
@@ -193,7 +195,9 @@ impl<'a, I> Parser<'a, I>
         let parse_identifier =
             |parser: &mut Parser<'a, I>| Some(parser.consume_expected_identifier());
         let arguments = try_wrap_err!(self.parse_function_arguments(&parse_identifier));
-        consume_expected_token!(self.tokens, &Token::LeftBrace, RequiredElement::Block);
+        let _ =
+            try_wrap_err!(
+                consume_expected_token!(self.tokens, &Token::LeftBrace, RequiredElement::Block));
         let block = match self.parse_block() {
             Some(Ok(block)) => block,
             Some(err) => return Some(err),
@@ -283,13 +287,17 @@ impl<'a, I> Parser<'a, I>
     }
 
     fn parse_if_statement(&mut self) -> Option<Result<Statement, ParseError>> {
-        consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen);
+        let _ = try_wrap_err!(
+                consume_expected_token!(
+                    self.tokens, &Token::LeftParen, RequiredElement::LeftParen));
         let condition = match self.parse_expression() {
             Some(Ok(expression)) => expression,
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen);
+        let _ = try_wrap_err!(
+            consume_expected_token!(
+                self.tokens, &Token::RightParen, RequiredElement::RightParen));
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
         let then_branch = match self.parse_declaration() {
@@ -318,13 +326,17 @@ impl<'a, I> Parser<'a, I>
     }
 
     fn parse_while_statement(&mut self) -> Option<Result<Statement, ParseError>> {
-        consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen));
         let condition = match self.parse_expression() {
             Some(Ok(expression)) => expression,
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen));
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
         let body = match self.parse_declaration() {
@@ -339,7 +351,9 @@ impl<'a, I> Parser<'a, I>
     }
 
     fn parse_for_statement(&mut self) -> Option<Result<Statement, ParseError>> {
-        consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen));
         let initializer = match self.tokens.peek().map(|t| &t.token) {
             Some(&Token::Semicolon) => None,
             Some(&Token::Var) => {
@@ -358,12 +372,14 @@ impl<'a, I> Parser<'a, I>
                 }
             }
         };
-        consume_expected_token!(self.tokens, &Token::Semicolon, RequiredElement::Semicolon);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::Semicolon, RequiredElement::Semicolon));
 
         let condition = match self.tokens.peek().map(|t| &t.token) {
             Some(&Token::Semicolon) => {
                 Expr {
-                    handle: self.expressionHandleFactory.next(),
+                    handle: self.expression_handle_factory.next(),
                     expr: ExprEnum::Literal(Literal::BoolLiteral(true)),
                 }
             }
@@ -376,7 +392,9 @@ impl<'a, I> Parser<'a, I>
             }
         };
 
-        consume_expected_token!(self.tokens, &Token::Semicolon, RequiredElement::Semicolon);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::Semicolon, RequiredElement::Semicolon));
 
         let increment = match self.tokens.peek().map(|t| &t.token) {
             Some(&Token::RightParen) => None,
@@ -388,7 +406,9 @@ impl<'a, I> Parser<'a, I>
                 }
             }
         };
-        consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen);
+        let _ =
+            try_wrap_err!(
+            consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen));
 
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
@@ -457,7 +477,7 @@ impl<'a, I> Parser<'a, I>
                 right: right,
             };
             expr = Expr {
-                handle: self.expressionHandleFactory.next(),
+                handle: self.expression_handle_factory.next(),
                 expr: ExprEnum::Logic(Box::new(binary_expression)),
             };
         }
@@ -497,7 +517,7 @@ impl<'a, I> Parser<'a, I>
                 right: right,
             };
             expr = Expr {
-                handle: self.expressionHandleFactory.next(),
+                handle: self.expression_handle_factory.next(),
                 expr: ExprEnum::Binary(Box::new(binary_expression)),
             };
         }
@@ -520,7 +540,7 @@ impl<'a, I> Parser<'a, I>
                                 Some(result) => {
                                     Some(result.map(|rvalue| {
                                         Expr {
-                                            handle: self.expressionHandleFactory.next(),
+                                            handle: self.expression_handle_factory.next(),
                                             expr: ExprEnum::Assignment(Box::new(Assignment {
                                                                                     lvalue: target,
                                                                                     rvalue: rvalue,
@@ -636,7 +656,7 @@ impl<'a, I> Parser<'a, I>
                 right: right,
             };
             return Some(Ok(Expr {
-                               handle: self.expressionHandleFactory.next(),
+                               handle: self.expression_handle_factory.next(),
                                expr: ExprEnum::Unary(Box::new(unary_expression)),
                            }));
         } else {
@@ -664,7 +684,7 @@ impl<'a, I> Parser<'a, I>
                                    parse_argument: &Fn(&mut Parser<'a, I>)
                                                        -> Option<Result<A, ParseError>>)
                                    -> Result<Vec<A>, ParseError> {
-        consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen);
+        let _ = try!(consume_expected_token!(self.tokens, &Token::LeftParen, RequiredElement::LeftParen));
         let mut arguments = vec![];
         if let Some(&Token::RightParen) = self.tokens.peek().map(|t| &t.token) {
         } else {
@@ -686,14 +706,16 @@ impl<'a, I> Parser<'a, I>
                 }
             }
         }
-        consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen);
+        let _ =
+            try!(
+            consume_expected_token!(self.tokens, &Token::RightParen, RequiredElement::RightParen));
         Ok(arguments)
     }
 
     fn finish_call(&mut self, callee: Expr) -> Option<Result<Expr, ParseError>> {
         let arguments = try_wrap_err!(self.parse_function_arguments(&Parser::parse_expression));
         Some(Ok(Expr {
-                    handle: self.expressionHandleFactory.next(),
+                    handle: self.expression_handle_factory.next(),
                     expr: ExprEnum::Call(Box::new(Call {
                                                       callee: callee,
                                                       arguments: arguments,
@@ -710,37 +732,37 @@ impl<'a, I> Parser<'a, I>
             let parsed_expression = match primary_token.token {
                 Token::False => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Literal(Literal::BoolLiteral(false)),
                     }
                 }
                 Token::True => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Literal(Literal::BoolLiteral(true)),
                     }
                 }
                 Token::Nil => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Literal(Literal::NilLiteral),
                     }
                 }
                 Token::NumberLiteral(n) => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Literal(Literal::NumberLiteral(n)),
                     }
                 }
                 Token::StringLiteral(ref s) => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Literal(Literal::StringLiteral(s.clone())),
                     }
                 }
                 Token::Identifier(ref i) => {
                     Expr {
-                        handle: self.expressionHandleFactory.next(),
+                        handle: self.expression_handle_factory.next(),
                         expr: ExprEnum::Identifier(Identifier { name: i.clone() }),
                     }
                 }
@@ -756,7 +778,7 @@ impl<'a, I> Parser<'a, I>
                                 let grouping_expression = Grouping { expr: expr };
                                 return Some(Ok(
                                     Expr{
-                                    handle: self.expressionHandleFactory.next(),
+                                    handle: self.expression_handle_factory.next(),
                 expr: ExprEnum::Grouping(Box::new(grouping_expression))}));
                             } else {
                                 return Some(Err(ParseError::Missing(RequiredElement::RightParen,

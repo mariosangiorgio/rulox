@@ -159,7 +159,7 @@ impl Debug for FunctionDefinition {
 }
 
 impl PartialEq for FunctionDefinition {
-    fn eq(&self, other: &FunctionDefinition) -> bool {
+    fn eq(&self, _other: &FunctionDefinition) -> bool {
         false
     }
 }
