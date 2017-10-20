@@ -76,7 +76,33 @@ pub struct Call {
     pub arguments: Vec<Expr>,
 }
 
-pub enum Expr {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExpressionHandle {
+    value: u16,
+}
+
+pub struct ExpressionHandleFactory {
+    next_value: u16,
+}
+
+impl ExpressionHandleFactory {
+    pub fn new() -> ExpressionHandleFactory {
+        ExpressionHandleFactory { next_value: 0 }
+    }
+
+    pub fn next(&mut self) -> ExpressionHandle {
+        let value = self.next_value;
+        self.next_value = self.next_value + 1;
+        ExpressionHandle { value: value }
+    }
+}
+
+pub struct Expr {
+    pub handle: ExpressionHandle,
+    pub expr: ExprEnum,
+}
+
+pub enum ExprEnum {
     Literal(Literal),
     Identifier(Identifier),
     Unary(Box<UnaryExpr>),
@@ -133,7 +159,7 @@ impl Debug for FunctionDefinition {
 }
 
 impl PartialEq for FunctionDefinition {
-    fn eq(&self, other: &FunctionDefinition) -> bool {
+    fn eq(&self, _other: &FunctionDefinition) -> bool {
         false
     }
 }

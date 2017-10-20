@@ -11,15 +11,15 @@ pub trait PrettyPrint {
 
 impl PrettyPrint for Expr {
     fn pretty_print_into(&self, pretty_printed: &mut String) -> () {
-        match *self {
-            Expr::Literal(ref l) => l.pretty_print_into(pretty_printed),
-            Expr::Unary(ref u) => u.pretty_print_into(pretty_printed),
-            Expr::Binary(ref b) => b.pretty_print_into(pretty_printed),
-            Expr::Logic(ref b) => b.pretty_print_into(pretty_printed),
-            Expr::Grouping(ref g) => g.pretty_print_into(pretty_printed),
-            Expr::Identifier(ref i) => i.pretty_print_into(pretty_printed),
-            Expr::Assignment(ref a) => a.pretty_print_into(pretty_printed),
-            Expr::Call(ref c) => c.pretty_print_into(pretty_printed),
+        match self.expr {
+            ExprEnum::Literal(ref l) => l.pretty_print_into(pretty_printed),
+            ExprEnum::Unary(ref u) => u.pretty_print_into(pretty_printed),
+            ExprEnum::Binary(ref b) => b.pretty_print_into(pretty_printed),
+            ExprEnum::Logic(ref b) => b.pretty_print_into(pretty_printed),
+            ExprEnum::Grouping(ref g) => g.pretty_print_into(pretty_printed),
+            ExprEnum::Identifier(ref i) => i.pretty_print_into(pretty_printed),
+            ExprEnum::Assignment(ref a) => a.pretty_print_into(pretty_printed),
+            ExprEnum::Call(ref c) => c.pretty_print_into(pretty_printed),
 
         }
     }
@@ -229,35 +229,66 @@ mod tests {
 
     #[test]
     fn literal() {
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let string = String::from("abc");
-        let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::StringLiteral(string.clone())),
+        };
         assert_eq!(string, expr.pretty_print());
     }
 
     #[test]
     fn complex_expression() {
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let subexpr1 = UnaryExpr {
             operator: UnaryOperator::Minus,
-            right: Expr::Literal(Literal::NumberLiteral(123f64)),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(123f64)),
+            },
         };
-        let subexpr2 = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
+        let subexpr2 = Grouping {
+            expr: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(45.67f64)),
+            },
+        };
         let binary_expr = BinaryExpr {
-            left: Expr::Unary(Box::new(subexpr1)),
+            left: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Unary(Box::new(subexpr1)),
+            },
             operator: BinaryOperator::Star,
-            right: Expr::Grouping(Box::new(subexpr2)),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Grouping(Box::new(subexpr2)),
+            },
         };
-        let expr = Expr::Binary(Box::new(binary_expr));
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Binary(Box::new(binary_expr)),
+        };
         assert_eq!("(* (- 123) (group 45.67))", &expr.pretty_print());
     }
 
     #[test]
     fn block() {
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let identifier = Identifier { name: "x".into() };
         let statements = vec![
             Statement::VariableDefinitionWithInitalizer(
                 identifier.clone(),
-                Expr::Literal(Literal::BoolLiteral(true))),
-            Statement::Print(Expr::Identifier(identifier.clone()))];
+                Expr{
+                    handle: expression_handle_factory.next(),
+                    expr: ExprEnum::Literal(Literal::BoolLiteral(true))
+                }),
+            Statement::Print(
+                Expr{
+                    handle: expression_handle_factory.next(),
+                    expr: ExprEnum::Identifier(identifier.clone())
+                    })
+                    ];
         let block = Statement::Block(Box::new(Block { statements: statements }));
         assert_eq!("{ var x = true; print x; }", &block.pretty_print());
     }
