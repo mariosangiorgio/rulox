@@ -79,13 +79,17 @@ pub struct Parser<'a, I>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     tokens: Peekable<I>,
+    expressionHandleFactory: ExpressionHandleFactory,
 }
 
 impl<'a, I> Parser<'a, I>
     where I: Iterator<Item = &'a TokenWithContext>
 {
     fn new(mut tokens: Peekable<I>) -> Parser<'a, I> {
-        Parser { tokens: tokens }
+        Parser {
+            tokens: tokens,
+            expressionHandleFactory: ExpressionHandleFactory::new(),
+        }
     }
 
     fn consume_expected_identifier(&mut self) -> Result<Identifier, ParseError> {
@@ -357,7 +361,12 @@ impl<'a, I> Parser<'a, I>
         consume_expected_token!(self.tokens, &Token::Semicolon, RequiredElement::Semicolon);
 
         let condition = match self.tokens.peek().map(|t| &t.token) {
-            Some(&Token::Semicolon) => Expr::Literal(Literal::BoolLiteral(true)),
+            Some(&Token::Semicolon) => {
+                Expr {
+                    handle: self.expressionHandleFactory.next(),
+                    expr: ExprEnum::Literal(Literal::BoolLiteral(true)),
+                }
+            }
             _ => {
                 match self.parse_expression() {
                     Some(Ok(expression)) => expression,
@@ -447,7 +456,10 @@ impl<'a, I> Parser<'a, I>
                 operator: mapped_operator,
                 right: right,
             };
-            expr = Expr::Logic(Box::new(binary_expression));
+            expr = Expr {
+                handle: self.expressionHandleFactory.next(),
+                expr: ExprEnum::Logic(Box::new(binary_expression)),
+            };
         }
         Some(Ok(expr))
     }
@@ -484,7 +496,10 @@ impl<'a, I> Parser<'a, I>
                 operator: mapped_operator,
                 right: right,
             };
-            expr = Expr::Binary(Box::new(binary_expression));
+            expr = Expr {
+                handle: self.expressionHandleFactory.next(),
+                expr: ExprEnum::Binary(Box::new(binary_expression)),
+            };
         }
         Some(Ok(expr))
     }
@@ -495,19 +510,23 @@ impl<'a, I> Parser<'a, I>
                 if let Some(&Token::Equal) = self.tokens.peek().map(|t| &t.token) {
                     let equal = self.tokens.next().unwrap();
                     match lvalue {
-                        Expr::Identifier(identifier) => {
+                        Expr {
+                            handle: _,
+                            expr: ExprEnum::Identifier(identifier),
+                        } => {
                             let target = Target::Identifier(Identifier { name: identifier.name });
                             match self.parse_assignment() {
                                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
                                 Some(result) => {
                                     Some(result.map(|rvalue| {
-                                                        Expr::Assignment(Box::new(Assignment {
-                                                                                      lvalue:
-                                                                                          target,
-                                                                                      rvalue:
-                                                                                          rvalue,
-                                                                                  }))
-                                                    }))
+                                        Expr {
+                                            handle: self.expressionHandleFactory.next(),
+                                            expr: ExprEnum::Assignment(Box::new(Assignment {
+                                                                                    lvalue: target,
+                                                                                    rvalue: rvalue,
+                                                                                })),
+                                        }
+                                    }))
                                 }
                             }
                         }
@@ -616,7 +635,10 @@ impl<'a, I> Parser<'a, I>
                 operator: mapped_operator,
                 right: right,
             };
-            return Some(Ok(Expr::Unary(Box::new(unary_expression))));
+            return Some(Ok(Expr {
+                               handle: self.expressionHandleFactory.next(),
+                               expr: ExprEnum::Unary(Box::new(unary_expression)),
+                           }));
         } else {
             self.parse_call()
         }
@@ -670,10 +692,13 @@ impl<'a, I> Parser<'a, I>
 
     fn finish_call(&mut self, callee: Expr) -> Option<Result<Expr, ParseError>> {
         let arguments = try_wrap_err!(self.parse_function_arguments(&Parser::parse_expression));
-        Some(Ok(Expr::Call(Box::new(Call {
-                                        callee: callee,
-                                        arguments: arguments,
-                                    }))))
+        Some(Ok(Expr {
+                    handle: self.expressionHandleFactory.next(),
+                    expr: ExprEnum::Call(Box::new(Call {
+                                                      callee: callee,
+                                                      arguments: arguments,
+                                                  })),
+                }))
     }
 
     fn parse_primary(&mut self) -> Option<Result<Expr, ParseError>> {
@@ -683,12 +708,42 @@ impl<'a, I> Parser<'a, I>
         };
         if let Some(primary_token) = primary_token {
             let parsed_expression = match primary_token.token {
-                Token::False => Expr::Literal(Literal::BoolLiteral(false)),
-                Token::True => Expr::Literal(Literal::BoolLiteral(true)),
-                Token::Nil => Expr::Literal(Literal::NilLiteral),
-                Token::NumberLiteral(n) => Expr::Literal(Literal::NumberLiteral(n)),
-                Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
-                Token::Identifier(ref i) => Expr::Identifier(Identifier { name: i.clone() }),
+                Token::False => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Literal(Literal::BoolLiteral(false)),
+                    }
+                }
+                Token::True => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Literal(Literal::BoolLiteral(true)),
+                    }
+                }
+                Token::Nil => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Literal(Literal::NilLiteral),
+                    }
+                }
+                Token::NumberLiteral(n) => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Literal(Literal::NumberLiteral(n)),
+                    }
+                }
+                Token::StringLiteral(ref s) => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Literal(Literal::StringLiteral(s.clone())),
+                    }
+                }
+                Token::Identifier(ref i) => {
+                    Expr {
+                        handle: self.expressionHandleFactory.next(),
+                        expr: ExprEnum::Identifier(Identifier { name: i.clone() }),
+                    }
+                }
                 Token::LeftParen => {
                     let expr = if let Some(result) = self.parse_expression() {
                         try_wrap_err!(result)
@@ -699,7 +754,10 @@ impl<'a, I> Parser<'a, I>
                         if let Some(token) = self.tokens.next() {
                             if token.token == Token::RightParen {
                                 let grouping_expression = Grouping { expr: expr };
-                                return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
+                                return Some(Ok(
+                                    Expr{
+                                    handle: self.expressionHandleFactory.next(),
+                expr: ExprEnum::Grouping(Box::new(grouping_expression))}));
                             } else {
                                 return Some(Err(ParseError::Missing(RequiredElement::RightParen,
                                                                     token.lexeme.clone(),

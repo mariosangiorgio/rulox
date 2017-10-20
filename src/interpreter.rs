@@ -193,15 +193,15 @@ trait Execute {
 
 impl Interpret for Expr {
     fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        match *self {
-            Expr::Literal(ref l) => l.interpret(environment),
-            Expr::Unary(ref u) => u.interpret(environment),
-            Expr::Binary(ref b) => b.interpret(environment),
-            Expr::Logic(ref b) => b.interpret(environment),
-            Expr::Grouping(ref g) => g.interpret(environment),
-            Expr::Identifier(ref i) => i.interpret(environment),
-            Expr::Assignment(ref a) => a.interpret(environment),
-            Expr::Call(ref c) => c.interpret(environment),
+        match self.expr {
+            ExprEnum::Literal(ref l) => l.interpret(environment),
+            ExprEnum::Unary(ref u) => u.interpret(environment),
+            ExprEnum::Binary(ref b) => b.interpret(environment),
+            ExprEnum::Logic(ref b) => b.interpret(environment),
+            ExprEnum::Grouping(ref g) => g.interpret(environment),
+            ExprEnum::Identifier(ref i) => i.interpret(environment),
+            ExprEnum::Assignment(ref a) => a.interpret(environment),
+            ExprEnum::Call(ref c) => c.interpret(environment),
         }
     }
 }
@@ -439,15 +439,25 @@ mod tests {
     #[test]
     fn literal() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let string = String::from("abc");
-        let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::StringLiteral(string.clone())),
+        };
         assert_eq!(Value::String(string), expr.interpret(&environment).unwrap());
     }
 
     #[test]
     fn grouping() {
         let mut environment = Environment::new();
-        let expr = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let expr = Grouping {
+            expr: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(45.67f64)),
+            },
+        };
         assert_eq!(Value::Number(45.67f64),
                    expr.interpret(&environment).unwrap());
     }
@@ -455,9 +465,13 @@ mod tests {
     #[test]
     fn unary() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Bang,
-            right: Expr::Literal(Literal::BoolLiteral(false)),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::BoolLiteral(false)),
+            },
         };
         assert_eq!(Value::Boolean(true), expr.interpret(&environment).unwrap());
     }
@@ -465,21 +479,35 @@ mod tests {
     #[test]
     fn unary_minus_only_applies_to_numbers() {
         let mut interpreter = StatementInterpreter::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Minus,
-            right: Expr::Literal(Literal::NilLiteral),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NilLiteral),
+            },
         };
-        let statement = Statement::Expression(Expr::Unary(Box::new(expr)));
+        let statement = Statement::Expression(Expr {
+                                                  handle: expression_handle_factory.next(),
+                                                  expr: ExprEnum::Unary(Box::new(expr)),
+                                              });
         assert!(interpreter.execute(&statement).is_err());
     }
 
     #[test]
     fn binary() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
-            left: Expr::Literal(Literal::NumberLiteral(1.0f64)),
-            right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
+            left: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+            },
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+            },
         };
         assert_eq!(Value::Number(2.0f64), expr.interpret(&environment).unwrap());
     }
@@ -487,10 +515,17 @@ mod tests {
     #[test]
     fn string_concatenation() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
-            left: Expr::Literal(Literal::StringLiteral("Foo".into())),
-            right: Expr::Literal(Literal::StringLiteral("Bar".into())),
+            left: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::StringLiteral("Foo".into())),
+            },
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::StringLiteral("Bar".into())),
+            },
         };
         assert_eq!(Value::String("FooBar".into()),
                    expr.interpret(&environment).unwrap());
@@ -499,10 +534,17 @@ mod tests {
     #[test]
     fn binary_expression_with_mismatching_types() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::LessEqual,
-            left: Expr::Literal(Literal::NilLiteral),
-            right: Expr::Literal(Literal::NumberLiteral(1.0f64)),
+            left: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NilLiteral),
+            },
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+            },
         };
         assert!(expr.interpret(&environment).is_err());
     }
@@ -510,7 +552,11 @@ mod tests {
     #[test]
     fn expression_statement() {
         let mut environment = Environment::new();
-        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+        };
         let statement = Statement::Expression(expr);
         assert_eq!(None, statement.execute(&environment).unwrap());
     }
@@ -518,17 +564,35 @@ mod tests {
     #[test]
     fn complex_expression_statement() {
         let mut environment = Environment::new();
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let subexpr1 = UnaryExpr {
             operator: UnaryOperator::Minus,
-            right: Expr::Literal(Literal::NumberLiteral(2f64)),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(2f64)),
+            },
         };
-        let subexpr2 = Grouping { expr: Expr::Literal(Literal::NumberLiteral(5f64)) };
+        let subexpr2 = Grouping {
+            expr: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Literal(Literal::NumberLiteral(5f64)),
+            },
+        };
         let binary_expr = BinaryExpr {
-            left: Expr::Unary(Box::new(subexpr1)),
+            left: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Unary(Box::new(subexpr1)),
+            },
             operator: BinaryOperator::Star,
-            right: Expr::Grouping(Box::new(subexpr2)),
+            right: Expr {
+                handle: expression_handle_factory.next(),
+                expr: ExprEnum::Grouping(Box::new(subexpr2)),
+            },
         };
-        let expr = Expr::Binary(Box::new(binary_expr));
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Binary(Box::new(binary_expr)),
+        };
         let statement = Statement::Expression(expr);
         assert_eq!(None, statement.execute(&environment).unwrap());
     }
@@ -546,7 +610,11 @@ mod tests {
     fn error_accessing_undefined_variable() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let statement = Statement::Expression(Expr::Identifier(identifier));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let statement = Statement::Expression(Expr {
+                                                  handle: expression_handle_factory.next(),
+                                                  expr: ExprEnum::Identifier(identifier),
+                                              });
         assert!(statement.execute(&environment).is_err());
     }
 
@@ -554,11 +622,21 @@ mod tests {
     fn error_assigning_undefined_variable() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
         let statement = Statement::Expression(
-            Expr::Assignment(Box::new(Assignment{
-                lvalue: Target::Identifier(identifier),
-                rvalue: Expr::Literal(Literal::BoolLiteral(true))}))
-            );
+                    Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Assignment(
+                Box::new(
+        Assignment{
+            lvalue: Target::Identifier(identifier),
+            rvalue:
+                    Expr {
+                        handle: expression_handle_factory.next(),
+                        expr: ExprEnum::Literal(Literal::BoolLiteral(true))
+                        }}))
+            }
+                    );
         assert!(statement.execute(&environment).is_err());
     }
 
@@ -566,7 +644,11 @@ mod tests {
     fn variable_definition_with_initializer() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+        };
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(None, statement.execute(&environment).unwrap());
         assert_eq!(Value::Number(1.0f64), environment.get(&identifier).unwrap());
@@ -576,15 +658,21 @@ mod tests {
     fn block_affects_outer_scope() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+        };
         let outer_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(None, outer_statement.execute(&environment).unwrap());
-
         let statements = vec![
             Statement::Expression(
-                Expr::Assignment(Box::new(Assignment{
+        Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Assignment(Box::new(Assignment{
                     lvalue: Target::Identifier(Identifier{name: "x".into()}),
-                    rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
+                    rvalue: Expr{handle:expression_handle_factory.next(),
+                    expr: ExprEnum::Literal(Literal::BoolLiteral(false))}}))})];
         let block = Statement::Block(Box::new(Block { statements: statements }));
         assert!(block.execute(&environment).is_ok());
         assert_eq!(Value::Boolean(false), environment.get(&identifier).unwrap());
@@ -593,7 +681,11 @@ mod tests {
     fn block_variable_dont_escape_scope() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+        };
         let statements = vec![Statement::VariableDefinitionWithInitalizer(identifier.clone(),
                                                                           expr)];
         let block = Statement::Block(Box::new(Block { statements: statements }));
@@ -631,9 +723,19 @@ mod tests {
     fn if_then_else() {
         let mut environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let condition = Expr::Literal(Literal::BoolLiteral(false));
-        let then_expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
-        let else_expr = Expr::Literal(Literal::NumberLiteral(2.0f64));
+        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let condition = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::BoolLiteral(false)),
+        };
+        let then_expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(1.0f64)),
+        };
+        let else_expr = Expr {
+            handle: expression_handle_factory.next(),
+            expr: ExprEnum::Literal(Literal::NumberLiteral(2.0f64)),
+        };
         let then_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(),
                                                                          then_expr);
         let else_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(),
