@@ -67,6 +67,7 @@ pub struct Grouping {
 }
 
 pub struct Assignment {
+    pub handle: ExpressionHandle,
     pub lvalue: Target,
     pub rvalue: Expr,
 }
@@ -76,7 +77,7 @@ pub struct Call {
     pub arguments: Vec<Expr>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExpressionHandle {
     value: u16,
 }
@@ -97,14 +98,9 @@ impl ExpressionHandleFactory {
     }
 }
 
-pub struct Expr {
-    pub handle: ExpressionHandle,
-    pub expr: ExprEnum,
-}
-
-pub enum ExprEnum {
+pub enum Expr {
     Literal(Literal),
-    Identifier(Identifier),
+    Identifier(ExpressionHandle, Identifier),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Logic(Box<LogicExpr>),
