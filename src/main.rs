@@ -3,6 +3,7 @@ mod ast;
 mod pretty_printer;
 mod parser;
 mod interpreter;
+//mod lexical_scope_resolver;
 
 extern crate itertools;
 
@@ -28,13 +29,15 @@ enum InputError {
     ParserError(parser::ParseError),
 }
 
-fn scan_and_parse(source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> {
+fn scan_and_parse(parser: &mut parser::Parser,
+                  source: &str)
+                  -> Result<Vec<ast::Statement>, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
     let mut errors: Vec<InputError> = scanner_errors
         .iter()
         .map(|e| InputError::ScannerError(e.clone()))
         .collect();
-    match parser::parse(&tokens) {
+    match parser.parse(&tokens) {
         Ok(expr) => {
             if errors.is_empty() {
                 Ok(expr)
@@ -51,8 +54,8 @@ fn scan_and_parse(source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> 
     }
 }
 
-fn run(interpreter: &mut Interpreter, source: &str) -> RunResult {
-    match scan_and_parse(source) {
+fn run(parser: &mut parser::Parser, interpreter: &mut Interpreter, source: &str) -> RunResult {
+    match scan_and_parse(parser, source) {
         Ok(statements) => {
             for statement in statements {
                 match interpreter.execute(&statement) {
@@ -72,13 +75,14 @@ fn run_file(file_name: &str) -> RunResult {
             RunResult::IoError("Error opening file".into()) // TODO: add context
         }
         Ok(mut file) => {
+            let mut parser = parser::Parser::new();
             let mut interpreter = StatementInterpreter::new();
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
                     RunResult::IoError("Error reading file".into()) // TODO: add context
                 }
-                Ok(_) => run(&mut interpreter, &source),
+                Ok(_) => run(&mut parser, &mut interpreter, &source),
             }
         }
     }
@@ -109,6 +113,7 @@ impl Interpreter for LoggingInterpreter {
 
 fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
+    let mut parser = parser::Parser::new();
     let mut interpreter = LoggingInterpreter::new();
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
@@ -117,7 +122,7 @@ fn run_prompt() -> RunResult {
         let mut source = String::new();
         let _ = io::stdin().read_line(&mut source);
         // TODO: add a way to exit
-        let result = run(&mut interpreter, &source);
+        let result = run(&mut parser, &mut interpreter, &source);
         match result {
             RunResult::Ok => (),
             _ => {

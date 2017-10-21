@@ -659,7 +659,7 @@ mod tests {
     fn while_loop() {
         let environment = Environment::new();
         let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
-        let statements = parse(&tokens).unwrap();
+        let statements = Parser::new().parse(&tokens).unwrap();
         for statement in statements {
             let _ = statement.execute(&environment);
         }
@@ -673,7 +673,7 @@ mod tests {
     fn function_declaration_and_call() {
         let environment = Environment::new();
         let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
-        let statements = parse(&tokens).unwrap();
+        let statements = Parser::new().parse(&tokens).unwrap();
         for statement in statements {
             let _ = statement.execute(&environment);
         }
@@ -685,7 +685,7 @@ mod tests {
     fn function_declaration_and_call_no_return() {
         let environment = Environment::new();
         let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
-        let statements = parse(&tokens).unwrap();
+        let statements = Parser::new().parse(&tokens).unwrap();
         for statement in statements {
             let _ = statement.execute(&environment);
         }
@@ -697,7 +697,7 @@ mod tests {
     fn local_variables_dont_pollute_outer_scope() {
         let environment = Environment::new();
         let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
-        let statements = parse(&tokens).unwrap();
+        let statements = Parser::new().parse(&tokens).unwrap();
         for statement in statements {
             let _ = statement.execute(&environment);
         }
