@@ -1,14 +1,14 @@
 {
   "version": "0.2.0",
+  "sourceLanguages": ["rust"],
   "configurations": [
     {
       "name": "Debug rulox",
-      "type": "lldb-mi",
+      "type": "lldb",
       "request": "launch",
-      "target": "target/debug/rulox-b9f16ee6f179bcc2",
-      "arguments": "--test parser::tests::literal",
-      "cwd": "${workspaceRoot}",
-      "printCalls": true
+      "program": "target/debug/rulox-9dbf730e028ff499",
+      "args": "--test lexical_scope_resolver::tests::lexical_capture",
+      "cwd": "${workspaceRoot}"
     }
   ]
 }
