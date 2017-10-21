@@ -105,15 +105,39 @@ impl LexicalScopesResolver for Statement {
                 Ok(())
             }
             Statement::VariableDefinition(ref identifier) => {
+                //TODO: avoid all these copies
+                resolver.declare(identifier.name.to_owned());
                 resolver.define(identifier.name.to_owned());
                 Ok(())
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
+                //TODO: avoid all these copies
+                resolver.declare(identifier.name.to_owned());
                 try!(initializer.resolve(resolver));
                 resolver.define(identifier.name.to_owned());
                 Ok(())
             }
-            _ => unimplemented!(),
+            Statement::FunctionDefinition(ref f) => f.resolve(resolver),
+            Statement::Expression(ref e) => e.resolve(resolver),
+            Statement::IfThen(ref s) => {
+                s.condition
+                    .resolve(resolver)
+                    .and_then(|_| s.then_branch.resolve(resolver))
+            }
+            Statement::IfThenElse(ref s) => {
+                s.condition
+                    .resolve(resolver)
+                    .and_then(|_| s.then_branch.resolve(resolver))
+                    .and_then(|_| s.else_branch.resolve(resolver))
+            }
+            Statement::While(ref s) => {
+                s.condition
+                    .resolve(resolver)
+                    .and_then(|_| s.body.resolve(resolver))
+            }
+            Statement::Print(ref e) => e.resolve(resolver),
+            Statement::Return(None) => Ok(()),
+            Statement::Return(Some(ref e)) => e.resolve(resolver),
         }
     }
 }
@@ -132,7 +156,26 @@ impl LexicalScopesResolver for Expr {
                 }
             }
             Expr::Assignment(ref assigment) => assigment.resolve(resolver),
-            _ => unimplemented!(),
+            Expr::Literal(_) => Ok(()),
+            Expr::Unary(ref e) => e.right.resolve(resolver),
+            Expr::Binary(ref e) => {
+                e.left
+                    .resolve(resolver)
+                    .and_then(|_| e.right.resolve(resolver))
+            }
+            Expr::Logic(ref e) => {
+                e.left
+                    .resolve(resolver)
+                    .and_then(|_| e.right.resolve(resolver))
+            }
+            Expr::Grouping(ref e) => e.expr.resolve(resolver),
+            Expr::Call(ref e) => {
+                try!(e.callee.resolve(resolver));
+                for argument in e.arguments.iter() {
+                    try!(argument.resolve(resolver));
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -144,6 +187,24 @@ impl LexicalScopesResolver for Assignment {
         try!{self.rvalue.resolve(resolver)};
         let Target::Identifier(ref identifier) = self.lvalue;
         resolver.resolve_local(self.handle, &identifier.name);
+        Ok(())
+    }
+}
+
+impl LexicalScopesResolver for FunctionDefinition {
+    fn resolve(&self,
+               resolver: &mut ProgramLexicalScopesResolver)
+               -> Result<(), LexicalScopesResolutionError> {
+        //TODO: avoid all these copies
+        resolver.declare(self.name.name.to_owned());
+        resolver.define(self.name.name.to_owned());
+        resolver.begin_scope();
+        for argument in self.arguments.iter() {
+            resolver.declare(argument.name.to_owned());
+            resolver.define(argument.name.to_owned());
+        }
+        let _ = try!(self.body.resolve(resolver));
+        resolver.end_scope();
         Ok(())
     }
 }
@@ -160,7 +221,7 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            lexical_scope_resolver.resolve(&statement);
+            let _ = lexical_scope_resolver.resolve(&statement);
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut expression_handle_factory = ExpressionHandleFactory::new();
@@ -175,7 +236,7 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            lexical_scope_resolver.resolve(&statement);
+            let _ = lexical_scope_resolver.resolve(&statement);
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut expression_handle_factory = ExpressionHandleFactory::new();
@@ -190,12 +251,23 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            lexical_scope_resolver.resolve(&statement);
+            let _ = lexical_scope_resolver.resolve(&statement);
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut expression_handle_factory = ExpressionHandleFactory::new();
         let _ = expression_handle_factory.next(); // Declaration
         let handle = expression_handle_factory.next(); // Use
         assert_eq!(&Depth::Global, lexical_scopes.get_depth(&handle));
+    }
+
+
+
+    #[test]
+    fn error_on_shadowing() {
+        let (tokens, _) = scan(&"var a = 0;{var a = a;}");
+        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
+        assert!(lexical_scope_resolver.resolve(&statements[1]).is_err());
     }
 }
