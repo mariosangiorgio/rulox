@@ -7,7 +7,7 @@
       "type": "lldb",
       "request": "launch",
       "program": "target/debug/rulox-9dbf730e028ff499",
-      "args": "--test lexical_scope_resolver::tests::lexical_capture",
+      "args": "--test lexical_scope_resolver::tests::captured_variable",
       "cwd": "${workspaceRoot}"
     }
   ]

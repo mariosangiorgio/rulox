@@ -8,7 +8,7 @@ pub enum Depth {
 }
 
 pub struct LexicalScopes {
-    depths: HashMap<ExpressionHandle, Depth>,
+    depths: HashMap<VariableUseHandle, Depth>,
 }
 
 impl LexicalScopes {
@@ -16,8 +16,8 @@ impl LexicalScopes {
         LexicalScopes { depths: HashMap::new() }
     }
 
-    pub fn get_depth(&self, handle: &ExpressionHandle) -> &Depth {
-        self.depths.get(handle).unwrap()
+    pub fn get_depth(&self, handle: &VariableUseHandle) -> Depth {
+        self.depths.get(handle).unwrap_or(&Depth::Global).clone()
     }
 }
 
@@ -31,8 +31,16 @@ trait LexicalScopesResolver {
                -> Result<(), LexicalScopesResolutionError>;
 }
 
+#[derive(PartialEq)]
+enum VariableDefinition {
+    Undefined,
+    Declared,
+    Defined,
+}
+
 pub struct ProgramLexicalScopesResolver {
-    scopes: Vec<HashMap<String, bool>>,
+    // Note that this doesn't track globals at all
+    scopes: Vec<HashMap<String, VariableDefinition>>,
     lexical_scopes: LexicalScopes,
 }
 
@@ -57,7 +65,7 @@ impl ProgramLexicalScopesResolver {
         if scopes == 0 {
             return;
         };
-        self.scopes[scopes - 1].insert(identifier, false);
+        self.scopes[scopes - 1].insert(identifier, VariableDefinition::Declared);
     }
 
     fn define(&mut self, identifier: String) -> () {
@@ -65,18 +73,13 @@ impl ProgramLexicalScopesResolver {
         if scopes == 0 {
             return;
         };
-        self.scopes[scopes - 1].insert(identifier, true);
+        self.scopes[scopes - 1].insert(identifier, VariableDefinition::Defined);
     }
 
-    fn is_defined(&self, identifier: &String) -> bool {
-        let scopes = self.scopes.len();
-        scopes != 0 && self.scopes[scopes - 1][identifier]
-    }
-
-    fn resolve_local(&mut self, handle: ExpressionHandle, identifier: &String) -> () {
+    fn resolve_local(&mut self, handle: VariableUseHandle, identifier: &String) -> () {
         let max_depth = self.scopes.len();
         for depth in 0..max_depth {
-            if self.scopes[max_depth - depth].contains_key(identifier) {
+            if self.scopes[max_depth - depth - 1].contains_key(identifier) {
                 self.lexical_scopes
                     .depths
                     .insert(handle, Depth::Local(depth));
@@ -148,7 +151,12 @@ impl LexicalScopesResolver for Expr {
                -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::Identifier(ref handle, ref identifier) => {
-                if !resolver.is_defined(&identifier.name) {
+                let scopes = resolver.scopes.len();
+                if scopes != 0 &&
+                   resolver.scopes[scopes - 1]
+                       .get(&identifier.name)
+                       .unwrap_or(&VariableDefinition::Undefined) ==
+                   &VariableDefinition::Declared {
                     Err(LexicalScopesResolutionError::ReadLocalInItsOwnInitializer)
                 } else {
                     resolver.resolve_local(*handle, &identifier.name);
@@ -221,13 +229,12 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            let _ = lexical_scope_resolver.resolve(&statement);
+            assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
-        let _ = expression_handle_factory.next(); // Declaration
-        let handle = expression_handle_factory.next(); // Use
-        assert_eq!(&Depth::Global, lexical_scopes.get_depth(&handle));
+        let mut handle_factory = VariableUseHandleFactory::new();
+        let handle = handle_factory.next(); // Use of a in the function
+        assert_eq!(Depth::Global, lexical_scopes.get_depth(&handle));
     }
 
     #[test]
@@ -236,13 +243,12 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            let _ = lexical_scope_resolver.resolve(&statement);
+            assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
-        let _ = expression_handle_factory.next(); // Declaration
-        let handle = expression_handle_factory.next(); // Use
-        assert_eq!(&Depth::Local(1), lexical_scopes.get_depth(&handle));
+        let mut handle_factory = VariableUseHandleFactory::new();
+        let handle = handle_factory.next(); // Use of a in the function
+        assert_eq!(Depth::Local(2), lexical_scopes.get_depth(&handle));
     }
 
     #[test]
@@ -251,13 +257,12 @@ mod tests {
         let statements = Parser::new().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
-            let _ = lexical_scope_resolver.resolve(&statement);
+            assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
-        let _ = expression_handle_factory.next(); // Declaration
-        let handle = expression_handle_factory.next(); // Use
-        assert_eq!(&Depth::Global, lexical_scopes.get_depth(&handle));
+        let mut handle_factory = VariableUseHandleFactory::new();
+        let handle = handle_factory.next(); // Use of a in the function
+        assert_eq!(Depth::Global, lexical_scopes.get_depth(&handle));
     }
 
 

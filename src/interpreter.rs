@@ -546,9 +546,8 @@ mod tests {
     fn error_accessing_undefined_variable() {
         let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
-        let statement = Statement::Expression(Expr::Identifier(expression_handle_factory.next(),
-                                                               identifier));
+        let mut handle_factory = VariableUseHandleFactory::new();
+        let statement = Statement::Expression(Expr::Identifier(handle_factory.next(), identifier));
         assert!(statement.execute(&environment).is_err());
     }
 
@@ -556,12 +555,12 @@ mod tests {
     fn error_assigning_undefined_variable() {
         let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let mut handle_factory = VariableUseHandleFactory::new();
         let statement = Statement::Expression(
             Expr::Assignment(
                 Box::new(
         Assignment{
-            handle: expression_handle_factory.next(),
+            handle: handle_factory.next(),
             lvalue: Target::Identifier(identifier),
             rvalue: Expr::Literal(Literal::BoolLiteral(true))
                         }))
@@ -583,14 +582,14 @@ mod tests {
     fn block_affects_outer_scope() {
         let environment = Environment::new();
         let identifier = Identifier { name: "x".into() };
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let mut handle_factory = VariableUseHandleFactory::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let outer_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(None, outer_statement.execute(&environment).unwrap());
         let statements = vec![
             Statement::Expression(
                 Expr::Assignment(Box::new(Assignment{
-                    handle: expression_handle_factory.next(),
+                    handle: handle_factory.next(),
                     lvalue: Target::Identifier(Identifier{name: "x".into()}),
                     rvalue: Expr::Literal(Literal::BoolLiteral(false))})))];
         let block = Statement::Block(Box::new(Block { statements: statements }));

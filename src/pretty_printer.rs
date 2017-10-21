@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn block() {
-        let mut expression_handle_factory = ExpressionHandleFactory::new();
+        let mut handle_factory = VariableUseHandleFactory::new();
         let identifier = Identifier { name: "x".into() };
         let statements = vec![
             Statement::VariableDefinitionWithInitalizer(
@@ -260,7 +260,7 @@ mod tests {
                 Expr::Literal(Literal::BoolLiteral(true))
                 ),
             Statement::Print(
-                Expr::Identifier(expression_handle_factory.next(), identifier.clone()))
+                Expr::Identifier(handle_factory.next(), identifier.clone()))
                     ];
         let block = Statement::Block(Box::new(Block { statements: statements }));
         assert_eq!("{ var x = true; print x; }", &block.pretty_print());

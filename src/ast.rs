@@ -67,7 +67,7 @@ pub struct Grouping {
 }
 
 pub struct Assignment {
-    pub handle: ExpressionHandle,
+    pub handle: VariableUseHandle,
     pub lvalue: Target,
     pub rvalue: Expr,
 }
@@ -78,29 +78,35 @@ pub struct Call {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ExpressionHandle {
+pub struct VariableUseHandle {
     value: u16,
 }
 
-pub struct ExpressionHandleFactory {
+/// Things got a bit messy when I added lexical scope
+/// resolution so we need to track the different uses
+/// of each variable and the scope they refer to.
+///
+/// Note that we are interested only in USES. Variable
+/// declaration and definition don't have any handle!
+pub struct VariableUseHandleFactory {
     next_value: u16,
 }
 
-impl ExpressionHandleFactory {
-    pub fn new() -> ExpressionHandleFactory {
-        ExpressionHandleFactory { next_value: 0 }
+impl VariableUseHandleFactory {
+    pub fn new() -> VariableUseHandleFactory {
+        VariableUseHandleFactory { next_value: 0 }
     }
 
-    pub fn next(&mut self) -> ExpressionHandle {
+    pub fn next(&mut self) -> VariableUseHandle {
         let value = self.next_value;
         self.next_value = self.next_value + 1;
-        ExpressionHandle { value: value }
+        VariableUseHandle { value: value }
     }
 }
 
 pub enum Expr {
     Literal(Literal),
-    Identifier(ExpressionHandle, Identifier),
+    Identifier(VariableUseHandle, Identifier),
     Unary(Box<UnaryExpr>),
     Binary(Box<BinaryExpr>),
     Logic(Box<LogicExpr>),

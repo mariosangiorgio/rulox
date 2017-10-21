@@ -56,12 +56,12 @@ pub enum ParseError {
 }
 
 pub struct Parser {
-    expression_handle_factory: ExpressionHandleFactory,
+    variable_use_handle_factory: VariableUseHandleFactory,
 }
 
 impl Parser {
     pub fn new() -> Parser {
-        Parser { expression_handle_factory: ExpressionHandleFactory::new() }
+        Parser { variable_use_handle_factory: VariableUseHandleFactory::new() }
     }
 
     pub fn parse(&mut self,
@@ -582,7 +582,7 @@ where I: Iterator<Item = &'a TokenWithContext>{
                                 Some(result) => {
                                     Some(result.map(|rvalue| {
                                         Expr::Assignment(Box::new(Assignment {
-                                            handle : self.expression_handle_factory.next(),
+                                            handle : self.variable_use_handle_factory.next(),
                                                                                     lvalue: target,
                                                                                     rvalue: rvalue,
                                                                             }))
@@ -799,7 +799,7 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 Token::NumberLiteral(n) => Expr::Literal(Literal::NumberLiteral(n)),
                 Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
                 Token::Identifier(ref i) => {
-                    Expr::Identifier(self.expression_handle_factory.next(),
+                    Expr::Identifier(self.variable_use_handle_factory.next(),
                                      Identifier { name: i.clone() })
                 }
                 Token::LeftParen => {
