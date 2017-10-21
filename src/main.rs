@@ -3,7 +3,7 @@ mod ast;
 mod pretty_printer;
 mod parser;
 mod interpreter;
-//mod lexical_scope_resolver;
+mod lexical_scope_resolver;
 
 extern crate itertools;
 
