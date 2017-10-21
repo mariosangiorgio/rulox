@@ -13,6 +13,7 @@ use std::io;
 use std::io::prelude::*;
 use pretty_printer::PrettyPrint;
 use interpreter::{Interpreter, StatementInterpreter, Value, RuntimeError};
+use parser::{Parser, ParseError};
 use ast::Statement;
 
 #[derive(Debug)]
@@ -26,10 +27,10 @@ enum RunResult {
 #[derive(Debug)]
 enum InputError {
     ScannerError(scanner::ScannerError),
-    ParserError(parser::ParseError),
+    ParserError(ParseError),
 }
 
-fn scan_and_parse(parser: &mut parser::Parser,
+fn scan_and_parse(parser: &mut Parser,
                   source: &str)
                   -> Result<Vec<ast::Statement>, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
@@ -54,7 +55,7 @@ fn scan_and_parse(parser: &mut parser::Parser,
     }
 }
 
-fn run(parser: &mut parser::Parser, interpreter: &mut Interpreter, source: &str) -> RunResult {
+fn run(parser: &mut Parser, interpreter: &mut Interpreter, source: &str) -> RunResult {
     match scan_and_parse(parser, source) {
         Ok(statements) => {
             for statement in statements {
@@ -75,7 +76,7 @@ fn run_file(file_name: &str) -> RunResult {
             RunResult::IoError("Error opening file".into()) // TODO: add context
         }
         Ok(mut file) => {
-            let mut parser = parser::Parser::new();
+            let mut parser = Parser::new();
             let mut interpreter = StatementInterpreter::new();
             let mut source = String::new();
             match file.read_to_string(&mut source) {
@@ -113,7 +114,7 @@ impl Interpreter for LoggingInterpreter {
 
 fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
-    let mut parser = parser::Parser::new();
+    let mut parser = Parser::new();
     let mut interpreter = LoggingInterpreter::new();
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
