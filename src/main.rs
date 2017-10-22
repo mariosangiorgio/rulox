@@ -11,16 +11,16 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use pretty_printer::PrettyPrint;
-use interpreter::{Interpreter, StatementInterpreter, Value, RuntimeError};
+use interpreter::{StatementInterpreter, RuntimeError};
 use parser::{Parser, ParseError};
-use ast::Statement;
+use lexical_scope_resolver::{ProgramLexicalScopesResolver, LexicalScopesResolutionError};
 
 #[derive(Debug)]
 enum RunResult {
     Ok,
     IoError(String),
     InputError(Vec<InputError>),
+    LexicalScopesResolutionError(LexicalScopesResolutionError),
     RuntimeError(RuntimeError),
 }
 
@@ -55,11 +55,24 @@ fn scan_and_parse(parser: &mut Parser,
     }
 }
 
-fn run(parser: &mut Parser, interpreter: &mut Interpreter, source: &str) -> RunResult {
+fn run(parser: &mut Parser,
+       lexical_scope_resolver: &mut ProgramLexicalScopesResolver,
+       interpreter: &mut StatementInterpreter,
+       source: &str)
+       -> RunResult {
     match scan_and_parse(parser, source) {
         Ok(statements) => {
-            for statement in statements {
-                match interpreter.execute(&statement) {
+            // Once we get the statements and their AST we run the following passes:
+            // - lexical analysis
+            // - actual interpretation
+            for statement in statements.iter() {
+                match lexical_scope_resolver.resolve(&statement) {
+                    Ok(_) => (),
+                    Err(e) => return RunResult::LexicalScopesResolutionError(e),
+                }
+            }
+            for statement in statements.iter() {
+                match interpreter.execute(lexical_scope_resolver, &statement) {
                     Ok(_) => (),
                     Err(e) => return RunResult::RuntimeError(e),
                 }
@@ -77,45 +90,29 @@ fn run_file(file_name: &str) -> RunResult {
         }
         Ok(mut file) => {
             let mut parser = Parser::new();
+            let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
             let mut interpreter = StatementInterpreter::new();
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
                     RunResult::IoError("Error reading file".into()) // TODO: add context
                 }
-                Ok(_) => run(&mut parser, &mut interpreter, &source),
+                Ok(_) => {
+                    run(&mut parser,
+                        &mut lexical_scope_resolver,
+                        &mut interpreter,
+                        &source)
+                }
             }
         }
-    }
-}
-
-struct LoggingInterpreter {
-    interpreter: StatementInterpreter,
-}
-
-impl LoggingInterpreter {
-    fn new() -> LoggingInterpreter {
-        LoggingInterpreter { interpreter: StatementInterpreter::new() }
-    }
-}
-
-impl Interpreter for LoggingInterpreter {
-    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError> {
-        println!("{:?}", statement.pretty_print());
-        let result = self.interpreter.execute(statement);
-        {
-            if let Ok(Some(ref value)) = result {
-                println!("{:?}", value);
-            };
-        }
-        result
     }
 }
 
 fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
     let mut parser = Parser::new();
-    let mut interpreter = LoggingInterpreter::new();
+    let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+    let mut interpreter = StatementInterpreter::new();
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
         print!("> ");
@@ -123,7 +120,10 @@ fn run_prompt() -> RunResult {
         let mut source = String::new();
         let _ = io::stdin().read_line(&mut source);
         // TODO: add a way to exit
-        let result = run(&mut parser, &mut interpreter, &source);
+        let result = run(&mut parser,
+                         &mut lexical_scope_resolver,
+                         &mut interpreter,
+                         &source);
         match result {
             RunResult::Ok => (),
             _ => {

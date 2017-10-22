@@ -1,4 +1,5 @@
 use ast::*;
+use lexical_scope_resolver::*;
 use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
@@ -28,7 +29,8 @@ impl Callable {
 
     fn call(&self,
             arguments: &Vec<Value>,
-            _environment: &Environment)
+            _environment: &Environment,
+            scope_resolver: &ProgramLexicalScopesResolver)
             -> Result<Value, RuntimeError> {
         match *self {
             Callable::Clock => {
@@ -49,7 +51,9 @@ impl Callable {
                     local_environment.define(function_definition.arguments[i].clone(),
                                              arguments[i].clone());
                 }
-                let result = function_definition.body.execute(&local_environment);
+                let result = function_definition
+                    .body
+                    .execute(&local_environment, scope_resolver);
                 result.map(|ok| match ok {
                                Some(value) => value,
                                None => Value::Nil, // For when the function didn't return
@@ -127,34 +131,38 @@ impl Environment {
         self.actual.borrow_mut().values.insert(identifier, value);
     }
 
-    fn try_set(&self, identifier: Identifier, value: Value) -> bool {
+    fn try_set(&self, identifier: Identifier, depth: Depth, value: Value) -> bool {
         let mut actual = self.actual.borrow_mut();
-        if actual.values.contains_key(&identifier) {
-            actual.values.insert(identifier, value);
-            return true;
+        if depth == 0 {
+            if actual.values.contains_key(&identifier) {
+                actual.values.insert(identifier, value);
+                true
+            } else {
+                false
+            }
         } else {
             match &actual.parent {
-                &Some(ref parent) => parent.try_set(identifier, value),
+                &Some(ref parent) => parent.try_set(identifier, depth - 1, value),
                 &None => false,
             }
         }
     }
 
-    fn get(&self, identifier: &Identifier) -> Option<Value> {
+    fn get(&self, identifier: &Identifier, depth: Depth) -> Option<Value> {
         let actual = self.actual.borrow();
-        if let Some(value) = actual.values.get(identifier) {
-            return Some(value.clone());
+        if depth == 0 {
+            if let Some(value) = actual.values.get(identifier) {
+                Some(value.clone())
+            } else {
+                None
+            }
         } else {
             match &actual.parent {
-                &Some(ref parent) => parent.get(identifier),
+                &Some(ref parent) => parent.get(identifier, depth - 1),
                 &None => None,
             }
         }
     }
-}
-
-pub trait Interpreter {
-    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError>;
 }
 
 pub struct StatementInterpreter {
@@ -167,10 +175,12 @@ impl StatementInterpreter {
         Callable::register_natives(&environment);
         StatementInterpreter { environment: environment }
     }
-}
-impl Interpreter for StatementInterpreter {
-    fn execute(&mut self, statement: &Statement) -> Result<Option<Value>, RuntimeError> {
-        statement.execute(&self.environment)
+
+    pub fn execute(&mut self,
+                   lexical_scope_resolver: &ProgramLexicalScopesResolver,
+                   statement: &Statement)
+                   -> Result<Option<Value>, RuntimeError> {
+        statement.execute(&self.environment, lexical_scope_resolver)
     }
 }
 
@@ -184,30 +194,47 @@ pub enum RuntimeError {
 }
 
 trait Interpret {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError>;
+    fn interpret(&self,
+                 environment: &Environment,
+                 &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError>;
 }
 
 trait Execute {
-    fn execute(&self, environment: &Environment) -> Result<Option<Value>, RuntimeError>;
+    fn execute(&self,
+               environment: &Environment,
+               scope_resolver: &ProgramLexicalScopesResolver)
+               -> Result<Option<Value>, RuntimeError>;
 }
 
 impl Interpret for Expr {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
         match *self {
-            Expr::Literal(ref l) => l.interpret(environment),
-            Expr::Unary(ref u) => u.interpret(environment),
-            Expr::Binary(ref b) => b.interpret(environment),
-            Expr::Logic(ref b) => b.interpret(environment),
-            Expr::Grouping(ref g) => g.interpret(environment),
-            Expr::Identifier(ref _handle, ref i) => i.interpret(environment),
-            Expr::Assignment(ref a) => a.interpret(environment),
-            Expr::Call(ref c) => c.interpret(environment),
+            Expr::Literal(ref l) => l.interpret(environment, scope_resolver),
+            Expr::Unary(ref u) => u.interpret(environment, scope_resolver),
+            Expr::Binary(ref b) => b.interpret(environment, scope_resolver),
+            Expr::Logic(ref b) => b.interpret(environment, scope_resolver),
+            Expr::Grouping(ref g) => g.interpret(environment, scope_resolver),
+            Expr::Identifier(ref handle, ref i) => {
+                match environment.get(i, scope_resolver.get_depth(handle)) {
+                    Some(value) => Ok(value.clone()),
+                    None => Err(RuntimeError::UndefinedIdentifier(i.clone())),
+                }
+            }
+            Expr::Assignment(ref a) => a.interpret(environment, scope_resolver),
+            Expr::Call(ref c) => c.interpret(environment, scope_resolver),
         }
     }
 }
 
 impl Interpret for Literal {
-    fn interpret(&self, _: &Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self,
+                 _: &Environment,
+                 _: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -217,23 +244,19 @@ impl Interpret for Literal {
     }
 }
 
-impl Interpret for Identifier {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        match environment.get(self) {
-            Some(value) => Ok(value.clone()),
-            None => Err(RuntimeError::UndefinedIdentifier(self.clone())),
-        }
-    }
-}
-
 impl Interpret for Assignment {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
         let target = match self.lvalue {
             Target::Identifier(ref i) => Identifier { name: i.name.clone() },
         };
-        match self.rvalue.interpret(environment) {
+        match self.rvalue.interpret(environment, scope_resolver) {
             Ok(value) => {
-                if environment.try_set(target.clone(), value.clone()) {
+                if environment.try_set(target.clone(),
+                                       scope_resolver.get_depth(&self.handle),
+                                       value.clone()) {
                     Ok(value.clone())
                 } else {
                     Err(RuntimeError::UndefinedIdentifier(target))
@@ -245,14 +268,20 @@ impl Interpret for Assignment {
 }
 
 impl Interpret for Grouping {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        self.expr.interpret(environment)
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
+        self.expr.interpret(environment, scope_resolver)
     }
 }
 
 impl Interpret for UnaryExpr {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        let value = try!(self.right.interpret(environment));
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
+        let value = try!(self.right.interpret(environment, scope_resolver));
         match self.operator {
             UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
             UnaryOperator::Minus => {
@@ -266,9 +295,12 @@ impl Interpret for UnaryExpr {
 }
 
 impl Interpret for BinaryExpr {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        let left = try!(self.left.interpret(environment));
-        let right = try!(self.right.interpret(environment));
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
+        let left = try!(self.left.interpret(environment, scope_resolver));
+        let right = try!(self.right.interpret(environment, scope_resolver));
         match (&self.operator, &left, &right) {
             (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => {
                 Ok(Value::Number(l - r))
@@ -312,22 +344,25 @@ impl Interpret for BinaryExpr {
 }
 
 impl Interpret for LogicExpr {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
         match &self.operator {
             &LogicOperator::Or => {
-                let left = try!(self.left.interpret(environment));
+                let left = try!(self.left.interpret(environment, scope_resolver));
                 if left.is_true() {
                     Ok(left)
                 } else {
-                    self.right.interpret(environment)
+                    self.right.interpret(environment, scope_resolver)
                 }
             }
             &LogicOperator::And => {
-                let left = try!(self.left.interpret(environment));
+                let left = try!(self.left.interpret(environment, scope_resolver));
                 if !left.is_true() {
                     Ok(left)
                 } else {
-                    self.right.interpret(environment)
+                    self.right.interpret(environment, scope_resolver)
                 }
             }
         }
@@ -335,17 +370,20 @@ impl Interpret for LogicExpr {
 }
 
 impl Interpret for Call {
-    fn interpret(&self, environment: &Environment) -> Result<Value, RuntimeError> {
-        match self.callee.interpret(environment) {
+    fn interpret(&self,
+                 environment: &Environment,
+                 scope_resolver: &ProgramLexicalScopesResolver)
+                 -> Result<Value, RuntimeError> {
+        match self.callee.interpret(environment, scope_resolver) {
             Ok(Value::Callable(c)) => {
                 let mut evaluated_arguments = vec![];
                 for argument in self.arguments.iter() {
-                    match argument.interpret(environment) {
+                    match argument.interpret(environment, scope_resolver) {
                         Ok(value) => evaluated_arguments.push(value),
                         error => return error,
                     }
                 }
-                c.call(&evaluated_arguments, environment)
+                c.call(&evaluated_arguments, environment, scope_resolver)
             }
             Ok(value) => return Err(RuntimeError::NotCallable(value)),
             error => return error,
@@ -354,12 +392,15 @@ impl Interpret for Call {
 }
 
 impl Execute for Statement {
-    fn execute(&self, environment: &Environment) -> Result<Option<Value>, RuntimeError> {
+    fn execute(&self,
+               environment: &Environment,
+               scope_resolver: &ProgramLexicalScopesResolver)
+               -> Result<Option<Value>, RuntimeError> {
         match *self {
-            Statement::Expression(ref e) => e.interpret(environment).map(|_| None),
+            Statement::Expression(ref e) => e.interpret(environment, scope_resolver).map(|_| None),
             // Expression statement are only for side effects
             Statement::Print(ref e) => {
-                e.interpret(environment)
+                e.interpret(environment, scope_resolver)
                     .map(|value| {
                              println!("{}", value.to_string());
                              let _ = io::stdout().flush(); //TODO: is this okay?
@@ -368,7 +409,7 @@ impl Execute for Statement {
             }
             Statement::Return(ref e) => {
                 match e {
-                    &Some(ref e) => e.interpret(environment).map(Some),
+                    &Some(ref e) => e.interpret(environment, scope_resolver).map(Some),
                     &None => Ok(Some(Value::Nil)),
                 }
             }
@@ -380,7 +421,7 @@ impl Execute for Statement {
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref expression) => {
                 let identifier = Identifier { name: identifier.name.clone() };
                 expression
-                    .interpret(environment)
+                    .interpret(environment, scope_resolver)
                     .map(|initializer| {
                              environment.define(identifier, initializer);
                              None
@@ -389,7 +430,7 @@ impl Execute for Statement {
             Statement::Block(ref b) => {
                 let environment = Environment::new_with_parent(environment);
                 for statement in &b.statements {
-                    let result = try!(statement.execute(&environment));
+                    let result = try!(statement.execute(&environment, scope_resolver));
                     if let Some(value) = result {
                         return Ok(Some(value));
                     }
@@ -397,29 +438,31 @@ impl Execute for Statement {
                 Ok(None)
             }
             Statement::IfThen(ref c) => {
-                let condition = try!{c.condition.interpret(environment).map(|v|v.is_true())};
+                let condition = try!{c.condition.interpret(environment, scope_resolver)
+                .map(|v|v.is_true())};
                 if condition {
-                    c.then_branch.execute(environment)
+                    c.then_branch.execute(environment, scope_resolver)
                 } else {
                     Ok(None)
                 }
             }
             Statement::IfThenElse(ref c) => {
-                let condition = try!{c.condition.interpret(environment).map(|v|v.is_true())};
+                let condition = try!{c.condition.interpret(environment, scope_resolver)
+                .map(|v|v.is_true())};
                 if condition {
-                    c.then_branch.execute(environment)
+                    c.then_branch.execute(environment, scope_resolver)
                 } else {
-                    c.else_branch.execute(environment)
+                    c.else_branch.execute(environment, scope_resolver)
                 }
             }
             Statement::While(ref l) => {
-                while try!{l.condition.interpret(environment).map(|v|v.is_true())} {
-                    try!{l.body.execute(environment)};
+                while try!{l.condition.interpret(environment, scope_resolver)
+                .map(|v|v.is_true())} {
+                    try!{l.body.execute(environment, scope_resolver)};
                 }
                 Ok(None)
             }
             Statement::FunctionDefinition(ref f) => {
-                //TODO: capture the environment for closures to work
                 environment.define(f.name.clone(),
                                    Value::Callable(Callable::Function(f.clone(),
                                                                       environment.clone())));

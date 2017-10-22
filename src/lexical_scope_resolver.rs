@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 pub type Depth = usize;
 
+#[derive(Clone, Debug)] //TODO: this shouldn't derive clone
 pub struct LexicalScopes {
     depths: HashMap<VariableUseHandle, Depth>,
 }
@@ -17,6 +18,7 @@ impl LexicalScopes {
     }
 }
 
+#[derive(Debug)]
 pub enum LexicalScopesResolutionError {
     ReadLocalInItsOwnInitializer,
 }
@@ -27,13 +29,14 @@ trait LexicalScopesResolver {
                -> Result<(), LexicalScopesResolutionError>;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)] // TODO: clone and debug aren't really necessary
 enum VariableDefinition {
     Undefined,
     Declared,
     Defined,
 }
 
+#[derive(Clone, Debug)] //TODO: this shouldn't derive clone
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<String, VariableDefinition>>,
@@ -76,16 +79,18 @@ impl ProgramLexicalScopesResolver {
         let max_depth = self.scopes.len();
         for depth in 0..max_depth {
             if self.scopes[max_depth - depth - 1].contains_key(identifier) {
-                self.lexical_scopes
-                    .depths
-                    .insert(handle, depth);
+                self.lexical_scopes.depths.insert(handle, depth);
                 return;
             }
         }
     }
 
-    fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
+    pub fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
         statement.resolve(self)
+    }
+
+    pub fn get_depth(&self, handle: &VariableUseHandle) -> Depth {
+        self.lexical_scopes.get_depth(handle)
     }
 }
 
