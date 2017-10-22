@@ -1,11 +1,7 @@
 use ast::*;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Depth {
-    Global,
-    Local(usize),
-}
+pub type Depth = usize;
 
 pub struct LexicalScopes {
     depths: HashMap<VariableUseHandle, Depth>,
@@ -17,7 +13,7 @@ impl LexicalScopes {
     }
 
     pub fn get_depth(&self, handle: &VariableUseHandle) -> Depth {
-        self.depths.get(handle).unwrap_or(&Depth::Global).clone()
+        self.depths.get(handle).unwrap().clone()
     }
 }
 
@@ -47,7 +43,7 @@ pub struct ProgramLexicalScopesResolver {
 impl ProgramLexicalScopesResolver {
     pub fn new() -> ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
-            scopes: vec![],
+            scopes: vec![HashMap::new()], // This is for globals
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -82,11 +78,10 @@ impl ProgramLexicalScopesResolver {
             if self.scopes[max_depth - depth - 1].contains_key(identifier) {
                 self.lexical_scopes
                     .depths
-                    .insert(handle, Depth::Local(depth));
+                    .insert(handle, depth);
                 return;
             }
         }
-        self.lexical_scopes.depths.insert(handle, Depth::Global);
     }
 
     fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
@@ -234,7 +229,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Depth::Global, lexical_scopes.get_depth(&handle));
+        assert_eq!(3, lexical_scopes.get_depth(&handle));
     }
 
     #[test]
@@ -248,7 +243,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Depth::Local(2), lexical_scopes.get_depth(&handle));
+        assert_eq!(2, lexical_scopes.get_depth(&handle));
     }
 
     #[test]
@@ -262,7 +257,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Depth::Global, lexical_scopes.get_depth(&handle));
+        assert_eq!(3, lexical_scopes.get_depth(&handle));
     }
 
 
