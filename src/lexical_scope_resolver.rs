@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 pub type Depth = usize;
 
-#[derive(Clone, Debug)] //TODO: this shouldn't derive clone
 pub struct LexicalScopes {
     depths: HashMap<VariableUseHandle, Depth>,
 }
@@ -29,14 +28,13 @@ trait LexicalScopesResolver {
                -> Result<(), LexicalScopesResolutionError>;
 }
 
-#[derive(PartialEq, Clone, Debug)] // TODO: clone and debug aren't really necessary
+#[derive(PartialEq)]
 enum VariableDefinition {
     Undefined,
     Declared,
     Defined,
 }
 
-#[derive(Clone, Debug)] //TODO: this shouldn't derive clone
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<String, VariableDefinition>>,
@@ -46,7 +44,7 @@ pub struct ProgramLexicalScopesResolver {
 impl ProgramLexicalScopesResolver {
     pub fn new() -> ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
-            scopes: vec![HashMap::new()], // This is for globals
+            scopes: vec![],
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -83,6 +81,10 @@ impl ProgramLexicalScopesResolver {
                 return;
             }
         }
+        // If we failed to find it in the locals, it must be a global.
+        // It might not be there right now, but it might appear later on.
+        // We will know it only at runtime.
+        self.lexical_scopes.depths.insert(handle, max_depth);
     }
 
     pub fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
