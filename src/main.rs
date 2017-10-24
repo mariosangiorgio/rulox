@@ -20,7 +20,7 @@ enum RunResult {
     Ok,
     IoError(String),
     InputError(Vec<InputError>),
-    LexicalScopesResolutionError(LexicalScopesResolutionError),
+    LexicalScopesResolutionError(Vec<LexicalScopesResolutionError>),
     RuntimeError(RuntimeError),
 }
 
@@ -65,11 +65,15 @@ fn run(parser: &mut Parser,
             // Once we get the statements and their AST we run the following passes:
             // - lexical analysis
             // - actual interpretation
+            let mut resolution_errors = vec!();
             for statement in statements.iter() {
                 match lexical_scope_resolver.resolve(&statement) {
                     Ok(_) => (),
-                    Err(e) => return RunResult::LexicalScopesResolutionError(e),
+                    Err(e) => resolution_errors.push(e),
                 }
+            }
+            if !resolution_errors.is_empty(){
+                return  RunResult::LexicalScopesResolutionError(resolution_errors);
             }
             for statement in statements.iter() {
                 match interpreter.execute(lexical_scope_resolver, &statement) {

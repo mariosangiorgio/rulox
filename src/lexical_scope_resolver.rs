@@ -20,6 +20,8 @@ impl LexicalScopes {
 #[derive(Debug)]
 pub enum LexicalScopesResolutionError {
     ReadLocalInItsOwnInitializer,
+    VariableAlreadyExistsInScope,
+    ReturnFromTopLevelCode,
 }
 
 trait LexicalScopesResolver {
@@ -35,9 +37,16 @@ enum VariableDefinition {
     Defined,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum FunctionType {
+    None,
+    Function,
+}
+
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<String, VariableDefinition>>,
+    current_function: FunctionType,
     lexical_scopes: LexicalScopes,
 }
 
@@ -45,6 +54,7 @@ impl ProgramLexicalScopesResolver {
     pub fn new() -> ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
             scopes: vec![],
+            current_function: FunctionType::None,
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -57,12 +67,17 @@ impl ProgramLexicalScopesResolver {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, identifier: String) -> () {
+    fn declare(&mut self, identifier: String) -> Result<(), LexicalScopesResolutionError> {
         let scopes = self.scopes.len();
         if scopes == 0 {
-            return;
+            return Ok(());
         };
-        self.scopes[scopes - 1].insert(identifier, VariableDefinition::Declared);
+        if self.scopes[scopes - 1].contains_key(&identifier) {
+            Err(LexicalScopesResolutionError::VariableAlreadyExistsInScope)
+        } else {
+            self.scopes[scopes - 1].insert(identifier, VariableDefinition::Declared);
+            Ok(())
+        }
     }
 
     fn define(&mut self, identifier: String) -> () {
@@ -111,13 +126,13 @@ impl LexicalScopesResolver for Statement {
             }
             Statement::VariableDefinition(ref identifier) => {
                 //TODO: avoid all these copies
-                resolver.declare(identifier.name.to_owned());
+                let _ = try!(resolver.declare(identifier.name.to_owned()));
                 resolver.define(identifier.name.to_owned());
                 Ok(())
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
                 //TODO: avoid all these copies
-                resolver.declare(identifier.name.to_owned());
+                let _ = try!(resolver.declare(identifier.name.to_owned()));
                 try!(initializer.resolve(resolver));
                 resolver.define(identifier.name.to_owned());
                 Ok(())
@@ -141,8 +156,16 @@ impl LexicalScopesResolver for Statement {
                     .and_then(|_| s.body.resolve(resolver))
             }
             Statement::Print(ref e) => e.resolve(resolver),
-            Statement::Return(None) => Ok(()),
-            Statement::Return(Some(ref e)) => e.resolve(resolver),
+            Statement::Return(ref r) => {
+                if resolver.current_function == FunctionType::None {
+                    Err(LexicalScopesResolutionError::ReturnFromTopLevelCode)
+                } else {
+                    match *r {
+                        None => Ok(()),
+                        Some(ref e) => e.resolve(resolver),
+                    }
+                }
+            }
         }
     }
 }
@@ -206,15 +229,18 @@ impl LexicalScopesResolver for FunctionDefinition {
                resolver: &mut ProgramLexicalScopesResolver)
                -> Result<(), LexicalScopesResolutionError> {
         //TODO: avoid all these copies
-        resolver.declare(self.name.name.to_owned());
+        let _ = try!(resolver.declare(self.name.name.to_owned()));
+        let enclosing_function = resolver.current_function;
+        resolver.current_function = FunctionType::Function;
         resolver.define(self.name.name.to_owned());
         resolver.begin_scope();
         for argument in self.arguments.iter() {
-            resolver.declare(argument.name.to_owned());
+            let _ = try!(resolver.declare(argument.name.to_owned()));
             resolver.define(argument.name.to_owned());
         }
         let _ = try!(self.body.resolve(resolver));
         resolver.end_scope();
+        resolver.current_function = enclosing_function;
         Ok(())
     }
 }
@@ -267,8 +293,6 @@ mod tests {
         assert_eq!(Some(&3), lexical_scopes.get_depth(&handle));
     }
 
-
-
     #[test]
     fn error_on_shadowing() {
         let (tokens, _) = scan(&"var a = 0;{var a = a;}");
@@ -276,5 +300,30 @@ mod tests {
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_err());
+    }
+
+    #[test]
+    fn error_on_local_redeclaration() {
+        let (tokens, _) = scan(&"fun bad() {var a = 1;var a = 2;}");
+        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
+    }
+
+    #[test]
+    fn global_redeclaration_is_allowed() {
+        let (tokens, _) = scan(&"var a = 1;var a = 2;");
+        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
+        assert!(lexical_scope_resolver.resolve(&statements[1]).is_ok());
+    }
+
+        #[test]
+    fn error_on_return_outside_a_function() {
+        let (tokens, _) = scan(&"return;");
+        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
     }
 }
