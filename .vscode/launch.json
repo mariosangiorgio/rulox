@@ -6,7 +6,7 @@
       "name": "Debug rulox",
       "type": "lldb",
       "request": "launch",
-      "program": "target/debug/rulox-9dbf730e028ff499",
+      "program": "target/debug/rulox",
       "args": "--test lexical_scope_resolver::tests::captured_variable",
       "cwd": "${workspaceRoot}"
     }

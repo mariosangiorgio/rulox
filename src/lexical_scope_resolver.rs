@@ -45,7 +45,7 @@ enum FunctionType {
 
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
-    scopes: Vec<HashMap<String, VariableDefinition>>,
+    scopes: Vec<HashMap<Identifier, VariableDefinition>>,
     current_function: FunctionType,
     lexical_scopes: LexicalScopes,
 }
@@ -67,7 +67,7 @@ impl ProgramLexicalScopesResolver {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, identifier: String) -> Result<(), LexicalScopesResolutionError> {
+    fn declare(&mut self, identifier: &Identifier) -> Result<(), LexicalScopesResolutionError> {
         let scopes = self.scopes.len();
         if scopes == 0 {
             return Ok(());
@@ -75,20 +75,20 @@ impl ProgramLexicalScopesResolver {
         if self.scopes[scopes - 1].contains_key(&identifier) {
             Err(LexicalScopesResolutionError::VariableAlreadyExistsInScope)
         } else {
-            self.scopes[scopes - 1].insert(identifier, VariableDefinition::Declared);
+            self.scopes[scopes - 1].insert(*identifier, VariableDefinition::Declared);
             Ok(())
         }
     }
 
-    fn define(&mut self, identifier: String) -> () {
+    fn define(&mut self, identifier: &Identifier) -> () {
         let scopes = self.scopes.len();
         if scopes == 0 {
             return;
         };
-        self.scopes[scopes - 1].insert(identifier, VariableDefinition::Defined);
+        self.scopes[scopes - 1].insert(*identifier, VariableDefinition::Defined);
     }
 
-    fn resolve_local(&mut self, handle: VariableUseHandle, identifier: &String) -> () {
+    fn resolve_local(&mut self, handle: VariableUseHandle, identifier: &Identifier) -> () {
         let max_depth = self.scopes.len();
         for depth in 0..max_depth {
             if self.scopes[max_depth - depth - 1].contains_key(identifier) {
@@ -125,16 +125,14 @@ impl LexicalScopesResolver for Statement {
                 Ok(())
             }
             Statement::VariableDefinition(ref identifier) => {
-                //TODO: avoid all these copies
-                let _ = try!(resolver.declare(identifier.name.to_owned()));
-                resolver.define(identifier.name.to_owned());
+                let _ = try!(resolver.declare(identifier));
+                resolver.define(identifier);
                 Ok(())
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
-                //TODO: avoid all these copies
-                let _ = try!(resolver.declare(identifier.name.to_owned()));
+                let _ = try!(resolver.declare(identifier));
                 try!(initializer.resolve(resolver));
-                resolver.define(identifier.name.to_owned());
+                resolver.define(identifier);
                 Ok(())
             }
             Statement::FunctionDefinition(ref f) => f.resolve(resolver),
@@ -179,12 +177,12 @@ impl LexicalScopesResolver for Expr {
                 let scopes = resolver.scopes.len();
                 if scopes != 0 &&
                    resolver.scopes[scopes - 1]
-                       .get(&identifier.name)
+                       .get(&identifier)
                        .unwrap_or(&VariableDefinition::Undefined) ==
                    &VariableDefinition::Declared {
                     Err(LexicalScopesResolutionError::ReadLocalInItsOwnInitializer)
                 } else {
-                    resolver.resolve_local(*handle, &identifier.name);
+                    resolver.resolve_local(*handle, &identifier);
                     Ok(())
                 }
             }
@@ -219,7 +217,7 @@ impl LexicalScopesResolver for Assignment {
                -> Result<(), LexicalScopesResolutionError> {
         try!{self.rvalue.resolve(resolver)};
         let Target::Identifier(ref identifier) = self.lvalue;
-        resolver.resolve_local(self.handle, &identifier.name);
+        resolver.resolve_local(self.handle, identifier);
         Ok(())
     }
 }
@@ -228,15 +226,14 @@ impl LexicalScopesResolver for FunctionDefinition {
     fn resolve(&self,
                resolver: &mut ProgramLexicalScopesResolver)
                -> Result<(), LexicalScopesResolutionError> {
-        //TODO: avoid all these copies
-        let _ = try!(resolver.declare(self.name.name.to_owned()));
+        let _ = try!(resolver.declare(&self.name));
         let enclosing_function = resolver.current_function;
         resolver.current_function = FunctionType::Function;
-        resolver.define(self.name.name.to_owned());
+        resolver.define(&self.name);
         resolver.begin_scope();
         for argument in self.arguments.iter() {
-            let _ = try!(resolver.declare(argument.name.to_owned()));
-            resolver.define(argument.name.to_owned());
+            let _ = try!(resolver.declare(argument));
+            resolver.define(argument);
         }
         let _ = try!(self.body.resolve(resolver));
         resolver.end_scope();
@@ -319,7 +316,7 @@ mod tests {
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_ok());
     }
 
-        #[test]
+    #[test]
     fn error_on_return_outside_a_function() {
         let (tokens, _) = scan(&"return;");
         let statements = Parser::new().parse(&tokens).unwrap();

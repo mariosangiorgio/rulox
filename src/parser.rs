@@ -56,12 +56,16 @@ pub enum ParseError {
 }
 
 pub struct Parser {
+    pub identifier_map: IdentifierMap,
     variable_use_handle_factory: VariableUseHandleFactory,
 }
 
 impl Parser {
     pub fn new() -> Parser {
-        Parser { variable_use_handle_factory: VariableUseHandleFactory::new() }
+        Parser {
+            identifier_map: IdentifierMap::new(),
+            variable_use_handle_factory: VariableUseHandleFactory::new(),
+        }
     }
 
     pub fn parse(&mut self,
@@ -95,7 +99,7 @@ impl Parser {
     {
         consume_expected_token_with_action!(tokens,
     &Token::Identifier(ref identifier),
-    Identifier { name: identifier.clone() },
+    self.identifier_map.from_name(identifier),
     RequiredElement::Identifier)
     }
 
@@ -576,7 +580,7 @@ where I: Iterator<Item = &'a TokenWithContext>{
                     let equal = tokens.next().unwrap();
                     match lvalue {
                         Expr::Identifier(_, identifier) => {
-                            let target = Target::Identifier(Identifier { name: identifier.name });
+                            let target = Target::Identifier(identifier);
                             match self.parse_assignment(tokens) {
                                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
                                 Some(result) => {
@@ -800,7 +804,7 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
                 Token::Identifier(ref i) => {
                     Expr::Identifier(self.variable_use_handle_factory.next(),
-                                     Identifier { name: i.clone() })
+                                     self.identifier_map.from_name(i))
                 }
                 Token::LeftParen => {
                     let expr = if let Some(result) = self.parse_expression(tokens) {
@@ -849,7 +853,7 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!(&string, &expr.pretty_print());
+        assert_eq!(&string, &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -860,7 +864,7 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ 123 456)", &expr.pretty_print());
+        assert_eq!("(+ 123 456)", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -871,7 +875,7 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print());
+        assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -882,7 +886,7 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print());
+        assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -893,7 +897,7 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print());
+        assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -904,17 +908,18 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(and 123 456)", &expr.pretty_print());
+        assert_eq!("(and 123 456)", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn precedence_or_and() {
         let (tokens, _) = scan(&"a or b and c");
-        let expr = Parser::new()
+        let mut parser = Parser::new();
+        let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(or a (and b c))", &expr.pretty_print());
+        assert_eq!("(or a (and b c))", &expr.pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -932,24 +937,27 @@ mod tests {
     #[test]
     fn multiple_statements() {
         let (tokens, _) = scan(&"var x; {var x=10; print x;} print x;");
-        let statements = Parser::new().parse(&tokens).unwrap();
-        assert_eq!("var x;", statements[0].pretty_print());
-        assert_eq!("{ var x = 10; print x; }", statements[1].pretty_print());
-        assert_eq!("print x;", statements[2].pretty_print());
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("var x;", statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!("{ var x = 10; print x; }", statements[1].pretty_print(&parser.identifier_map));
+        assert_eq!("print x;", statements[2].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn expr_with_equality() {
         let (tokens, _) = scan(&"x/2 == 1;");
-        let statements = Parser::new().parse(&tokens).unwrap();
-        assert_eq!("(== (/ x 2) 1);", statements[0].pretty_print());
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("(== (/ x 2) 1);", statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn assignment() {
         let (tokens, _) = scan(&"a = 1;");
-        let statements = Parser::new().parse(&tokens).unwrap();
-        assert_eq!("a = 1;", statements[0].pretty_print());
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("a = 1;", statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -979,77 +987,87 @@ mod tests {
     #[test]
     fn if_then_statement() {
         let (tokens, _) = scan(&"if(a) x = 2;");
-        let statements = Parser::new().parse(&tokens).unwrap();
-        assert_eq!("if ( a ) x = 2;", statements[0].pretty_print());
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("if ( a ) x = 2;", statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn if_then_else_statement() {
         let (tokens, _) = scan(&"if(a and b) { x = 2;} else{x = 3;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("if ( (and a b) ) { x = 2; } else { x = 3; }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn while_statement() {
         let (tokens, _) = scan(&"while(a > 0){ a = a - 1;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("while ( (> a 0) ) { a = (- a 1); }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn for_statement() {
         let (tokens, _) = scan(&"for (var i = 0; i < 10; i = i + 1) print i;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
     #[test]
     fn for_statement_no_initializer() {
         let (tokens, _) = scan(&"for (; i < 10; i = i + 1) print i;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("while ( (< i 10) ) { print i; i = (+ i 1); }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
     #[test]
     fn for_statement_no_condition() {
         let (tokens, _) = scan(&"for (var i = 0;; i = i + 1) print i;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("{ var i = 0; while ( true ) { print i; i = (+ i 1); } }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn for_statement_no_increment() {
         let (tokens, _) = scan(&"for (var i = 0; i < 10;) print i;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn function_with_no_arguments() {
         let (tokens, _) = scan(&"fun add(){return 1;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("fun add () { return 1; }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn function_with_one_argument() {
         let (tokens, _) = scan(&"fun add(x){return 2*x;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("fun add (x ) { return (* 2 x); }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
     fn function_with_two_arguments() {
         let (tokens, _) = scan(&"fun add(x,y){return x + y;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
         assert_eq!("fun add (x y ) { return (+ x y); }",
-                   statements[0].pretty_print());
+                   statements[0].pretty_print(&parser.identifier_map));
     }
 }

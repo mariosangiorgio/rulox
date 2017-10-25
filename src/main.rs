@@ -65,15 +65,15 @@ fn run(parser: &mut Parser,
             // Once we get the statements and their AST we run the following passes:
             // - lexical analysis
             // - actual interpretation
-            let mut resolution_errors = vec!();
+            let mut resolution_errors = vec![];
             for statement in statements.iter() {
                 match lexical_scope_resolver.resolve(&statement) {
                     Ok(_) => (),
                     Err(e) => resolution_errors.push(e),
                 }
             }
-            if !resolution_errors.is_empty(){
-                return  RunResult::LexicalScopesResolutionError(resolution_errors);
+            if !resolution_errors.is_empty() {
+                return RunResult::LexicalScopesResolutionError(resolution_errors);
             }
             for statement in statements.iter() {
                 match interpreter.execute(lexical_scope_resolver, &statement) {
@@ -95,7 +95,7 @@ fn run_file(file_name: &str) -> RunResult {
         Ok(mut file) => {
             let mut parser = Parser::new();
             let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
-            let mut interpreter = StatementInterpreter::new();
+            let mut interpreter = StatementInterpreter::new(&mut parser.identifier_map);
             let mut source = String::new();
             match file.read_to_string(&mut source) {
                 Err(_) => {
@@ -116,7 +116,7 @@ fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
     let mut parser = Parser::new();
     let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
-    let mut interpreter = StatementInterpreter::new();
+    let mut interpreter = StatementInterpreter::new(&mut parser.identifier_map);
     let _ = io::stdout().flush(); //TODO: is this okay?
     loop {
         print!("> ");

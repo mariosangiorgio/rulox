@@ -49,7 +49,7 @@ impl IdentifierMap {
 
     pub fn from_name(&mut self, name: &str) -> Identifier {
         if let Some(identifier) = self.map.get(name) {
-            return *identifier;
+            return *identifier
         }
         let identifier = Identifier { handle: self.next };
         self.next = self.next + 1;
