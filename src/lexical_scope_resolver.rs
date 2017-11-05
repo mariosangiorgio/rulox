@@ -140,7 +140,7 @@ impl LexicalScopesResolver for Statement {
                 let _ = try!(resolver.declare(&c.name));
                 resolver.define(&c.name);
                 Ok(())
-            },
+            }
             Statement::Expression(ref e) => e.resolve(resolver),
             Statement::IfThen(ref s) => {
                 s.condition

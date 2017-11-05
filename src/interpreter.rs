@@ -10,6 +10,7 @@ use std::cell::RefCell;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
     Function(Rc<FunctionDefinition>, Environment),
+    Class(Rc<ClassDefinition>),
     // Native functions
     Clock,
 }
@@ -18,6 +19,7 @@ impl Callable {
     fn to_string(&self) -> String {
         match *self {
             Callable::Function(ref function, _) => format!("<fn {} >", function.arguments.len()),
+            Callable::Class(_) => format!("<class>"),
             Callable::Clock => "clock".into(),
         }
     }
@@ -59,19 +61,16 @@ impl Callable {
                                None => Value::Nil, // For when the function didn't return
                            })
             }
+            Callable::Class(ref class_definition) => {
+                Ok(Value::Instance(Instance { class: class_definition.clone() }))
+            }
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Class {
-    definition: Rc<ClassDefinition>,
-}
-
-impl Class {
-    fn to_string(&self) -> String {
-        "<class>".into()
-    }
+pub struct Instance {
+    class: Rc<ClassDefinition>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -81,7 +80,7 @@ pub enum Value {
     Number(f64),
     String(String),
     Callable(Callable),
-    Class(Class),
+    Instance(Instance),
 }
 
 impl Value {
@@ -100,7 +99,8 @@ impl Value {
             Value::Number(ref n) => n.to_string(),
             Value::String(ref s) => s.clone(),
             Value::Callable(ref c) => c.to_string(),
-            Value::Class(ref c) => c.to_string(),
+            //TODO: improve to_string for instance
+            Value::Instance(_) => "Instance".into(),
         }
     }
 }
@@ -487,8 +487,7 @@ impl Execute for Statement {
                 Ok(None)
             }
             Statement::Class(ref c) => {
-                environment.define(c.name.clone(),
-                                   Value::Class(Class{definition: c.clone()}));
+                environment.define(c.name.clone(), Value::Callable(Callable::Class(c.clone())));
                 Ok(None)
             }
         }
@@ -842,5 +841,30 @@ mod tests {
                        .unwrap());
         assert_eq!(None,
                    environment.get(&parser.identifier_map.from_name(&"b"), 0));
+    }
+
+    #[test]
+    fn class_constructor() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class C{} var c = C();");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        fn is_instance(value: &Value) -> bool {
+            match *value {
+                Value::Instance(_) => true,
+                _ => false,
+            }
+        };
+        assert_eq!(true,
+                   is_instance(&environment
+                                    .get(&parser.identifier_map.from_name(&"c"), 0)
+                                    .unwrap()));
     }
 }
