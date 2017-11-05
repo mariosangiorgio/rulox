@@ -41,6 +41,8 @@ pub enum RequiredElement {
     Subexpression,
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
     Semicolon,
     Identifier,
     Block,
@@ -181,7 +183,11 @@ where I: Iterator<Item = &'a TokenWithContext>{
             }
             Some(&Token::Fun) => {
                 let _ = tokens.next();
-                self.parse_function_declaration(tokens)
+                self.parse_function_declaration(tokens, FunctionKind::Function)
+            }
+            Some(&Token::Class) => {
+                let _ = tokens.next();
+                self.parse_class_declaration(tokens)
             }
             Some(&Token::If) => {
                 let _ = tokens.next();
@@ -201,7 +207,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_function_declaration<'a, I>(&mut self,
-                                         tokens: &mut Peekable<I>)
+                                         tokens: &mut Peekable<I>,
+                                         kind: FunctionKind)
                                          -> Option<Result<Statement, ParseError>>
         where I: Iterator<Item = &'a TokenWithContext>
     {
@@ -218,12 +225,46 @@ where I: Iterator<Item = &'a TokenWithContext>{
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
         Some(Ok(Statement::FunctionDefinition(Rc::new(FunctionDefinition {
+                                                          kind: kind,
                                                           name: identifier,
                                                           arguments: arguments,
                                                           body: block,
                                                       }))))
     }
 
+    fn parse_class_declaration<'a, I>(&mut self,
+                                      tokens: &mut Peekable<I>)
+                                      -> Option<Result<Statement, ParseError>>
+        where I: Iterator<Item = &'a TokenWithContext>
+    {
+        let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
+        let _ =
+            try_wrap_err!(
+                consume_expected_token!(tokens, &Token::LeftBrace, RequiredElement::LeftBrace));
+        let mut methods = vec![];
+        fn is_class_end(token: &&TokenWithContext) -> bool {
+            match **token {
+                TokenWithContext { token: Token::RightBrace, .. } => true,
+                _ => false,
+            }
+        }
+        while let Some(false) = tokens.peek().map(&is_class_end) {
+            match self.parse_function_declaration(tokens, FunctionKind::Method) {
+                Some(Ok(Statement::FunctionDefinition(method))) => methods.push(method),
+                Some(Ok(_)) => panic!("Function parsing didn't return a function"),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+                Some(Err(error)) => return Some(Err(error)),
+            }
+
+        }
+        let _ =
+            try_wrap_err!(
+                consume_expected_token!(tokens, &Token::RightBrace, RequiredElement::RightBrace));
+        Some(Ok(Statement::Class(Box::new(Class {
+                                              name: identifier,
+                                              methods: methods,
+                                          }))))
+    }
 
     fn parse_var_declaration<'a, I>(&mut self,
                                     tokens: &mut Peekable<I>)
@@ -1068,6 +1109,15 @@ mod tests {
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("fun add (x y ) { return (+ x y); }",
+                   statements[0].pretty_print(&parser.identifier_map));
+    }
+
+    #[test]
+    fn class() {
+        let (tokens, _) = scan(&"class A{m(){print 1;}}");
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("class A { m () { print 1; } }",
                    statements[0].pretty_print(&parser.identifier_map));
     }
 }

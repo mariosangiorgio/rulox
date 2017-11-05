@@ -159,6 +159,7 @@ pub enum Statement {
     IfThenElse(Box<IfThenElse>),
     While(Box<While>),
     FunctionDefinition(Rc<FunctionDefinition>),
+    Class(Box<Class>),
 }
 
 pub struct Block {
@@ -181,10 +182,21 @@ pub struct While {
     pub body: Statement,
 }
 
+pub enum FunctionKind {
+    Function,
+    Method,
+}
+
 pub struct FunctionDefinition {
+    pub kind: FunctionKind,
     pub name: Identifier,
     pub arguments: Vec<Identifier>,
     pub body: Statement, //This should be a block
+}
+
+pub struct Class {
+    pub name: Identifier,
+    pub methods: Vec<Rc<FunctionDefinition>>,
 }
 
 impl Debug for FunctionDefinition {

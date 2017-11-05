@@ -473,6 +473,7 @@ impl Execute for Statement {
                                                                       environment.clone())));
                 Ok(None)
             }
+            Statement::Class(ref c) => unimplemented!(),
         }
     }
 }

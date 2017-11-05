@@ -136,6 +136,7 @@ impl LexicalScopesResolver for Statement {
                 Ok(())
             }
             Statement::FunctionDefinition(ref f) => f.resolve(resolver),
+            Statement::Class(ref c) => unimplemented!(),
             Statement::Expression(ref e) => e.resolve(resolver),
             Statement::IfThen(ref s) => {
                 s.condition

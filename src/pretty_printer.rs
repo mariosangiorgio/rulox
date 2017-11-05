@@ -219,7 +219,9 @@ impl PrettyPrint for Statement {
                 l.body.pretty_print_into(identifier_map, pretty_printed);
             }
             Statement::FunctionDefinition(ref f) => {
-                pretty_printed.push_str("fun ");
+                if let FunctionKind::Function = f.kind {
+                    pretty_printed.push_str("fun ");
+                }
                 f.name.pretty_print_into(identifier_map, pretty_printed);
                 pretty_printed.push_str(" (");
                 for argument in &f.arguments {
@@ -228,6 +230,17 @@ impl PrettyPrint for Statement {
                 }
                 pretty_printed.push_str(") ");
                 f.body.pretty_print_into(identifier_map, pretty_printed);
+            }
+            Statement::Class(ref c) => {
+                pretty_printed.push_str("class ");
+                c.name.pretty_print_into(identifier_map, pretty_printed);
+                pretty_printed.push_str(" {");
+                for method in &c.methods {
+                    pretty_printed.push_str(" ");
+                    Statement::FunctionDefinition(method.clone())
+                        .pretty_print_into(identifier_map, pretty_printed);
+                }
+                pretty_printed.push_str(" }");
             }
         };
     }
