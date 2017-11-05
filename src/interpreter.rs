@@ -64,12 +64,24 @@ impl Callable {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Class {
+    definition: Rc<ClassDefinition>,
+}
+
+impl Class {
+    fn to_string(&self) -> String {
+        "<class>".into()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
     Callable(Callable),
+    Class(Class),
 }
 
 impl Value {
@@ -88,6 +100,7 @@ impl Value {
             Value::Number(ref n) => n.to_string(),
             Value::String(ref s) => s.clone(),
             Value::Callable(ref c) => c.to_string(),
+            Value::Class(ref c) => c.to_string(),
         }
     }
 }
@@ -473,7 +486,11 @@ impl Execute for Statement {
                                                                       environment.clone())));
                 Ok(None)
             }
-            Statement::Class(ref c) => unimplemented!(),
+            Statement::Class(ref c) => {
+                environment.define(c.name.clone(),
+                                   Value::Class(Class{definition: c.clone()}));
+                Ok(None)
+            }
         }
     }
 }

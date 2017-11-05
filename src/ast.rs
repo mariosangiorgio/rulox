@@ -159,7 +159,7 @@ pub enum Statement {
     IfThenElse(Box<IfThenElse>),
     While(Box<While>),
     FunctionDefinition(Rc<FunctionDefinition>),
-    Class(Box<Class>),
+    Class(Rc<ClassDefinition>),
 }
 
 pub struct Block {
@@ -194,11 +194,6 @@ pub struct FunctionDefinition {
     pub body: Statement, //This should be a block
 }
 
-pub struct Class {
-    pub name: Identifier,
-    pub methods: Vec<Rc<FunctionDefinition>>,
-}
-
 impl Debug for FunctionDefinition {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         f.write_str("<fn>")
@@ -207,6 +202,23 @@ impl Debug for FunctionDefinition {
 
 impl PartialEq for FunctionDefinition {
     fn eq(&self, _other: &FunctionDefinition) -> bool {
+        false
+    }
+}
+
+pub struct ClassDefinition {
+    pub name: Identifier,
+    pub methods: Vec<Rc<FunctionDefinition>>,
+}
+
+impl Debug for ClassDefinition {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        f.write_str("<class>")
+    }
+}
+
+impl PartialEq for ClassDefinition {
+    fn eq(&self, _other: &ClassDefinition) -> bool {
         false
     }
 }
