@@ -62,14 +62,14 @@ impl Callable {
                            })
             }
             Callable::Class(ref class_definition) => {
-                Ok(Value::Instance(Rc::new(_Instance::new(class_definition))))
+                Ok(Value::Instance(Rc::new(RefCell::new(_Instance::new(class_definition)))))
             }
         }
     }
 }
 
 // This needs to be Rc a "by reference" semantics
-type Instance = Rc<_Instance>;
+type Instance = Rc<RefCell<_Instance>>;
 
 #[derive(Debug, PartialEq)]
 pub struct _Instance {
@@ -90,6 +90,10 @@ impl _Instance {
             Some(v) => Ok(v.clone()),
             None => Err(RuntimeError::UndefinedIdentifier(property)),
         }
+    }
+
+    fn set(&mut self, property: Identifier, value: &Value) -> () {
+        self.fields.insert(property, value.clone());
     }
 }
 
@@ -267,12 +271,22 @@ impl Interpret for Expr {
             Expr::Call(ref c) => c.interpret(environment, scope_resolver),
             Expr::Get(ref g) => {
                 match g.instance.interpret(environment, scope_resolver) {
-                    Ok(Value::Instance(ref instance)) => instance.get(g.property),
+                    Ok(Value::Instance(ref instance)) => instance.borrow().get(g.property),
                     Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
                     e => e,
                 }
             }
-            Expr::Set(ref s) => unimplemented!(),
+            Expr::Set(ref s) => {
+                match s.instance.interpret(environment, scope_resolver) {
+                    Ok(Value::Instance(ref instance)) => {
+                        let value = try!(s.value.interpret(environment, scope_resolver));
+                        instance.borrow_mut().set(s.property, &value);
+                        Ok(value)
+                    }
+                    Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
+                    e => e,
+                }
+            }
         }
     }
 }
@@ -895,5 +909,37 @@ mod tests {
                    is_instance(&environment
                                     .get(&parser.identifier_map.from_name(&"c"), 0)
                                     .unwrap()));
+    }
+
+    #[test]
+    fn class_properties() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class C{} var c = C();c.a = 10;c.b=c.a+1;");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        if let Value::Instance(instance) =
+            environment
+                .get(&parser.identifier_map.from_name(&"c"), 0)
+                .unwrap() {
+            assert_eq!(Value::Number(10.0),
+                       instance
+                           .borrow()
+                           .get(parser.identifier_map.from_name(&"a"))
+                           .unwrap());
+            assert_eq!(Value::Number(11.0),
+                       instance
+                           .borrow()
+                           .get(parser.identifier_map.from_name(&"b"))
+                           .unwrap());
+        } else {
+            assert!(false);
+        }
     }
 }

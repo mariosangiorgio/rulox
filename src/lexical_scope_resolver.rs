@@ -220,7 +220,7 @@ impl LexicalScopesResolver for Expr {
                 try!(s.value.resolve(resolver));
                 try!(s.instance.resolve(resolver));
                 Ok(())
-            },
+            }
         }
     }
 }
