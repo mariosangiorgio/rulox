@@ -62,15 +62,35 @@ impl Callable {
                            })
             }
             Callable::Class(ref class_definition) => {
-                Ok(Value::Instance(Instance { class: class_definition.clone() }))
+                Ok(Value::Instance(Rc::new(_Instance::new(class_definition))))
             }
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Instance {
+// This needs to be Rc a "by reference" semantics
+type Instance = Rc<_Instance>;
+
+#[derive(Debug, PartialEq)]
+pub struct _Instance {
     class: Rc<ClassDefinition>,
+    fields: HashMap<Identifier, Value>,
+}
+
+impl _Instance {
+    fn new(class_definition: &Rc<ClassDefinition>) -> _Instance {
+        _Instance {
+            class: class_definition.clone(),
+            fields: HashMap::new(),
+        }
+    }
+
+    fn get(&self, property: Identifier) -> Result<Value, RuntimeError> {
+        match self.fields.get(&property) {
+            Some(v) => Ok(v.clone()),
+            None => Err(RuntimeError::UndefinedIdentifier(property)),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -203,6 +223,7 @@ pub enum RuntimeError {
     BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
     UndefinedIdentifier(Identifier),
     NotCallable(Value),
+    NotAnInstance(Value),
     WrongNumberOfArguments,
 }
 
@@ -244,7 +265,13 @@ impl Interpret for Expr {
             }
             Expr::Assignment(ref a) => a.interpret(environment, scope_resolver),
             Expr::Call(ref c) => c.interpret(environment, scope_resolver),
-            Expr::Get(ref g) => unimplemented!(),
+            Expr::Get(ref g) => {
+                match g.instance.interpret(environment, scope_resolver) {
+                    Ok(Value::Instance(ref instance)) => instance.get(g.property),
+                    Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
+                    e => e,
+                }
+            }
         }
     }
 }
