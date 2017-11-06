@@ -115,6 +115,12 @@ pub struct Get {
     pub property: Identifier,
 }
 
+pub struct Set {
+    pub instance: Expr,
+    pub property: Identifier,
+    pub value: Expr,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VariableUseHandle {
     value: u16,
@@ -152,6 +158,7 @@ pub enum Expr {
     Assignment(Box<Assignment>),
     Call(Box<Call>),
     Get(Box<Get>),
+    Set(Box<Set>),
 }
 
 pub enum Statement {

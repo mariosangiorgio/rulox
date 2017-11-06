@@ -216,6 +216,7 @@ impl LexicalScopesResolver for Expr {
                 try!(g.instance.resolve(resolver));
                 Ok(())
             }
+            Expr::Set(ref s) => unimplemented!(),
         }
     }
 }

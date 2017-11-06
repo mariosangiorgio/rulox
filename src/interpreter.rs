@@ -272,6 +272,7 @@ impl Interpret for Expr {
                     e => e,
                 }
             }
+            Expr::Set(ref s) => unimplemented!(),
         }
     }
 }

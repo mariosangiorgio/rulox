@@ -2,6 +2,7 @@ use ast::*;
 use scanner::{Lexeme, Position, Token, TokenWithContext};
 use std::iter::Peekable;
 use std::rc::Rc;
+use std::mem::replace;
 
 /// This behave exactly as try! but wraps the returned result in a Some.
 /// It's useful to remove some boilerplate in the code introduced by
@@ -635,6 +636,28 @@ where I: Iterator<Item = &'a TokenWithContext>{
                                 }
                             }
                         }
+                        Expr::Get(mut get) => {
+                            let property = get.property;
+                            // Takes ownership of the Box so we can pull stuff out of it
+                            let get = replace(&mut *get,
+                                              Get {
+                                                  instance: Expr::Literal(Literal::NilLiteral),
+                                                  property: property,
+                                              });
+                            let instance = get.instance;
+                            match self.parse_assignment(tokens) {
+                                None => Some(Err(ParseError::UnexpectedEndOfFile)),
+                                Some(result) => {
+                                    Some(result.map(|rvalue| {
+                                                        Expr::Set(Box::new(Set {
+                                                                               instance: instance,
+                                                                               property: property,
+                                                                               value: rvalue,
+                                                                           }))
+                                                    }))
+                                }
+                            }
+                        }
                         _ => {
                             Some(Err(ParseError::InvalidAssignmentTarget(equal.lexeme.clone(),
                                                                          equal.position)))
@@ -1140,6 +1163,15 @@ mod tests {
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("a.b;",
+                   statements[0].pretty_print(&parser.identifier_map));
+    }
+
+    #[test]
+    fn set() {
+        let (tokens, _) = scan(&"a.b = 10;");
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("a.b = 10;",
                    statements[0].pretty_print(&parser.identifier_map));
     }
 }

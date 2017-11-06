@@ -21,7 +21,7 @@ impl PrettyPrint for Expr {
             Expr::Assignment(ref a) => a.pretty_print_into(identifier_map, pretty_printed),
             Expr::Call(ref c) => c.pretty_print_into(identifier_map, pretty_printed),
             Expr::Get(ref g) => g.pretty_print_into(identifier_map, pretty_printed),
-
+            Expr::Set(ref s) => s.pretty_print_into(identifier_map, pretty_printed),
         }
     }
 }
@@ -267,6 +267,18 @@ impl PrettyPrint for Get {
         pretty_printed.push_str(".");
         self.property
             .pretty_print_into(identifier_map, pretty_printed);
+    }
+}
+
+impl PrettyPrint for Set {
+    fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
+        self.instance
+            .pretty_print_into(identifier_map, pretty_printed);
+        pretty_printed.push_str(".");
+        self.property
+            .pretty_print_into(identifier_map, pretty_printed);
+        pretty_printed.push_str(" = ");
+        self.value.pretty_print_into(identifier_map, pretty_printed);
     }
 }
 
