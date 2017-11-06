@@ -195,6 +195,7 @@ pub struct While {
     pub body: Statement,
 }
 
+#[derive(Clone, Copy, PartialEq)]
 pub enum FunctionKind {
     Function,
     Method,

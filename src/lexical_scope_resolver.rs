@@ -37,16 +37,10 @@ enum VariableDefinition {
     Defined,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum FunctionType {
-    None,
-    Function,
-}
-
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<Identifier, VariableDefinition>>,
-    current_function: FunctionType,
+    current_function: Option<FunctionKind>,
     lexical_scopes: LexicalScopes,
 }
 
@@ -54,7 +48,7 @@ impl ProgramLexicalScopesResolver {
     pub fn new() -> ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
             scopes: vec![],
-            current_function: FunctionType::None,
+            current_function: None,
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -139,6 +133,9 @@ impl LexicalScopesResolver for Statement {
             Statement::Class(ref c) => {
                 let _ = try!(resolver.declare(&c.name));
                 resolver.define(&c.name);
+                for method in c.methods.iter(){
+                    let _ = try!(method.resolve(resolver));
+                }
                 Ok(())
             }
             Statement::Expression(ref e) => e.resolve(resolver),
@@ -160,7 +157,7 @@ impl LexicalScopesResolver for Statement {
             }
             Statement::Print(ref e) => e.resolve(resolver),
             Statement::Return(ref r) => {
-                if resolver.current_function == FunctionType::None {
+                if let None = resolver.current_function {
                     Err(LexicalScopesResolutionError::ReturnFromTopLevelCode)
                 } else {
                     match *r {
@@ -242,7 +239,7 @@ impl LexicalScopesResolver for FunctionDefinition {
                -> Result<(), LexicalScopesResolutionError> {
         let _ = try!(resolver.declare(&self.name));
         let enclosing_function = resolver.current_function;
-        resolver.current_function = FunctionType::Function;
+        resolver.current_function = Some(self.kind);
         resolver.define(&self.name);
         resolver.begin_scope();
         for argument in self.arguments.iter() {
