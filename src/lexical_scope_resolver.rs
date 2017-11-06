@@ -212,7 +212,10 @@ impl LexicalScopesResolver for Expr {
                 }
                 Ok(())
             }
-            Expr::Get(ref g) => unimplemented!(),
+            Expr::Get(ref g) => {
+                try!(g.instance.resolve(resolver));
+                Ok(())
+            }
         }
     }
 }
