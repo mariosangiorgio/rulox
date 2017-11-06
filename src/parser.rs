@@ -769,11 +769,24 @@ where I: Iterator<Item = &'a TokenWithContext>{
             Some(Ok(expression)) => expression,
             error => return error,
         };
-        while let Some(&Token::LeftParen) = tokens.peek().map(|t| &t.token) {
-            expression = match self.finish_call(tokens, expression) {
-                Some(Ok(expression)) => expression,
-                error => return error,
-            };
+        loop {
+            match tokens.peek().map(|t| &t.token) {
+                Some(&Token::LeftParen) => {
+                    expression = match self.finish_call(tokens, expression) {
+                        Some(Ok(expression)) => expression,
+                        error => return error,
+                    };
+                }
+                Some(&Token::Dot) => {
+                    let _ = tokens.next();
+                    let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
+                    expression = Expr::Get(Box::new(Get {
+                                                        instance: expression,
+                                                        property: identifier,
+                                                    }))
+                }
+                _ => break,
+            }
         }
         Some(Ok(expression))
     }
@@ -1118,6 +1131,15 @@ mod tests {
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("class A { m () { print 1; } }",
+                   statements[0].pretty_print(&parser.identifier_map));
+    }
+
+    #[test]
+    fn get() {
+        let (tokens, _) = scan(&"a.b;");
+        let mut parser = Parser::new();
+        let statements = parser.parse(&tokens).unwrap();
+        assert_eq!("a.b;",
                    statements[0].pretty_print(&parser.identifier_map));
     }
 }

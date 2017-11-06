@@ -110,6 +110,11 @@ pub struct Call {
     pub arguments: Vec<Expr>,
 }
 
+pub struct Get {
+    pub instance: Expr,
+    pub property: Identifier,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VariableUseHandle {
     value: u16,
@@ -146,6 +151,7 @@ pub enum Expr {
     Grouping(Box<Grouping>),
     Assignment(Box<Assignment>),
     Call(Box<Call>),
+    Get(Box<Get>),
 }
 
 pub enum Statement {

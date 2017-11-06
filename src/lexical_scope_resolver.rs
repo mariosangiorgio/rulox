@@ -212,6 +212,7 @@ impl LexicalScopesResolver for Expr {
                 }
                 Ok(())
             }
+            Expr::Get(ref g) => unimplemented!(),
         }
     }
 }

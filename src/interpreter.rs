@@ -244,6 +244,7 @@ impl Interpret for Expr {
             }
             Expr::Assignment(ref a) => a.interpret(environment, scope_resolver),
             Expr::Call(ref c) => c.interpret(environment, scope_resolver),
+            Expr::Get(ref g) => unimplemented!(),
         }
     }
 }
