@@ -22,6 +22,7 @@ pub enum LexicalScopesResolutionError {
     ReadLocalInItsOwnInitializer,
     VariableAlreadyExistsInScope,
     ReturnFromTopLevelCode,
+    UseOfThisOutsideAClass,
 }
 
 trait LexicalScopesResolver {
@@ -37,10 +38,16 @@ enum VariableDefinition {
     Defined,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+enum ClassType{
+    Class
+}
+
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<Identifier, VariableDefinition>>,
     current_function: Option<FunctionKind>,
+    current_class: Option<ClassType>,
     lexical_scopes: LexicalScopes,
 }
 
@@ -49,6 +56,7 @@ impl ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
             scopes: vec![],
             current_function: None,
+            current_class: None,
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -132,6 +140,8 @@ impl LexicalScopesResolver for Statement {
             Statement::FunctionDefinition(ref f) => f.resolve(resolver),
             Statement::Class(ref c) => {
                 let _ = try!(resolver.declare(&c.name));
+                let enclosing_class = resolver.current_class;
+                resolver.current_class = Some(ClassType::Class);
                 resolver.define(&c.name);
                 resolver.begin_scope();
                 resolver.define(&Identifier::this());
@@ -139,6 +149,7 @@ impl LexicalScopesResolver for Statement {
                     let _ = try!(method.resolve(resolver));
                 }
                 resolver.end_scope();
+                resolver.current_class = enclosing_class;
                 Ok(())
             }
             Statement::Expression(ref e) => e.resolve(resolver),
@@ -179,6 +190,9 @@ impl LexicalScopesResolver for Expr {
                -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::This(ref handle, ref identifier) => {
+                if let None = resolver.current_class{
+                    return Err(LexicalScopesResolutionError::UseOfThisOutsideAClass)
+                }
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
             }
