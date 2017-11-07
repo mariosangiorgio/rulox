@@ -1,8 +1,0 @@
-class Egotist {
-  speak() {
-    print this;
-  }
-}
-
-var method = Egotist().speak;
-method(argument);

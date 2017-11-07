@@ -34,6 +34,12 @@ pub struct Identifier {
     handle: u64,
 }
 
+impl Identifier {
+    pub fn this() -> Identifier {
+        Identifier { handle: 0 }
+    }
+}
+
 pub struct IdentifierMap {
     next: u64,
     map: HashMap<String, Identifier>,
@@ -42,7 +48,7 @@ pub struct IdentifierMap {
 impl IdentifierMap {
     pub fn new() -> IdentifierMap {
         IdentifierMap {
-            next: 0,
+            next: 1, // 0 is reserved for "this"
             map: HashMap::new(),
         }
     }
@@ -223,7 +229,6 @@ impl PartialEq for FunctionDefinition {
 
 pub struct ClassDefinition {
     pub name: Identifier,
-    pub this: Identifier,
     pub methods: Vec<Rc<FunctionDefinition>>,
 }
 

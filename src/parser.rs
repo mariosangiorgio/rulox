@@ -263,7 +263,6 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 consume_expected_token!(tokens, &Token::RightBrace, RequiredElement::RightBrace));
         Some(Ok(Statement::Class(ClassDefinition {
                                      name: identifier,
-                                     this: self.identifier_map.from_name("this"),
                                      methods: methods,
                                  })))
     }
@@ -880,8 +879,9 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 Token::Nil => Expr::Literal(Literal::NilLiteral),
                 Token::NumberLiteral(n) => Expr::Literal(Literal::NumberLiteral(n)),
                 Token::StringLiteral(ref s) => Expr::Literal(Literal::StringLiteral(s.clone())),
-                Token::This => Expr::This(self.variable_use_handle_factory.next(),
-                self.identifier_map.from_name("this")),
+                Token::This => {
+                    Expr::This(self.variable_use_handle_factory.next(), Identifier::this())
+                }
                 Token::Identifier(ref i) => {
                     Expr::Identifier(self.variable_use_handle_factory.next(),
                                      self.identifier_map.from_name(i))

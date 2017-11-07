@@ -134,7 +134,7 @@ impl LexicalScopesResolver for Statement {
                 let _ = try!(resolver.declare(&c.name));
                 resolver.define(&c.name);
                 resolver.begin_scope();
-                resolver.define(&c.this);
+                resolver.define(&Identifier::this());
                 for method in c.methods.iter() {
                     let _ = try!(method.resolve(resolver));
                 }

@@ -34,6 +34,17 @@ impl Callable {
                            Value::Callable(Callable::Clock))
     }
 
+    fn bind(&self, instance: &Instance) -> Callable {
+        match *self {
+            Callable::Function(ref function, ref environment) => {
+                let environment = Environment::new_with_parent(environment);
+                environment.define(Identifier::this(), Value::Instance(instance.clone()));
+                Callable::Function(function.clone(), environment)
+            }
+            _ => panic!(),
+        }
+    }
+
     fn call(&self,
             arguments: &Vec<Value>,
             _environment: &Environment,
@@ -66,15 +77,10 @@ impl Callable {
                                None => Value::Nil, // For when the function didn't return
                            })
             }
-            Callable::Class(ref class) => {
-                Ok(Value::Instance(Rc::new(RefCell::new(_Instance::new(class)))))
-            }
+            Callable::Class(ref class) => Ok(Value::Instance(Instance::new(class))),
         }
     }
 }
-
-// This needs to be Rc a "by reference" semantics
-type Instance = Rc<RefCell<_Instance>>;
 
 #[derive(Debug, PartialEq)]
 pub struct _Instance {
@@ -82,16 +88,20 @@ pub struct _Instance {
     fields: HashMap<Identifier, Value>,
 }
 
-impl _Instance {
-    fn new(class: &Rc<Class>) -> _Instance {
-        _Instance {
-            class: class.clone(),
-            fields: HashMap::new(),
-        }
+// This needs to be Rc a "by reference" semantics
+#[derive(Debug, PartialEq, Clone)]
+pub struct Instance(Rc<RefCell<_Instance>>);
+
+impl Instance {
+    fn new(class: &Rc<Class>) -> Instance {
+        Instance(Rc::new(RefCell::new(_Instance {
+                                          class: class.clone(),
+                                          fields: HashMap::new(),
+                                      })))
     }
 
     fn get(&self, property: Identifier) -> Result<Value, RuntimeError> {
-        if let Some(v) = self.fields.get(&property) {
+        if let Some(v) = self.0.borrow().fields.get(&property) {
             return Ok(v.clone());
         }
         if let Some(m) = self.find_method(property) {
@@ -101,11 +111,12 @@ impl _Instance {
     }
 
     fn find_method(&self, property: Identifier) -> Option<Callable> {
-        self.class.methods.get(&property).cloned()
+        let method = self.0.borrow().class.methods.get(&property).cloned();
+        method.map(|m| m.bind(self))
     }
 
-    fn set(&mut self, property: Identifier, value: &Value) -> () {
-        self.fields.insert(property, value.clone());
+    fn set(&self, property: Identifier, value: &Value) -> () {
+        self.0.borrow_mut().fields.insert(property, value.clone());
     }
 }
 
@@ -263,12 +274,12 @@ impl Interpret for Expr {
                  scope_resolver: &ProgramLexicalScopesResolver)
                  -> Result<Value, RuntimeError> {
         match *self {
-            Expr::This(ref handle, ref identifier) => unimplemented!(),
             Expr::Literal(ref l) => l.interpret(environment, scope_resolver),
             Expr::Unary(ref u) => u.interpret(environment, scope_resolver),
             Expr::Binary(ref b) => b.interpret(environment, scope_resolver),
             Expr::Logic(ref b) => b.interpret(environment, scope_resolver),
             Expr::Grouping(ref g) => g.interpret(environment, scope_resolver),
+            Expr::This(ref handle, ref i) |
             Expr::Identifier(ref handle, ref i) => {
                 match scope_resolver.get_depth(handle) {
                     Some(depth) => {
@@ -284,7 +295,7 @@ impl Interpret for Expr {
             Expr::Call(ref c) => c.interpret(environment, scope_resolver),
             Expr::Get(ref g) => {
                 match g.instance.interpret(environment, scope_resolver) {
-                    Ok(Value::Instance(ref instance)) => instance.borrow().get(g.property),
+                    Ok(Value::Instance(ref instance)) => instance.get(g.property),
                     Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
                     e => e,
                 }
@@ -293,7 +304,7 @@ impl Interpret for Expr {
                 match s.instance.interpret(environment, scope_resolver) {
                     Ok(Value::Instance(ref instance)) => {
                         let value = try!(s.value.interpret(environment, scope_resolver));
-                        instance.borrow_mut().set(s.property, &value);
+                        instance.set(s.property, &value);
                         Ok(value)
                     }
                     Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
@@ -952,15 +963,9 @@ mod tests {
                 .get(&parser.identifier_map.from_name(&"c"), 0)
                 .unwrap() {
             assert_eq!(Value::Number(10.0),
-                       instance
-                           .borrow()
-                           .get(parser.identifier_map.from_name(&"a"))
-                           .unwrap());
+                       instance.get(parser.identifier_map.from_name(&"a")).unwrap());
             assert_eq!(Value::Number(11.0),
-                       instance
-                           .borrow()
-                           .get(parser.identifier_map.from_name(&"b"))
-                           .unwrap());
+                       instance.get(parser.identifier_map.from_name(&"b")).unwrap());
         } else {
             assert!(false);
         }
@@ -981,7 +986,7 @@ mod tests {
         }
         assert_eq!(Value::Number(1.0),
                    environment
-                        .get(&parser.identifier_map.from_name(&"v"), 0)
-                        .unwrap())
+                       .get(&parser.identifier_map.from_name(&"v"), 0)
+                       .unwrap())
     }
 }
