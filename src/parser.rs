@@ -261,10 +261,10 @@ where I: Iterator<Item = &'a TokenWithContext>{
         let _ =
             try_wrap_err!(
                 consume_expected_token!(tokens, &Token::RightBrace, RequiredElement::RightBrace));
-        Some(Ok(Statement::Class(Rc::new(ClassDefinition {
-                                             name: identifier,
-                                             methods: methods,
-                                         }))))
+        Some(Ok(Statement::Class(ClassDefinition {
+                                     name: identifier,
+                                     methods: methods,
+                                 })))
     }
 
     fn parse_var_declaration<'a, I>(&mut self,

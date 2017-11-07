@@ -172,7 +172,7 @@ pub enum Statement {
     IfThenElse(Box<IfThenElse>),
     While(Box<While>),
     FunctionDefinition(Rc<FunctionDefinition>),
-    Class(Rc<ClassDefinition>),
+    Class(ClassDefinition),
 }
 
 pub struct Block {

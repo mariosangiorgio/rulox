@@ -133,7 +133,7 @@ impl LexicalScopesResolver for Statement {
             Statement::Class(ref c) => {
                 let _ = try!(resolver.declare(&c.name));
                 resolver.define(&c.name);
-                for method in c.methods.iter(){
+                for method in c.methods.iter() {
                     let _ = try!(method.resolve(resolver));
                 }
                 Ok(())

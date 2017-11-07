@@ -10,9 +10,14 @@ use std::cell::RefCell;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
     Function(Rc<FunctionDefinition>, Environment),
-    Class(Rc<ClassDefinition>),
+    Class(Rc<Class>),
     // Native functions
     Clock,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Class {
+    methods: HashMap<Identifier, Callable>,
 }
 
 impl Callable {
@@ -61,8 +66,8 @@ impl Callable {
                                None => Value::Nil, // For when the function didn't return
                            })
             }
-            Callable::Class(ref class_definition) => {
-                Ok(Value::Instance(Rc::new(RefCell::new(_Instance::new(class_definition)))))
+            Callable::Class(ref class) => {
+                Ok(Value::Instance(Rc::new(RefCell::new(_Instance::new(class)))))
             }
         }
     }
@@ -73,23 +78,30 @@ type Instance = Rc<RefCell<_Instance>>;
 
 #[derive(Debug, PartialEq)]
 pub struct _Instance {
-    class: Rc<ClassDefinition>,
+    class: Rc<Class>,
     fields: HashMap<Identifier, Value>,
 }
 
 impl _Instance {
-    fn new(class_definition: &Rc<ClassDefinition>) -> _Instance {
+    fn new(class: &Rc<Class>) -> _Instance {
         _Instance {
-            class: class_definition.clone(),
+            class: class.clone(),
             fields: HashMap::new(),
         }
     }
 
     fn get(&self, property: Identifier) -> Result<Value, RuntimeError> {
-        match self.fields.get(&property) {
-            Some(v) => Ok(v.clone()),
-            None => Err(RuntimeError::UndefinedIdentifier(property)),
+        if let Some(v) = self.fields.get(&property) {
+            return Ok(v.clone());
         }
+        if let Some(m) = self.find_method(property) {
+            return Ok(Value::Callable(m.clone()));
+        }
+        Err(RuntimeError::UndefinedIdentifier(property))
+    }
+
+    fn find_method(&self, property: Identifier) -> Option<Callable> {
+        self.class.methods.get(&property).cloned()
     }
 
     fn set(&mut self, property: Identifier, value: &Value) -> () {
@@ -530,7 +542,17 @@ impl Execute for Statement {
                 Ok(None)
             }
             Statement::Class(ref c) => {
-                environment.define(c.name.clone(), Value::Callable(Callable::Class(c.clone())));
+                // Not entirely sure why
+                environment.define(c.name.clone(), Value::Nil);
+                let mut methods = HashMap::new();
+                for method_definition in c.methods.iter() {
+                    methods.insert(method_definition.name,
+                                   Callable::Function(method_definition.clone(),
+                                                      environment.clone()));
+                }
+                //TODO: pass trough the class name
+                let class = Rc::new(Class { methods: methods });
+                environment.define(c.name.clone(), Value::Callable(Callable::Class(class)));
                 Ok(None)
             }
         }
@@ -941,5 +963,24 @@ mod tests {
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    fn method_execution() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class A {a() { return 1; } } var v = A().a();");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        assert_eq!(Value::Number(1.0),
+                   environment
+                        .get(&parser.identifier_map.from_name(&"v"), 0)
+                        .unwrap())
     }
 }
