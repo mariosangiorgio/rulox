@@ -12,6 +12,7 @@ pub trait PrettyPrint {
 impl PrettyPrint for Expr {
     fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
         match *self {
+            Expr::This(_,_) => pretty_printed.push_str("this"),
             Expr::Literal(ref l) => l.pretty_print_into(identifier_map, pretty_printed),
             Expr::Unary(ref u) => u.pretty_print_into(identifier_map, pretty_printed),
             Expr::Binary(ref b) => b.pretty_print_into(identifier_map, pretty_printed),

@@ -263,6 +263,7 @@ impl Interpret for Expr {
                  scope_resolver: &ProgramLexicalScopesResolver)
                  -> Result<Value, RuntimeError> {
         match *self {
+            Expr::This(ref handle, ref identifier) => unimplemented!(),
             Expr::Literal(ref l) => l.interpret(environment, scope_resolver),
             Expr::Unary(ref u) => u.interpret(environment, scope_resolver),
             Expr::Binary(ref b) => b.interpret(environment, scope_resolver),

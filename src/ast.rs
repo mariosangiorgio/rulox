@@ -149,6 +149,7 @@ impl VariableUseHandleFactory {
 }
 
 pub enum Expr {
+    This(VariableUseHandle, Identifier),
     Literal(Literal),
     Identifier(VariableUseHandle, Identifier),
     Unary(Box<UnaryExpr>),
@@ -222,6 +223,7 @@ impl PartialEq for FunctionDefinition {
 
 pub struct ClassDefinition {
     pub name: Identifier,
+    pub this: Identifier,
     pub methods: Vec<Rc<FunctionDefinition>>,
 }
 

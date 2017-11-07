@@ -133,9 +133,12 @@ impl LexicalScopesResolver for Statement {
             Statement::Class(ref c) => {
                 let _ = try!(resolver.declare(&c.name));
                 resolver.define(&c.name);
+                resolver.begin_scope();
+                resolver.define(&c.this);
                 for method in c.methods.iter() {
                     let _ = try!(method.resolve(resolver));
                 }
+                resolver.end_scope();
                 Ok(())
             }
             Statement::Expression(ref e) => e.resolve(resolver),
@@ -175,6 +178,10 @@ impl LexicalScopesResolver for Expr {
                resolver: &mut ProgramLexicalScopesResolver)
                -> Result<(), LexicalScopesResolutionError> {
         match *self {
+            Expr::This(ref handle, ref identifier) => {
+                resolver.resolve_local(handle.clone(), identifier);
+                Ok(())
+            }
             Expr::Identifier(ref handle, ref identifier) => {
                 let scopes = resolver.scopes.len();
                 if scopes != 0 &&
