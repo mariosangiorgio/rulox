@@ -74,10 +74,26 @@ impl Callable {
                     .execute(&local_environment, scope_resolver);
                 result.map(|ok| match ok {
                                Some(value) => value,
-                               None => Value::Nil, // For when the function didn't return
+                               None => {
+                                   if function_definition.kind == FunctionKind::Initializer {
+                                       environment.get(&Identifier::this(), 0).unwrap()
+                                       // Special case, for when the initializer is
+                                       // called explicitly to "re-initialize" the object
+                                   } else {
+                                       Value::Nil // For when the function didn't return
+                                   }
+                               }
                            })
             }
-            Callable::Class(ref class) => Ok(Value::Instance(Instance::new(class))),
+            Callable::Class(ref class) => {
+                let instance = Instance::new(class);
+                if let Some(initializer) = class.methods.get(&Identifier::init()) {
+                    try!(initializer
+                             .bind(&instance)
+                             .call(arguments, _environment, scope_resolver));
+                }
+                Ok(Value::Instance(instance))
+            }
         }
     }
 }
@@ -985,6 +1001,25 @@ mod tests {
             let _ = statement.execute(&environment, &scope_resolver);
         }
         assert_eq!(Value::Number(1.0),
+                   environment
+                       .get(&parser.identifier_map.from_name(&"v"), 0)
+                       .unwrap())
+    }
+
+    #[test]
+    fn custom_initializer() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class A {init(a) { this._a=a; } } var v = A(10)._a;");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        assert_eq!(Value::Number(10.0),
                    environment
                        .get(&parser.identifier_map.from_name(&"v"), 0)
                        .unwrap())

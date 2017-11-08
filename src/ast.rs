@@ -38,6 +38,9 @@ impl Identifier {
     pub fn this() -> Identifier {
         Identifier { handle: 0 }
     }
+    pub fn init() -> Identifier {
+        Identifier { handle: 1 }
+    }
 }
 
 pub struct IdentifierMap {
@@ -47,9 +50,13 @@ pub struct IdentifierMap {
 
 impl IdentifierMap {
     pub fn new() -> IdentifierMap {
+        let mut map = HashMap::new();
+        // Reserved identifiers
+        map.insert("this".into(), Identifier::this());
+        map.insert("init".into(), Identifier::init());
         IdentifierMap {
-            next: 1, // 0 is reserved for "this"
-            map: HashMap::new(),
+            next: map.len() as u64,
+            map: map,
         }
     }
 
@@ -206,6 +213,7 @@ pub struct While {
 pub enum FunctionKind {
     Function,
     Method,
+    Initializer,
 }
 
 pub struct FunctionDefinition {

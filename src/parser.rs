@@ -226,7 +226,13 @@ where I: Iterator<Item = &'a TokenWithContext>{
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
         Some(Ok(Statement::FunctionDefinition(Rc::new(FunctionDefinition {
-                                                          kind: kind,
+                                                          kind: if kind == FunctionKind::Method &&
+                                                                   identifier ==
+                                                                   Identifier::init() {
+                                                              FunctionKind::Initializer
+                                                          } else {
+                                                              kind
+                                                          },
                                                           name: identifier,
                                                           arguments: arguments,
                                                           body: block,

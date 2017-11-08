@@ -22,6 +22,7 @@ pub enum LexicalScopesResolutionError {
     ReadLocalInItsOwnInitializer,
     VariableAlreadyExistsInScope,
     ReturnFromTopLevelCode,
+    ReturnFromInitializer,
     UseOfThisOutsideAClass,
 }
 
@@ -39,8 +40,8 @@ enum VariableDefinition {
 }
 
 #[derive(PartialEq, Clone, Copy)]
-enum ClassType{
-    Class
+enum ClassType {
+    Class,
 }
 
 pub struct ProgramLexicalScopesResolver {
@@ -171,13 +172,17 @@ impl LexicalScopesResolver for Statement {
             }
             Statement::Print(ref e) => e.resolve(resolver),
             Statement::Return(ref r) => {
-                if let None = resolver.current_function {
-                    Err(LexicalScopesResolutionError::ReturnFromTopLevelCode)
-                } else {
-                    match *r {
-                        None => Ok(()),
-                        Some(ref e) => e.resolve(resolver),
+                match resolver.current_function {
+                    Some(FunctionKind::Initializer) => {
+                        Err(LexicalScopesResolutionError::ReturnFromInitializer)
                     }
+                    Some(_) => {
+                        match *r {
+                            None => Ok(()),
+                            Some(ref e) => e.resolve(resolver),
+                        }
+                    }
+                    None => Err(LexicalScopesResolutionError::ReturnFromTopLevelCode),
                 }
             }
         }
@@ -190,8 +195,8 @@ impl LexicalScopesResolver for Expr {
                -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::This(ref handle, ref identifier) => {
-                if let None = resolver.current_class{
-                    return Err(LexicalScopesResolutionError::UseOfThisOutsideAClass)
+                if let None = resolver.current_class {
+                    return Err(LexicalScopesResolutionError::UseOfThisOutsideAClass);
                 }
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
