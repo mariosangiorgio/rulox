@@ -34,6 +34,15 @@ pub struct Identifier {
     handle: u64,
 }
 
+impl Identifier {
+    pub fn this() -> Identifier {
+        Identifier { handle: 0 }
+    }
+    pub fn init() -> Identifier {
+        Identifier { handle: 1 }
+    }
+}
+
 pub struct IdentifierMap {
     next: u64,
     map: HashMap<String, Identifier>,
@@ -41,9 +50,13 @@ pub struct IdentifierMap {
 
 impl IdentifierMap {
     pub fn new() -> IdentifierMap {
+        let mut map = HashMap::new();
+        // Reserved identifiers
+        map.insert("this".into(), Identifier::this());
+        map.insert("init".into(), Identifier::init());
         IdentifierMap {
-            next: 0,
-            map: HashMap::new(),
+            next: map.len() as u64,
+            map: map,
         }
     }
 
@@ -110,6 +123,17 @@ pub struct Call {
     pub arguments: Vec<Expr>,
 }
 
+pub struct Get {
+    pub instance: Expr,
+    pub property: Identifier,
+}
+
+pub struct Set {
+    pub instance: Expr,
+    pub property: Identifier,
+    pub value: Expr,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VariableUseHandle {
     value: u16,
@@ -138,6 +162,7 @@ impl VariableUseHandleFactory {
 }
 
 pub enum Expr {
+    This(VariableUseHandle, Identifier),
     Literal(Literal),
     Identifier(VariableUseHandle, Identifier),
     Unary(Box<UnaryExpr>),
@@ -146,6 +171,8 @@ pub enum Expr {
     Grouping(Box<Grouping>),
     Assignment(Box<Assignment>),
     Call(Box<Call>),
+    Get(Box<Get>),
+    Set(Box<Set>),
 }
 
 pub enum Statement {
@@ -159,6 +186,7 @@ pub enum Statement {
     IfThenElse(Box<IfThenElse>),
     While(Box<While>),
     FunctionDefinition(Rc<FunctionDefinition>),
+    Class(ClassDefinition),
 }
 
 pub struct Block {
@@ -181,7 +209,15 @@ pub struct While {
     pub body: Statement,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum FunctionKind {
+    Function,
+    Method,
+    Initializer,
+}
+
 pub struct FunctionDefinition {
+    pub kind: FunctionKind,
     pub name: Identifier,
     pub arguments: Vec<Identifier>,
     pub body: Statement, //This should be a block
@@ -195,6 +231,23 @@ impl Debug for FunctionDefinition {
 
 impl PartialEq for FunctionDefinition {
     fn eq(&self, _other: &FunctionDefinition) -> bool {
+        false
+    }
+}
+
+pub struct ClassDefinition {
+    pub name: Identifier,
+    pub methods: Vec<Rc<FunctionDefinition>>,
+}
+
+impl Debug for ClassDefinition {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        f.write_str("<class>")
+    }
+}
+
+impl PartialEq for ClassDefinition {
+    fn eq(&self, _other: &ClassDefinition) -> bool {
         false
     }
 }

@@ -10,14 +10,21 @@ use std::cell::RefCell;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
     Function(Rc<FunctionDefinition>, Environment),
+    Class(Rc<Class>),
     // Native functions
     Clock,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Class {
+    methods: HashMap<Identifier, Callable>,
 }
 
 impl Callable {
     fn to_string(&self) -> String {
         match *self {
             Callable::Function(ref function, _) => format!("<fn {} >", function.arguments.len()),
+            Callable::Class(_) => format!("<class>"),
             Callable::Clock => "clock".into(),
         }
     }
@@ -25,6 +32,17 @@ impl Callable {
     fn register_natives(environment: &Environment, identifier_map: &mut IdentifierMap) -> () {
         environment.define(identifier_map.from_name("clock"),
                            Value::Callable(Callable::Clock))
+    }
+
+    fn bind(&self, instance: &Instance) -> Callable {
+        match *self {
+            Callable::Function(ref function, ref environment) => {
+                let environment = Environment::new_with_parent(environment);
+                environment.define(Identifier::this(), Value::Instance(instance.clone()));
+                Callable::Function(function.clone(), environment)
+            }
+            _ => panic!(),
+        }
     }
 
     fn call(&self,
@@ -56,10 +74,65 @@ impl Callable {
                     .execute(&local_environment, scope_resolver);
                 result.map(|ok| match ok {
                                Some(value) => value,
-                               None => Value::Nil, // For when the function didn't return
+                               None => {
+                                   if function_definition.kind == FunctionKind::Initializer {
+                                       environment.get(&Identifier::this(), 0).unwrap()
+                                       // Special case, for when the initializer is
+                                       // called explicitly to "re-initialize" the object
+                                   } else {
+                                       Value::Nil // For when the function didn't return
+                                   }
+                               }
                            })
             }
+            Callable::Class(ref class) => {
+                let instance = Instance::new(class);
+                if let Some(initializer) = class.methods.get(&Identifier::init()) {
+                    try!(initializer
+                             .bind(&instance)
+                             .call(arguments, _environment, scope_resolver));
+                }
+                Ok(Value::Instance(instance))
+            }
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct _Instance {
+    class: Rc<Class>,
+    fields: HashMap<Identifier, Value>,
+}
+
+// This needs to be Rc a "by reference" semantics
+#[derive(Debug, PartialEq, Clone)]
+pub struct Instance(Rc<RefCell<_Instance>>);
+
+impl Instance {
+    fn new(class: &Rc<Class>) -> Instance {
+        Instance(Rc::new(RefCell::new(_Instance {
+                                          class: class.clone(),
+                                          fields: HashMap::new(),
+                                      })))
+    }
+
+    fn get(&self, property: Identifier) -> Result<Value, RuntimeError> {
+        if let Some(v) = self.0.borrow().fields.get(&property) {
+            return Ok(v.clone());
+        }
+        if let Some(m) = self.find_method(property) {
+            return Ok(Value::Callable(m.clone()));
+        }
+        Err(RuntimeError::UndefinedIdentifier(property))
+    }
+
+    fn find_method(&self, property: Identifier) -> Option<Callable> {
+        let method = self.0.borrow().class.methods.get(&property).cloned();
+        method.map(|m| m.bind(self))
+    }
+
+    fn set(&self, property: Identifier, value: &Value) -> () {
+        self.0.borrow_mut().fields.insert(property, value.clone());
     }
 }
 
@@ -70,6 +143,7 @@ pub enum Value {
     Number(f64),
     String(String),
     Callable(Callable),
+    Instance(Instance),
 }
 
 impl Value {
@@ -88,6 +162,8 @@ impl Value {
             Value::Number(ref n) => n.to_string(),
             Value::String(ref s) => s.clone(),
             Value::Callable(ref c) => c.to_string(),
+            //TODO: improve to_string for instance
+            Value::Instance(_) => "Instance".into(),
         }
     }
 }
@@ -190,6 +266,7 @@ pub enum RuntimeError {
     BinaryOperatorTypeMismatch(BinaryOperator, Value, Value),
     UndefinedIdentifier(Identifier),
     NotCallable(Value),
+    NotAnInstance(Value),
     WrongNumberOfArguments,
 }
 
@@ -218,6 +295,7 @@ impl Interpret for Expr {
             Expr::Binary(ref b) => b.interpret(environment, scope_resolver),
             Expr::Logic(ref b) => b.interpret(environment, scope_resolver),
             Expr::Grouping(ref g) => g.interpret(environment, scope_resolver),
+            Expr::This(ref handle, ref i) |
             Expr::Identifier(ref handle, ref i) => {
                 match scope_resolver.get_depth(handle) {
                     Some(depth) => {
@@ -231,6 +309,24 @@ impl Interpret for Expr {
             }
             Expr::Assignment(ref a) => a.interpret(environment, scope_resolver),
             Expr::Call(ref c) => c.interpret(environment, scope_resolver),
+            Expr::Get(ref g) => {
+                match g.instance.interpret(environment, scope_resolver) {
+                    Ok(Value::Instance(ref instance)) => instance.get(g.property),
+                    Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
+                    e => e,
+                }
+            }
+            Expr::Set(ref s) => {
+                match s.instance.interpret(environment, scope_resolver) {
+                    Ok(Value::Instance(ref instance)) => {
+                        let value = try!(s.value.interpret(environment, scope_resolver));
+                        instance.set(s.property, &value);
+                        Ok(value)
+                    }
+                    Ok(v) => Err(RuntimeError::NotAnInstance(v.clone())),
+                    e => e,
+                }
+            }
         }
     }
 }
@@ -471,6 +567,20 @@ impl Execute for Statement {
                 environment.define(f.name.clone(),
                                    Value::Callable(Callable::Function(f.clone(),
                                                                       environment.clone())));
+                Ok(None)
+            }
+            Statement::Class(ref c) => {
+                // Not entirely sure why
+                environment.define(c.name.clone(), Value::Nil);
+                let mut methods = HashMap::new();
+                for method_definition in c.methods.iter() {
+                    methods.insert(method_definition.name,
+                                   Callable::Function(method_definition.clone(),
+                                                      environment.clone()));
+                }
+                //TODO: pass trough the class name
+                let class = Rc::new(Class { methods: methods });
+                environment.define(c.name.clone(), Value::Callable(Callable::Class(class)));
                 Ok(None)
             }
         }
@@ -824,5 +934,94 @@ mod tests {
                        .unwrap());
         assert_eq!(None,
                    environment.get(&parser.identifier_map.from_name(&"b"), 0));
+    }
+
+    #[test]
+    fn class_constructor() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class C{} var c = C();");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        fn is_instance(value: &Value) -> bool {
+            match *value {
+                Value::Instance(_) => true,
+                _ => false,
+            }
+        };
+        assert_eq!(true,
+                   is_instance(&environment
+                                    .get(&parser.identifier_map.from_name(&"c"), 0)
+                                    .unwrap()));
+    }
+
+    #[test]
+    fn class_properties() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class C{} var c = C();c.a = 10;c.b=c.a+1;");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        if let Value::Instance(instance) =
+            environment
+                .get(&parser.identifier_map.from_name(&"c"), 0)
+                .unwrap() {
+            assert_eq!(Value::Number(10.0),
+                       instance.get(parser.identifier_map.from_name(&"a")).unwrap());
+            assert_eq!(Value::Number(11.0),
+                       instance.get(parser.identifier_map.from_name(&"b")).unwrap());
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn method_execution() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class A {a() { return 1; } } var v = A().a();");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        assert_eq!(Value::Number(1.0),
+                   environment
+                       .get(&parser.identifier_map.from_name(&"v"), 0)
+                       .unwrap())
+    }
+
+    #[test]
+    fn custom_initializer() {
+        let mut parser = Parser::new();
+        let environment = Environment::new();
+        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let (tokens, _) = scan(&"class A {init(a) { this._a=a; } } var v = A(10)._a;");
+        let statements = parser.parse(&tokens).unwrap();
+        for statement in statements.iter() {
+            let _ = scope_resolver.resolve(statement);
+        }
+        for statement in statements.iter() {
+            let _ = statement.execute(&environment, &scope_resolver);
+        }
+        assert_eq!(Value::Number(10.0),
+                   environment
+                       .get(&parser.identifier_map.from_name(&"v"), 0)
+                       .unwrap())
     }
 }

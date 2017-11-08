@@ -12,6 +12,7 @@ pub trait PrettyPrint {
 impl PrettyPrint for Expr {
     fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
         match *self {
+            Expr::This(_, _) => pretty_printed.push_str("this"),
             Expr::Literal(ref l) => l.pretty_print_into(identifier_map, pretty_printed),
             Expr::Unary(ref u) => u.pretty_print_into(identifier_map, pretty_printed),
             Expr::Binary(ref b) => b.pretty_print_into(identifier_map, pretty_printed),
@@ -20,7 +21,8 @@ impl PrettyPrint for Expr {
             Expr::Identifier(ref _h, ref i) => i.pretty_print_into(identifier_map, pretty_printed),
             Expr::Assignment(ref a) => a.pretty_print_into(identifier_map, pretty_printed),
             Expr::Call(ref c) => c.pretty_print_into(identifier_map, pretty_printed),
-
+            Expr::Get(ref g) => g.pretty_print_into(identifier_map, pretty_printed),
+            Expr::Set(ref s) => s.pretty_print_into(identifier_map, pretty_printed),
         }
     }
 }
@@ -219,7 +221,9 @@ impl PrettyPrint for Statement {
                 l.body.pretty_print_into(identifier_map, pretty_printed);
             }
             Statement::FunctionDefinition(ref f) => {
-                pretty_printed.push_str("fun ");
+                if let FunctionKind::Function = f.kind {
+                    pretty_printed.push_str("fun ");
+                }
                 f.name.pretty_print_into(identifier_map, pretty_printed);
                 pretty_printed.push_str(" (");
                 for argument in &f.arguments {
@@ -228,6 +232,17 @@ impl PrettyPrint for Statement {
                 }
                 pretty_printed.push_str(") ");
                 f.body.pretty_print_into(identifier_map, pretty_printed);
+            }
+            Statement::Class(ref c) => {
+                pretty_printed.push_str("class ");
+                c.name.pretty_print_into(identifier_map, pretty_printed);
+                pretty_printed.push_str(" {");
+                for method in &c.methods {
+                    pretty_printed.push_str(" ");
+                    Statement::FunctionDefinition(method.clone())
+                        .pretty_print_into(identifier_map, pretty_printed);
+                }
+                pretty_printed.push_str(" }");
             }
         };
     }
@@ -243,6 +258,28 @@ impl PrettyPrint for Call {
             pretty_printed.push_str(" ");
         }
         pretty_printed.push_str(")");
+    }
+}
+
+impl PrettyPrint for Get {
+    fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
+        self.instance
+            .pretty_print_into(identifier_map, pretty_printed);
+        pretty_printed.push_str(".");
+        self.property
+            .pretty_print_into(identifier_map, pretty_printed);
+    }
+}
+
+impl PrettyPrint for Set {
+    fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
+        self.instance
+            .pretty_print_into(identifier_map, pretty_printed);
+        pretty_printed.push_str(".");
+        self.property
+            .pretty_print_into(identifier_map, pretty_printed);
+        pretty_printed.push_str(" = ");
+        self.value.pretty_print_into(identifier_map, pretty_printed);
     }
 }
 
