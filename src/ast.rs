@@ -237,6 +237,7 @@ impl PartialEq for FunctionDefinition {
 
 pub struct ClassDefinition {
     pub name: Identifier,
+    pub superclass: Option<Expr>,
     pub methods: Vec<Rc<FunctionDefinition>>,
 }
 

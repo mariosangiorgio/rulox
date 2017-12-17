@@ -283,6 +283,7 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 consume_expected_token!(tokens, &Token::RightBrace, RequiredElement::RightBrace));
         Some(Ok(Statement::Class(ClassDefinition {
                                      name: identifier,
+                                     superclass: superclass,
                                      methods: methods,
                                  })))
     }
