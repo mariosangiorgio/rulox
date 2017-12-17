@@ -144,6 +144,9 @@ impl LexicalScopesResolver for Statement {
                 let enclosing_class = resolver.current_class;
                 resolver.current_class = Some(ClassType::Class);
                 resolver.define(&c.name);
+                if let Some(ref superclass) = c.superclass{
+                    let _ = try!(superclass.resolve(resolver));
+                }
                 resolver.begin_scope();
                 resolver.define(&Identifier::this());
                 for method in c.methods.iter() {
