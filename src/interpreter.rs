@@ -17,6 +17,7 @@ pub enum Callable {
 
 #[derive(Debug, PartialEq)]
 pub struct Class {
+    superclass: Option<Rc<Class>>,
     methods: HashMap<Identifier, Callable>,
 }
 
@@ -267,6 +268,7 @@ pub enum RuntimeError {
     UndefinedIdentifier(Identifier),
     NotCallable(Value),
     NotAnInstance(Value),
+    NotAClass(Value),
     WrongNumberOfArguments,
 }
 
@@ -572,6 +574,16 @@ impl Execute for Statement {
             Statement::Class(ref c) => {
                 // Not entirely sure why
                 environment.define(c.name.clone(), Value::Nil);
+                let superclass = if let Some(ref superclass) = c.superclass {
+                    let value = try!(superclass.interpret(environment, scope_resolver));
+                    if let Value::Callable(Callable::Class(s)) = value {
+                        Some(s)
+                    } else {
+                        return Err(RuntimeError::NotAClass(value));
+                    }
+                } else {
+                    None
+                };
                 let mut methods = HashMap::new();
                 for method_definition in c.methods.iter() {
                     methods.insert(method_definition.name,
@@ -579,7 +591,10 @@ impl Execute for Statement {
                                                       environment.clone()));
                 }
                 //TODO: pass trough the class name
-                let class = Rc::new(Class { methods: methods });
+                let class = Rc::new(Class {
+                                        methods: methods,
+                                        superclass: superclass,
+                                    });
                 environment.define(c.name.clone(), Value::Callable(Callable::Class(class)));
                 Ok(None)
             }
