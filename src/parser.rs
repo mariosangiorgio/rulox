@@ -245,6 +245,20 @@ where I: Iterator<Item = &'a TokenWithContext>{
         where I: Iterator<Item = &'a TokenWithContext>
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
+        let superclass = if let Some(&&TokenWithContext {
+                                         token: Token::Less,
+                                         lexeme: _,
+                                         position: _,
+                                     }) = tokens.peek() {
+            let _ = tokens.next();
+            match self.parse_expression(tokens) {
+                Some(Ok(expr)) => Some(expr),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        } else {
+            None
+        };
         let _ =
             try_wrap_err!(
                 consume_expected_token!(tokens, &Token::LeftBrace, RequiredElement::LeftBrace));
