@@ -128,7 +128,13 @@ impl Instance {
     }
 
     fn find_method(&self, property: Identifier) -> Option<Callable> {
-        let method = self.0.borrow().class.methods.get(&property).cloned();
+        let class = self.0.borrow().class.clone();
+        let superclass = class.superclass.clone();
+        let method = class
+            .methods
+            .get(&property)
+            .cloned()
+            .or(superclass.and_then(|s| s.methods.get(&property).cloned()));
         method.map(|m| m.bind(self))
     }
 
