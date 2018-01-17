@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter, Error};
+use std::fmt::{Debug, Error, Formatter};
 use std::cmp::PartialEq;
 use std::rc::Rc;
 use std::collections::HashMap;
@@ -41,6 +41,9 @@ impl Identifier {
     pub fn init() -> Identifier {
         Identifier { handle: 1 }
     }
+    pub fn super_identifier() -> Identifier {
+        Identifier { handle: 2 }
+    }
 }
 
 pub struct IdentifierMap {
@@ -54,6 +57,7 @@ impl IdentifierMap {
         // Reserved identifiers
         map.insert("this".into(), Identifier::this());
         map.insert("init".into(), Identifier::init());
+        map.insert("super".into(), Identifier::super_identifier());
         IdentifierMap {
             next: map.len() as u64,
             map: map,
@@ -163,6 +167,7 @@ impl VariableUseHandleFactory {
 
 pub enum Expr {
     This(VariableUseHandle, Identifier),
+    Super(VariableUseHandle, Identifier, Identifier),
     Literal(Literal),
     Identifier(VariableUseHandle, Identifier),
     Unary(Box<UnaryExpr>),
