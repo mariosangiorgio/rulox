@@ -9,7 +9,9 @@ pub struct LexicalScopes {
 
 impl LexicalScopes {
     fn new() -> LexicalScopes {
-        LexicalScopes { depths: HashMap::new() }
+        LexicalScopes {
+            depths: HashMap::new(),
+        }
     }
 
     pub fn get_depth(&self, handle: &VariableUseHandle) -> Option<&Depth> {
@@ -27,9 +29,10 @@ pub enum LexicalScopesResolutionError {
 }
 
 trait LexicalScopesResolver {
-    fn resolve(&self,
-               &mut ProgramLexicalScopesResolver)
-               -> Result<(), LexicalScopesResolutionError>;
+    fn resolve(
+        &self,
+        &mut ProgramLexicalScopesResolver,
+    ) -> Result<(), LexicalScopesResolutionError>;
 }
 
 #[derive(PartialEq)]
@@ -115,9 +118,10 @@ impl ProgramLexicalScopesResolver {
 }
 
 impl LexicalScopesResolver for Statement {
-    fn resolve(&self,
-               resolver: &mut ProgramLexicalScopesResolver)
-               -> Result<(), LexicalScopesResolutionError> {
+    fn resolve(
+        &self,
+        resolver: &mut ProgramLexicalScopesResolver,
+    ) -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Statement::Block(ref b) => {
                 resolver.begin_scope();
@@ -146,6 +150,8 @@ impl LexicalScopesResolver for Statement {
                 resolver.define(&c.name);
                 if let Some(ref superclass) = c.superclass {
                     let _ = try!(superclass.resolve(resolver));
+                    resolver.begin_scope();
+                    resolver.define(&Identifier::super_identifier());
                 }
                 resolver.begin_scope();
                 resolver.define(&Identifier::this());
@@ -153,49 +159,43 @@ impl LexicalScopesResolver for Statement {
                     let _ = try!(method.resolve(resolver));
                 }
                 resolver.end_scope();
+                if let Some(ref superclass) = c.superclass {
+                    resolver.end_scope();
+                }
                 resolver.current_class = enclosing_class;
                 Ok(())
             }
             Statement::Expression(ref e) => e.resolve(resolver),
-            Statement::IfThen(ref s) => {
-                s.condition
-                    .resolve(resolver)
-                    .and_then(|_| s.then_branch.resolve(resolver))
-            }
-            Statement::IfThenElse(ref s) => {
-                s.condition
-                    .resolve(resolver)
-                    .and_then(|_| s.then_branch.resolve(resolver))
-                    .and_then(|_| s.else_branch.resolve(resolver))
-            }
-            Statement::While(ref s) => {
-                s.condition
-                    .resolve(resolver)
-                    .and_then(|_| s.body.resolve(resolver))
-            }
+            Statement::IfThen(ref s) => s.condition
+                .resolve(resolver)
+                .and_then(|_| s.then_branch.resolve(resolver)),
+            Statement::IfThenElse(ref s) => s.condition
+                .resolve(resolver)
+                .and_then(|_| s.then_branch.resolve(resolver))
+                .and_then(|_| s.else_branch.resolve(resolver)),
+            Statement::While(ref s) => s.condition
+                .resolve(resolver)
+                .and_then(|_| s.body.resolve(resolver)),
             Statement::Print(ref e) => e.resolve(resolver),
-            Statement::Return(ref r) => {
-                match resolver.current_function {
-                    Some(FunctionKind::Initializer) => {
-                        Err(LexicalScopesResolutionError::ReturnFromInitializer)
-                    }
-                    Some(_) => {
-                        match *r {
-                            None => Ok(()),
-                            Some(ref e) => e.resolve(resolver),
-                        }
-                    }
-                    None => Err(LexicalScopesResolutionError::ReturnFromTopLevelCode),
+            Statement::Return(ref r) => match resolver.current_function {
+                Some(FunctionKind::Initializer) => {
+                    Err(LexicalScopesResolutionError::ReturnFromInitializer)
                 }
-            }
+                Some(_) => match *r {
+                    None => Ok(()),
+                    Some(ref e) => e.resolve(resolver),
+                },
+                None => Err(LexicalScopesResolutionError::ReturnFromTopLevelCode),
+            },
         }
     }
 }
 
 impl LexicalScopesResolver for Expr {
-    fn resolve(&self,
-               resolver: &mut ProgramLexicalScopesResolver)
-               -> Result<(), LexicalScopesResolutionError> {
+    fn resolve(
+        &self,
+        resolver: &mut ProgramLexicalScopesResolver,
+    ) -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::This(ref handle, ref identifier) => {
                 if let None = resolver.current_class {
@@ -204,13 +204,18 @@ impl LexicalScopesResolver for Expr {
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
             }
+            Expr::Super(ref handle, ref super_identifier, ref member_identifier) => {
+                resolver.resolve_local(handle.clone(), super_identifier);
+                Ok(())
+            }
             Expr::Identifier(ref handle, ref identifier) => {
                 let scopes = resolver.scopes.len();
-                if scopes != 0 &&
-                   resolver.scopes[scopes - 1]
-                       .get(&identifier)
-                       .unwrap_or(&VariableDefinition::Undefined) ==
-                   &VariableDefinition::Declared {
+                if scopes != 0
+                    && resolver.scopes[scopes - 1]
+                        .get(&identifier)
+                        .unwrap_or(&VariableDefinition::Undefined)
+                        == &VariableDefinition::Declared
+                {
                     Err(LexicalScopesResolutionError::ReadLocalInItsOwnInitializer)
                 } else {
                     resolver.resolve_local(*handle, &identifier);
@@ -220,16 +225,12 @@ impl LexicalScopesResolver for Expr {
             Expr::Assignment(ref assigment) => assigment.resolve(resolver),
             Expr::Literal(_) => Ok(()),
             Expr::Unary(ref e) => e.right.resolve(resolver),
-            Expr::Binary(ref e) => {
-                e.left
-                    .resolve(resolver)
-                    .and_then(|_| e.right.resolve(resolver))
-            }
-            Expr::Logic(ref e) => {
-                e.left
-                    .resolve(resolver)
-                    .and_then(|_| e.right.resolve(resolver))
-            }
+            Expr::Binary(ref e) => e.left
+                .resolve(resolver)
+                .and_then(|_| e.right.resolve(resolver)),
+            Expr::Logic(ref e) => e.left
+                .resolve(resolver)
+                .and_then(|_| e.right.resolve(resolver)),
             Expr::Grouping(ref e) => e.expr.resolve(resolver),
             Expr::Call(ref e) => {
                 try!(e.callee.resolve(resolver));
@@ -252,9 +253,10 @@ impl LexicalScopesResolver for Expr {
 }
 
 impl LexicalScopesResolver for Assignment {
-    fn resolve(&self,
-               resolver: &mut ProgramLexicalScopesResolver)
-               -> Result<(), LexicalScopesResolutionError> {
+    fn resolve(
+        &self,
+        resolver: &mut ProgramLexicalScopesResolver,
+    ) -> Result<(), LexicalScopesResolutionError> {
         try!{self.rvalue.resolve(resolver)};
         let Target::Identifier(ref identifier) = self.lvalue;
         resolver.resolve_local(self.handle, identifier);
@@ -263,9 +265,10 @@ impl LexicalScopesResolver for Assignment {
 }
 
 impl LexicalScopesResolver for FunctionDefinition {
-    fn resolve(&self,
-               resolver: &mut ProgramLexicalScopesResolver)
-               -> Result<(), LexicalScopesResolutionError> {
+    fn resolve(
+        &self,
+        resolver: &mut ProgramLexicalScopesResolver,
+    ) -> Result<(), LexicalScopesResolutionError> {
         let _ = try!(resolver.declare(&self.name));
         let enclosing_function = resolver.current_function;
         resolver.current_function = Some(self.kind);
