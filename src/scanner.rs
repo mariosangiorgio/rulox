@@ -51,7 +51,7 @@ pub enum Token {
     Whitespace,
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Represents a position in the source file.
 /// Both line and column are represented by a 1-based
 /// index, since this struct exists only to provide
@@ -87,7 +87,7 @@ pub struct TokenWithContext {
     pub position: Position,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum ScannerError {
     MissingStringTerminator(Position),
     UnexpectedCharacter(char, Position),
@@ -138,12 +138,10 @@ impl<'a> Scanner<'a> {
     fn peek_check2(&mut self, check1: &Fn(char) -> bool, check2: &Fn(char) -> bool) -> bool {
         self.source.reset_peek();
         match self.source.peek() {
-            Some(&p1) => {
-                match self.source.peek() {
-                    Some(&p2) => check1(p1) && check2(p2),
-                    None => false,
-                }
-            }
+            Some(&p1) => match self.source.peek() {
+                Some(&p2) => check1(p1) && check2(p2),
+                None => false,
+            },
             None => false,
         }
     }
@@ -230,7 +228,6 @@ impl<'a> Scanner<'a> {
             "while" => Token::While,
             identifier => Token::Identifier(identifier.into()),
         }
-
     }
 
     fn scan_next(&mut self) -> Option<Result<TokenWithContext, ScannerError>> {
@@ -357,8 +354,10 @@ mod tests {
 
     #[test]
     fn multiline_statements() {
-        let (tokens, _) = scan(&r#"var a = 1.0;
-                              var b = "Hello";"#);
+        let (tokens, _) = scan(
+            &r#"var a = 1.0;
+                var b = "Hello";"#,
+        );
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);
@@ -386,8 +385,10 @@ mod tests {
 
     #[test]
     fn statements_with_unterminated_string() {
-        let (tokens, errors) = scan(&r#"var a = "Unterminated;
-                              var b = "Hello";"#);
+        let (tokens, errors) = scan(
+            &r#"var a = "Unterminated;
+                var b = "Hello";"#,
+        );
         assert_eq!(tokens[0].token, Token::Var);
         assert_eq!(tokens[1].token, Token::Identifier("a".into()));
         assert_eq!(tokens[2].token, Token::Equal);

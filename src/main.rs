@@ -11,9 +11,9 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use interpreter::{StatementInterpreter, RuntimeError};
-use parser::{Parser, ParseError};
-use lexical_scope_resolver::{ProgramLexicalScopesResolver, LexicalScopesResolutionError};
+use interpreter::{RuntimeError, StatementInterpreter};
+use parser::{ParseError, Parser};
+use lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
 
 #[derive(Debug)]
 enum RunResult {
@@ -30,9 +30,10 @@ enum InputError {
     ParserError(ParseError),
 }
 
-fn scan_and_parse(parser: &mut Parser,
-                  source: &str)
-                  -> Result<Vec<ast::Statement>, Vec<InputError>> {
+fn scan_and_parse(
+    parser: &mut Parser,
+    source: &str,
+) -> Result<Vec<ast::Statement>, Vec<InputError>> {
     let (tokens, scanner_errors) = scanner::scan(source);
     let mut errors: Vec<InputError> = scanner_errors
         .iter()
@@ -55,11 +56,12 @@ fn scan_and_parse(parser: &mut Parser,
     }
 }
 
-fn run(parser: &mut Parser,
-       lexical_scope_resolver: &mut ProgramLexicalScopesResolver,
-       interpreter: &mut StatementInterpreter,
-       source: &str)
-       -> RunResult {
+fn run(
+    parser: &mut Parser,
+    lexical_scope_resolver: &mut ProgramLexicalScopesResolver,
+    interpreter: &mut StatementInterpreter,
+    source: &str,
+) -> RunResult {
     match scan_and_parse(parser, source) {
         Ok(statements) => {
             // Once we get the statements and their AST we run the following passes:
@@ -101,12 +103,12 @@ fn run_file(file_name: &str) -> RunResult {
                 Err(_) => {
                     RunResult::IoError("Error reading file".into()) // TODO: add context
                 }
-                Ok(_) => {
-                    run(&mut parser,
-                        &mut lexical_scope_resolver,
-                        &mut interpreter,
-                        &source)
-                }
+                Ok(_) => run(
+                    &mut parser,
+                    &mut lexical_scope_resolver,
+                    &mut interpreter,
+                    &source,
+                ),
             }
         }
     }
@@ -124,10 +126,12 @@ fn run_prompt() -> RunResult {
         let mut source = String::new();
         let _ = io::stdin().read_line(&mut source);
         // TODO: add a way to exit
-        let result = run(&mut parser,
-                         &mut lexical_scope_resolver,
-                         &mut interpreter,
-                         &source);
+        let result = run(
+            &mut parser,
+            &mut lexical_scope_resolver,
+            &mut interpreter,
+            &source,
+        );
         match result {
             RunResult::Ok => (),
             _ => {
