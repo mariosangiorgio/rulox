@@ -148,10 +148,7 @@ impl Instance {
     fn find_super_method(&self, property: Identifier) -> Option<Callable> {
         let class = self.0.borrow().class.clone();
         let superclass = class.superclass.clone();
-        let method = superclass.unwrap()
-            .methods
-            .get(&property)
-            .cloned();
+        let method = superclass.unwrap().methods.get(&property).cloned();
         method.map(|m| m.bind(self))
     }
 
@@ -335,14 +332,12 @@ impl Interpret for Expr {
                 // We know where this is because we control the layout
                 // of the environments.
                 let object = environment.get(&Identifier::this(), depth - 1).unwrap();
-                if let Value::Instance(instance) = object
-                {
-                    match instance.find_super_method(member){
+                if let Value::Instance(instance) = object {
+                    match instance.find_super_method(member) {
                         Some(member) => Ok(Value::Callable(member)),
-                        None => Err(RuntimeError::UndefinedIdentifier(member))
+                        None => Err(RuntimeError::UndefinedIdentifier(member)),
                     }
-                }
-                else{
+                } else {
                     // Static analysis should prevent us from getting here
                     panic!("Invalid use of super");
                 }
