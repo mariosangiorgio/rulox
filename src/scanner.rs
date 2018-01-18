@@ -371,7 +371,7 @@ mod tests {
         assert_eq!(tokens[1].position.line, 1);
         assert_eq!(tokens[1].position.column, 5);
         assert_eq!(tokens[9].position.line, 2);
-        assert_eq!(tokens[9].position.column, 46); // There are 30 spaces before the text!
+        assert_eq!(tokens[9].position.column, 32); // There are 16 spaces before the text!
     }
 
     #[test]
