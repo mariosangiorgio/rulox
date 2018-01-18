@@ -26,6 +26,8 @@ pub enum LexicalScopesResolutionError {
     ReturnFromTopLevelCode,
     ReturnFromInitializer,
     UseOfThisOutsideAClass,
+    UseOfSuperOutsideAClass,
+    UseOfSuperOutsideASubClass,
 }
 
 trait LexicalScopesResolver {
@@ -44,14 +46,16 @@ enum VariableDefinition {
 
 #[derive(PartialEq, Clone, Copy)]
 enum ClassType {
+    None,
     Class,
+    Subclass,
 }
 
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<HashMap<Identifier, VariableDefinition>>,
     current_function: Option<FunctionKind>,
-    current_class: Option<ClassType>,
+    current_class: ClassType,
     lexical_scopes: LexicalScopes,
 }
 
@@ -60,7 +64,7 @@ impl ProgramLexicalScopesResolver {
         ProgramLexicalScopesResolver {
             scopes: vec![],
             current_function: None,
-            current_class: None,
+            current_class: ClassType::None,
             lexical_scopes: LexicalScopes::new(),
         }
     }
@@ -146,9 +150,10 @@ impl LexicalScopesResolver for Statement {
             Statement::Class(ref c) => {
                 let _ = try!(resolver.declare(&c.name));
                 let enclosing_class = resolver.current_class;
-                resolver.current_class = Some(ClassType::Class);
+                resolver.current_class = ClassType::Class;
                 resolver.define(&c.name);
                 if let Some(ref superclass) = c.superclass {
+                    resolver.current_class = ClassType::Subclass;
                     let _ = try!(superclass.resolve(resolver));
                     resolver.begin_scope();
                     resolver.define(&Identifier::super_identifier());
@@ -159,7 +164,7 @@ impl LexicalScopesResolver for Statement {
                     let _ = try!(method.resolve(resolver));
                 }
                 resolver.end_scope();
-                if let Some(ref superclass) = c.superclass {
+                if let Some(_) = c.superclass {
                     resolver.end_scope();
                 }
                 resolver.current_class = enclosing_class;
@@ -198,16 +203,22 @@ impl LexicalScopesResolver for Expr {
     ) -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::This(ref handle, ref identifier) => {
-                if let None = resolver.current_class {
+                if let ClassType::None = resolver.current_class {
                     return Err(LexicalScopesResolutionError::UseOfThisOutsideAClass);
                 }
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
             }
-            Expr::Super(ref handle, ref super_identifier, ref member_identifier) => {
-                resolver.resolve_local(handle.clone(), super_identifier);
-                Ok(())
-            }
+            Expr::Super(ref handle, ref super_identifier, _member_identifier) => match resolver
+                .current_class
+            {
+                ClassType::None => Err(LexicalScopesResolutionError::UseOfSuperOutsideAClass),
+                ClassType::Class => Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass),
+                _ => {
+                    resolver.resolve_local(handle.clone(), super_identifier);
+                    Ok(())
+                }
+            },
             Expr::Identifier(ref handle, ref identifier) => {
                 let scopes = resolver.scopes.len();
                 if scopes != 0

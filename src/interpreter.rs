@@ -148,6 +148,7 @@ impl Instance {
     fn find_super_method(&self, property: Identifier) -> Option<Callable> {
         let class = self.0.borrow().class.clone();
         let superclass = class.superclass.clone();
+        // Unwrap is fine, this is checked via static analysis earlier
         let method = superclass.unwrap().methods.get(&property).cloned();
         method.map(|m| m.bind(self))
     }
