@@ -47,6 +47,7 @@ pub enum RequiredElement {
     Semicolon,
     Identifier,
     Block,
+    Dot,
 }
 
 #[derive(Debug)]
@@ -71,9 +72,10 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self,
-                 tokens: &[TokenWithContext])
-                 -> Result<Vec<Statement>, Vec<ParseError>> {
+    pub fn parse(
+        &mut self,
+        tokens: &[TokenWithContext],
+    ) -> Result<Vec<Statement>, Vec<ParseError>> {
         let mut statements = Vec::new();
         let mut errors = Vec::new();
         let mut peekable_tokens = tokens.iter().peekable();
@@ -95,19 +97,24 @@ impl Parser {
         }
     }
 
-    fn consume_expected_identifier<'a, I>(&mut self,
-                                          tokens: &mut Peekable<I>)
-                                          -> Result<Identifier, ParseError>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn consume_expected_identifier<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Result<Identifier, ParseError>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
-        consume_expected_token_with_action!(tokens,
-    &Token::Identifier(ref identifier),
-    self.identifier_map.from_name(identifier),
-    RequiredElement::Identifier)
+        consume_expected_token_with_action!(
+            tokens,
+            &Token::Identifier(ref identifier),
+            self.identifier_map.from_name(identifier),
+            RequiredElement::Identifier
+        )
     }
 
     fn synchronise<'a, I>(&mut self, tokens: &mut Peekable<I>)
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         enum PositionInConstruct {
             Start,
@@ -117,8 +124,14 @@ impl Parser {
         fn classify(token: &Token) -> PositionInConstruct {
             match *token {
                 Token::Semicolon => PositionInConstruct::End,
-                Token::Class | Token::Fun | Token::Var | Token::For | Token::If |
-                Token::While | Token::Print | Token::Return => PositionInConstruct::Start,
+                Token::Class
+                | Token::Fun
+                | Token::Var
+                | Token::For
+                | Token::If
+                | Token::While
+                | Token::Print
+                | Token::Return => PositionInConstruct::Start,
                 _ => PositionInConstruct::Body,
             }
         }
@@ -138,40 +151,45 @@ impl Parser {
         }
     }
 
-    fn parse_semicolon_terminated_statement<'a, I>(&mut self,
-                                            tokens: &mut Peekable<I>,
-                                            parse_statement: &Fn(&mut Parser, &mut Peekable<I>)
-                                                                 -> Option<Result<Statement,
-                                                                                   ParseError>>)
-                                            -> Option<Result<Statement, ParseError>>
-where I: Iterator<Item = &'a TokenWithContext>{
+    fn parse_semicolon_terminated_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        parse_statement: &Fn(&mut Parser, &mut Peekable<I>)
+            -> Option<Result<Statement, ParseError>>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
+    {
         match parse_statement(self, tokens) {
-            Some(Ok(statement)) => {
-                match tokens.peek() {
-                    Some(&&TokenWithContext { token: Token::Semicolon, .. }) => {
-                        let _ = tokens.next();
-                        Some(Ok(statement))
-                    }
-                    Some(&&TokenWithContext {
-                             ref lexeme,
-                             ref position,
-                             ..
-                         }) => {
-                        Some(Err(ParseError::Missing(RequiredElement::Semicolon,
-                                                     lexeme.clone(),
-                                                     *position)))
-                    }
-                    None => Some(Err(ParseError::UnexpectedEndOfFile)),
+            Some(Ok(statement)) => match tokens.peek() {
+                Some(&&TokenWithContext {
+                    token: Token::Semicolon,
+                    ..
+                }) => {
+                    let _ = tokens.next();
+                    Some(Ok(statement))
                 }
-            }
+                Some(&&TokenWithContext {
+                    ref lexeme,
+                    ref position,
+                    ..
+                }) => Some(Err(ParseError::Missing(
+                    RequiredElement::Semicolon,
+                    lexeme.clone(),
+                    *position,
+                ))),
+                None => Some(Err(ParseError::UnexpectedEndOfFile)),
+            },
             e => e,
         }
     }
 
-    fn parse_declaration<'a, I>(&mut self,
-                                tokens: &mut Peekable<I>)
-                                -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_declaration<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         match tokens.peek().map(|t| &t.token) {
             Some(&Token::Var) => {
@@ -207,51 +225,78 @@ where I: Iterator<Item = &'a TokenWithContext>{
         }
     }
 
-    fn parse_function_declaration<'a, I>(&mut self,
-                                         tokens: &mut Peekable<I>,
-                                         kind: FunctionKind)
-                                         -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_function_declaration<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        kind: FunctionKind,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
         let parse_identifier = |parser: &mut Parser, tokens: &mut Peekable<I>| {
             Some(parser.consume_expected_identifier(tokens))
         };
         let arguments = try_wrap_err!(self.parse_function_arguments(tokens, &parse_identifier));
-        let _ = try_wrap_err!(
-                consume_expected_token!(tokens, &Token::LeftBrace, RequiredElement::Block));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::LeftBrace,
+            RequiredElement::Block
+        ));
         let block = match self.parse_block(tokens) {
             Some(Ok(block)) => block,
             Some(err) => return Some(err),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        Some(Ok(Statement::FunctionDefinition(Rc::new(FunctionDefinition {
-                                                          kind: if kind == FunctionKind::Method &&
-                                                                   identifier ==
-                                                                   Identifier::init() {
-                                                              FunctionKind::Initializer
-                                                          } else {
-                                                              kind
-                                                          },
-                                                          name: identifier,
-                                                          arguments: arguments,
-                                                          body: block,
-                                                      }))))
+        Some(Ok(Statement::FunctionDefinition(Rc::new(
+            FunctionDefinition {
+                kind: if kind == FunctionKind::Method && identifier == Identifier::init() {
+                    FunctionKind::Initializer
+                } else {
+                    kind
+                },
+                name: identifier,
+                arguments: arguments,
+                body: block,
+            },
+        ))))
     }
 
-    fn parse_class_declaration<'a, I>(&mut self,
-                                      tokens: &mut Peekable<I>)
-                                      -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_class_declaration<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
-        let _ =
-            try_wrap_err!(
-                consume_expected_token!(tokens, &Token::LeftBrace, RequiredElement::LeftBrace));
+        let superclass = if let Some(&&TokenWithContext {
+            token: Token::Less,
+            lexeme: _,
+            position: _,
+        }) = tokens.peek()
+        {
+            let _ = tokens.next();
+            match self.parse_expression(tokens) {
+                Some(Ok(expr)) => Some(expr),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            }
+        } else {
+            None
+        };
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::LeftBrace,
+            RequiredElement::LeftBrace
+        ));
         let mut methods = vec![];
         fn is_class_end(token: &&TokenWithContext) -> bool {
             match **token {
-                TokenWithContext { token: Token::RightBrace, .. } => true,
+                TokenWithContext {
+                    token: Token::RightBrace,
+                    ..
+                } => true,
                 _ => false,
             }
         }
@@ -262,54 +307,65 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
                 Some(Err(error)) => return Some(Err(error)),
             }
-
         }
-        let _ =
-            try_wrap_err!(
-                consume_expected_token!(tokens, &Token::RightBrace, RequiredElement::RightBrace));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::RightBrace,
+            RequiredElement::RightBrace
+        ));
         Some(Ok(Statement::Class(ClassDefinition {
-                                     name: identifier,
-                                     methods: methods,
-                                 })))
+            name: identifier,
+            superclass: superclass,
+            methods: methods,
+        })))
     }
 
-    fn parse_var_declaration<'a, I>(&mut self,
-                                    tokens: &mut Peekable<I>)
-                                    -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_var_declaration<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
         if let Some(&&TokenWithContext {
-                        token: Token::Equal,
-                        ref lexeme,
-                        ref position,
-                    }) = tokens.peek() {
+            token: Token::Equal,
+            ref lexeme,
+            ref position,
+        }) = tokens.peek()
+        {
             let _ = tokens.next();
             match self.parse_expression(tokens) {
-                Some(Ok(expression)) => {
-                    Some(Ok(Statement::VariableDefinitionWithInitalizer(identifier, expression)))
-                }
+                Some(Ok(expression)) => Some(Ok(Statement::VariableDefinitionWithInitalizer(
+                    identifier,
+                    expression,
+                ))),
                 Some(Err(error)) => Some(Err(error)),
-                None => {
-                    Some(Err(ParseError::Missing(RequiredElement::Subexpression,
-                                                 lexeme.clone(),
-                                                 *position)))
-                }
+                None => Some(Err(ParseError::Missing(
+                    RequiredElement::Subexpression,
+                    lexeme.clone(),
+                    *position,
+                ))),
             }
         } else {
             Some(Ok(Statement::VariableDefinition(identifier)))
         }
     }
 
-    fn parse_block<'a, I>(&mut self,
-                          tokens: &mut Peekable<I>)
-                          -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_block<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut statements = Vec::new();
         fn is_block_end(token: &&TokenWithContext) -> bool {
             match **token {
-                TokenWithContext { token: Token::RightBrace, .. } => true,
+                TokenWithContext {
+                    token: Token::RightBrace,
+                    ..
+                } => true,
                 _ => false,
             }
         }
@@ -322,16 +378,20 @@ where I: Iterator<Item = &'a TokenWithContext>{
         }
         if let Some(true) = tokens.peek().map(&is_block_end) {
             let _ = tokens.next();
-            Some(Ok(Statement::Block(Box::new(Block { statements: statements }))))
+            Some(Ok(Statement::Block(Box::new(Block {
+                statements: statements,
+            }))))
         } else {
             Some(Err(ParseError::UnexpectedEndOfFile)) //TODO: better message
         }
     }
 
-    fn parse_statement<'a, I>(&mut self,
-                              tokens: &mut Peekable<I>)
-                              -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         match tokens.peek().map(|t| &t.token) {
             Some(&Token::Print) => {
@@ -347,19 +407,23 @@ where I: Iterator<Item = &'a TokenWithContext>{
         }
     }
 
-    fn parse_print_statement<'a, I>(&mut self,
-                                    tokens: &mut Peekable<I>)
-                                    -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_print_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         self.parse_expression(tokens)
             .map(|r| r.map(Statement::Print))
     }
 
-    fn parse_return_statement<'a, I>(&mut self,
-                                     tokens: &mut Peekable<I>)
-                                     -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_return_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         if let Some(&Token::Semicolon) = tokens.peek().map(|t| &t.token) {
             Some(Ok(Statement::Return(None)))
@@ -369,22 +433,28 @@ where I: Iterator<Item = &'a TokenWithContext>{
         }
     }
 
-    fn parse_if_statement<'a, I>(&mut self,
-                                 tokens: &mut Peekable<I>)
-                                 -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_if_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(
-                consume_expected_token!(
-                    tokens, &Token::LeftParen, RequiredElement::LeftParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::LeftParen,
+            RequiredElement::LeftParen
+        ));
         let condition = match self.parse_expression(tokens) {
             Some(Ok(expression)) => expression,
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        let _ = try_wrap_err!(
-            consume_expected_token!(
-                tokens, &Token::RightParen, RequiredElement::RightParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::RightParen,
+            RequiredElement::RightParen
+        ));
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
         let then_branch = match self.parse_declaration(tokens) {
@@ -400,33 +470,40 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
             };
             Some(Ok(Statement::IfThenElse(Box::new(IfThenElse {
-                                                       condition: condition,
-                                                       then_branch: then_branch,
-                                                       else_branch: else_branch,
-                                                   }))))
+                condition: condition,
+                then_branch: then_branch,
+                else_branch: else_branch,
+            }))))
         } else {
             Some(Ok(Statement::IfThen(Box::new(IfThen {
-                                                   condition: condition,
-                                                   then_branch: then_branch,
-                                               }))))
+                condition: condition,
+                then_branch: then_branch,
+            }))))
         }
     }
 
-    fn parse_while_statement<'a, I>(&mut self,
-                                    tokens: &mut Peekable<I>)
-                                    -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_while_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(
-            consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::LeftParen,
+            RequiredElement::LeftParen
+        ));
         let condition = match self.parse_expression(tokens) {
             Some(Ok(expression)) => expression,
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        let _ =
-            try_wrap_err!(
-            consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::RightParen,
+            RequiredElement::RightParen
+        ));
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
         let body = match self.parse_declaration(tokens) {
@@ -435,18 +512,23 @@ where I: Iterator<Item = &'a TokenWithContext>{
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
         Some(Ok(Statement::While(Box::new(While {
-                                              condition: condition,
-                                              body: body,
-                                          }))))
+            condition: condition,
+            body: body,
+        }))))
     }
 
-    fn parse_for_statement<'a, I>(&mut self,
-                                  tokens: &mut Peekable<I>)
-                                  -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_for_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(
-            consume_expected_token!(tokens, &Token::LeftParen, RequiredElement::LeftParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::LeftParen,
+            RequiredElement::LeftParen
+        ));
         let initializer = match tokens.peek().map(|t| &t.token) {
             Some(&Token::Semicolon) => None,
             Some(&Token::Var) => {
@@ -457,44 +539,46 @@ where I: Iterator<Item = &'a TokenWithContext>{
                     None => return Some(Err(ParseError::UnexpectedEndOfFile)),
                 }
             }
-            _ => {
-                match self.parse_expression_statement(tokens) {
-                    Some(Ok(expression)) => Some(expression),
-                    Some(Err(error)) => return Some(Err(error)),
-                    None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-                }
-            }
+            _ => match self.parse_expression_statement(tokens) {
+                Some(Ok(expression)) => Some(expression),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            },
         };
-        let _ = try_wrap_err!(
-            consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semicolon));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::Semicolon,
+            RequiredElement::Semicolon
+        ));
 
         let condition = match tokens.peek().map(|t| &t.token) {
             Some(&Token::Semicolon) => Expr::Literal(Literal::BoolLiteral(true)),
-            _ => {
-                match self.parse_expression(tokens) {
-                    Some(Ok(expression)) => expression,
-                    Some(Err(error)) => return Some(Err(error)),
-                    None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-                }
-            }
+            _ => match self.parse_expression(tokens) {
+                Some(Ok(expression)) => expression,
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            },
         };
 
-        let _ = try_wrap_err!(
-            consume_expected_token!(tokens, &Token::Semicolon, RequiredElement::Semicolon));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::Semicolon,
+            RequiredElement::Semicolon
+        ));
 
         let increment = match tokens.peek().map(|t| &t.token) {
             Some(&Token::RightParen) => None,
-            _ => {
-                match self.parse_expression(tokens) {
-                    Some(Ok(expression)) => Some(expression),
-                    Some(Err(error)) => return Some(Err(error)),
-                    None => return Some(Err(ParseError::UnexpectedEndOfFile)),
-                }
-            }
+            _ => match self.parse_expression(tokens) {
+                Some(Ok(expression)) => Some(expression),
+                Some(Err(error)) => return Some(Err(error)),
+                None => return Some(Err(ParseError::UnexpectedEndOfFile)),
+            },
         };
-        let _ =
-            try_wrap_err!(
-            consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen));
+        let _ = try_wrap_err!(consume_expected_token!(
+            tokens,
+            &Token::RightParen,
+            RequiredElement::RightParen
+        ));
 
         // I'd rather use parse_block instead of parse_declaration
         // that would require the presence of the brackets
@@ -506,46 +590,55 @@ where I: Iterator<Item = &'a TokenWithContext>{
         // Desugaring
         let desugared_body = if let Some(increment_expression) = increment {
             let desugared_statements = vec![body, Statement::Expression(increment_expression)];
-            Statement::Block(Box::new(Block { statements: desugared_statements }))
+            Statement::Block(Box::new(Block {
+                statements: desugared_statements,
+            }))
         } else {
             body
         };
         let while_statement = Statement::While(Box::new(While {
-                                                            condition: condition,
-                                                            body: desugared_body,
-                                                        }));
+            condition: condition,
+            body: desugared_body,
+        }));
         Some(Ok(if let Some(initializer) = initializer {
-                    let desugared_statements = vec![initializer, while_statement];
-                    Statement::Block(Box::new(Block { statements: desugared_statements }))
-                } else {
-                    while_statement
-                }))
+            let desugared_statements = vec![initializer, while_statement];
+            Statement::Block(Box::new(Block {
+                statements: desugared_statements,
+            }))
+        } else {
+            while_statement
+        }))
     }
 
-    fn parse_expression_statement<'a, I>(&mut self,
-                                         tokens: &mut Peekable<I>)
-                                         -> Option<Result<Statement, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_expression_statement<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Statement, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         self.parse_expression(tokens)
             .map(|r| r.map(Statement::Expression))
     }
 
-    fn parse_expression<'a, I>(&mut self,
-                               tokens: &mut Peekable<I>)
-                               -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_expression<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         self.parse_assignment(tokens)
     }
 
-    fn parse_logic<'a, I>(&mut self,
-                          tokens: &mut Peekable<I>,
-                          map_operator: &Fn(&Token) -> Option<LogicOperator>,
-                          parse_subexpression: &Fn(&mut Parser, &mut Peekable<I>)
-                                                   -> Option<Result<Expr, ParseError>>)
-                          -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_logic<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        map_operator: &Fn(&Token) -> Option<LogicOperator>,
+        parse_subexpression: &Fn(&mut Parser, &mut Peekable<I>) -> Option<Result<Expr, ParseError>>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut expr;
         {
@@ -564,9 +657,11 @@ where I: Iterator<Item = &'a TokenWithContext>{
             let right = if let Some(result) = parse_subexpression(self, tokens) {
                 try_wrap_err!(result)
             } else {
-                return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
-                                                    operator.lexeme.clone(),
-                                                    operator.position)));
+                return Some(Err(ParseError::Missing(
+                    RequiredElement::Subexpression,
+                    operator.lexeme.clone(),
+                    operator.position,
+                )));
             };
             let binary_expression = LogicExpr {
                 left: expr,
@@ -578,13 +673,14 @@ where I: Iterator<Item = &'a TokenWithContext>{
         Some(Ok(expr))
     }
 
-    fn parse_binary<'a, I>(&mut self,
-                           tokens: &mut Peekable<I>,
-                           map_operator: &Fn(&Token) -> Option<BinaryOperator>,
-                           parse_subexpression: &Fn(&mut Parser, &mut Peekable<I>)
-                                                    -> Option<Result<Expr, ParseError>>)
-                           -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_binary<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        map_operator: &Fn(&Token) -> Option<BinaryOperator>,
+        parse_subexpression: &Fn(&mut Parser, &mut Peekable<I>) -> Option<Result<Expr, ParseError>>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut expr;
         {
@@ -603,9 +699,11 @@ where I: Iterator<Item = &'a TokenWithContext>{
             let right = if let Some(result) = parse_subexpression(self, tokens) {
                 try_wrap_err!(result)
             } else {
-                return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
-                                                    operator.lexeme.clone(),
-                                                    operator.position)));
+                return Some(Err(ParseError::Missing(
+                    RequiredElement::Subexpression,
+                    operator.lexeme.clone(),
+                    operator.position,
+                )));
             };
             let binary_expression = BinaryExpr {
                 left: expr,
@@ -617,10 +715,12 @@ where I: Iterator<Item = &'a TokenWithContext>{
         Some(Ok(expr))
     }
 
-    fn parse_assignment<'a, I>(&mut self,
-                               tokens: &mut Peekable<I>)
-                               -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_assignment<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         match self.parse_or(tokens) {
             Some(Ok(lvalue)) => {
@@ -631,43 +731,41 @@ where I: Iterator<Item = &'a TokenWithContext>{
                             let target = Target::Identifier(identifier);
                             match self.parse_assignment(tokens) {
                                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
-                                Some(result) => {
-                                    Some(result.map(|rvalue| {
-                                        Expr::Assignment(Box::new(Assignment {
-                                            handle : self.variable_use_handle_factory.next(),
-                                                                                    lvalue: target,
-                                                                                    rvalue: rvalue,
-                                                                            }))
+                                Some(result) => Some(result.map(|rvalue| {
+                                    Expr::Assignment(Box::new(Assignment {
+                                        handle: self.variable_use_handle_factory.next(),
+                                        lvalue: target,
+                                        rvalue: rvalue,
                                     }))
-                                }
+                                })),
                             }
                         }
                         Expr::Get(mut get) => {
                             let property = get.property;
                             // Takes ownership of the Box so we can pull stuff out of it
-                            let get = replace(&mut *get,
-                                              Get {
-                                                  instance: Expr::Literal(Literal::NilLiteral),
-                                                  property: property,
-                                              });
+                            let get = replace(
+                                &mut *get,
+                                Get {
+                                    instance: Expr::Literal(Literal::NilLiteral),
+                                    property: property,
+                                },
+                            );
                             let instance = get.instance;
                             match self.parse_assignment(tokens) {
                                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
-                                Some(result) => {
-                                    Some(result.map(|rvalue| {
-                                                        Expr::Set(Box::new(Set {
-                                                                               instance: instance,
-                                                                               property: property,
-                                                                               value: rvalue,
-                                                                           }))
-                                                    }))
-                                }
+                                Some(result) => Some(result.map(|rvalue| {
+                                    Expr::Set(Box::new(Set {
+                                        instance: instance,
+                                        property: property,
+                                        value: rvalue,
+                                    }))
+                                })),
                             }
                         }
-                        _ => {
-                            Some(Err(ParseError::InvalidAssignmentTarget(equal.lexeme.clone(),
-                                                                         equal.position)))
-                        }
+                        _ => Some(Err(ParseError::InvalidAssignmentTarget(
+                            equal.lexeme.clone(),
+                            equal.position,
+                        ))),
                     }
                 } else {
                     Some(Ok(lvalue))
@@ -678,7 +776,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_or<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<LogicOperator> {
             match *token {
@@ -690,7 +789,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_and<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<LogicOperator> {
             match *token {
@@ -701,10 +801,12 @@ where I: Iterator<Item = &'a TokenWithContext>{
         self.parse_logic(tokens, &map_operator, &Parser::parse_equality)
     }
 
-    fn parse_equality<'a, I>(&mut self,
-                             tokens: &mut Peekable<I>)
-                             -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_equality<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<BinaryOperator> {
             match *token {
@@ -716,10 +818,12 @@ where I: Iterator<Item = &'a TokenWithContext>{
         self.parse_binary(tokens, &map_operator, &Parser::parse_comparison)
     }
 
-    fn parse_comparison<'a, I>(&mut self,
-                               tokens: &mut Peekable<I>)
-                               -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_comparison<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<BinaryOperator> {
             match *token {
@@ -734,7 +838,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_term<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<BinaryOperator> {
             match *token {
@@ -747,7 +852,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_factor<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<BinaryOperator> {
             match *token {
@@ -760,7 +866,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_unary<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         fn map_operator(token: &Token) -> Option<UnaryOperator> {
             match *token {
@@ -777,9 +884,11 @@ where I: Iterator<Item = &'a TokenWithContext>{
             let right = if let Some(result) = self.parse_unary(tokens) {
                 try_wrap_err!(result)
             } else {
-                return Some(Err(ParseError::Missing(RequiredElement::Subexpression,
-                                                    operator.lexeme.clone(),
-                                                    operator.position)));
+                return Some(Err(ParseError::Missing(
+                    RequiredElement::Subexpression,
+                    operator.lexeme.clone(),
+                    operator.position,
+                )));
             };
             let unary_expression = UnaryExpr {
                 operator: mapped_operator,
@@ -792,7 +901,8 @@ where I: Iterator<Item = &'a TokenWithContext>{
     }
 
     fn parse_call<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut expression = match self.parse_primary(tokens) {
             Some(Ok(expression)) => expression,
@@ -810,9 +920,9 @@ where I: Iterator<Item = &'a TokenWithContext>{
                     let _ = tokens.next();
                     let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
                     expression = Expr::Get(Box::new(Get {
-                                                        instance: expression,
-                                                        property: identifier,
-                                                    }))
+                        instance: expression,
+                        property: identifier,
+                    }))
                 }
                 _ => break,
             }
@@ -820,16 +930,19 @@ where I: Iterator<Item = &'a TokenWithContext>{
         Some(Ok(expression))
     }
 
-    fn parse_function_arguments<'a, I, A>(&mut self,
-                                          tokens: &mut Peekable<I>,
-                                          parse_argument: &Fn(&mut Parser, &mut Peekable<I>)
-                                                              -> Option<Result<A, ParseError>>)
-                                          -> Result<Vec<A>, ParseError>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn parse_function_arguments<'a, I, A>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        parse_argument: &Fn(&mut Parser, &mut Peekable<I>) -> Option<Result<A, ParseError>>,
+    ) -> Result<Vec<A>, ParseError>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try!(
-                consume_expected_token!(
-                    tokens, &Token::LeftParen, RequiredElement::LeftParen));
+        let _ = try!(consume_expected_token!(
+            tokens,
+            &Token::LeftParen,
+            RequiredElement::LeftParen
+        ));
         let mut arguments = vec![];
         if let Some(&Token::RightParen) = tokens.peek().map(|t| &t.token) {
         } else {
@@ -851,28 +964,33 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 }
             }
         }
-        let _ =
-            try!(
-            consume_expected_token!(tokens, &Token::RightParen, RequiredElement::RightParen));
+        let _ = try!(consume_expected_token!(
+            tokens,
+            &Token::RightParen,
+            RequiredElement::RightParen
+        ));
         Ok(arguments)
     }
 
-    fn finish_call<'a, I>(&mut self,
-                          tokens: &mut Peekable<I>,
-                          callee: Expr)
-                          -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    fn finish_call<'a, I>(
+        &mut self,
+        tokens: &mut Peekable<I>,
+        callee: Expr,
+    ) -> Option<Result<Expr, ParseError>>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let arguments =
             try_wrap_err!(self.parse_function_arguments(tokens, &Parser::parse_expression));
         Some(Ok(Expr::Call(Box::new(Call {
-                                        callee: callee,
-                                        arguments: arguments,
-                                    }))))
+            callee: callee,
+            arguments: arguments,
+        }))))
     }
 
     fn parse_primary<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
-        where I: Iterator<Item = &'a TokenWithContext>
+    where
+        I: Iterator<Item = &'a TokenWithContext>,
     {
         let primary_token;
         {
@@ -888,10 +1006,23 @@ where I: Iterator<Item = &'a TokenWithContext>{
                 Token::This => {
                     Expr::This(self.variable_use_handle_factory.next(), Identifier::this())
                 }
-                Token::Identifier(ref i) => {
-                    Expr::Identifier(self.variable_use_handle_factory.next(),
-                                     self.identifier_map.from_name(i))
+                Token::Super => {
+                    let _ = try_wrap_err!(consume_expected_token!(
+                        tokens,
+                        &Token::Dot,
+                        RequiredElement::Dot
+                    ));
+                    let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
+                    Expr::Super(
+                        self.variable_use_handle_factory.next(),
+                        Identifier::super_identifier(),
+                        identifier,
+                    )
                 }
+                Token::Identifier(ref i) => Expr::Identifier(
+                    self.variable_use_handle_factory.next(),
+                    self.identifier_map.from_name(i),
+                ),
                 Token::LeftParen => {
                     let expr = if let Some(result) = self.parse_expression(tokens) {
                         try_wrap_err!(result)
@@ -904,18 +1035,21 @@ where I: Iterator<Item = &'a TokenWithContext>{
                                 let grouping_expression = Grouping { expr: expr };
                                 return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
                             } else {
-                                return Some(Err(ParseError::Missing(RequiredElement::RightParen,
-                                                                    token.lexeme.clone(),
-                                                                    token.position)));
+                                return Some(Err(ParseError::Missing(
+                                    RequiredElement::RightParen,
+                                    token.lexeme.clone(),
+                                    token.position,
+                                )));
                             }
-
                         }
                         return Some(Err(ParseError::UnexpectedEndOfFile));
                     }
                 }
                 _ => {
-                    return Some(Err(ParseError::UnexpectedToken(primary_token.lexeme.clone(),
-                                                                primary_token.position)));
+                    return Some(Err(ParseError::UnexpectedToken(
+                        primary_token.lexeme.clone(),
+                        primary_token.position,
+                    )));
                 }
             };
             Some(Ok(parsed_expression))
@@ -961,7 +1095,10 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ 123 (* 456 789))", &expr.pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "(+ 123 (* 456 789))",
+            &expr.pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -972,7 +1109,10 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ (* 123 456) 789)", &expr.pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "(+ (* 123 456) 789)",
+            &expr.pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -983,7 +1123,10 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(+ (* (- 123) 456) 789)", &expr.pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "(+ (* (- 123) 456) 789)",
+            &expr.pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1005,7 +1148,10 @@ mod tests {
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
             .unwrap();
-        assert_eq!("(or a (and b c))", &expr.pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "(or a (and b c))",
+            &expr.pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1026,8 +1172,14 @@ mod tests {
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("var x;", statements[0].pretty_print(&parser.identifier_map));
-        assert_eq!("{ var x = 10; print x; }", statements[1].pretty_print(&parser.identifier_map));
-        assert_eq!("print x;", statements[2].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "{ var x = 10; print x; }",
+            statements[1].pretty_print(&parser.identifier_map)
+        );
+        assert_eq!(
+            "print x;",
+            statements[2].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1035,7 +1187,10 @@ mod tests {
         let (tokens, _) = scan(&"x/2 == 1;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("(== (/ x 2) 1);", statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "(== (/ x 2) 1);",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1075,7 +1230,10 @@ mod tests {
         let (tokens, _) = scan(&"if(a) x = 2;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("if ( a ) x = 2;", statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "if ( a ) x = 2;",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1083,8 +1241,10 @@ mod tests {
         let (tokens, _) = scan(&"if(a and b) { x = 2;} else{x = 3;}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("if ( (and a b) ) { x = 2; } else { x = 3; }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "if ( (and a b) ) { x = 2; } else { x = 3; }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1092,8 +1252,10 @@ mod tests {
         let (tokens, _) = scan(&"while(a > 0){ a = a - 1;}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("while ( (> a 0) ) { a = (- a 1); }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "while ( (> a 0) ) { a = (- a 1); }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1101,24 +1263,30 @@ mod tests {
         let (tokens, _) = scan(&"for (var i = 0; i < 10; i = i + 1) print i;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
     #[test]
     fn for_statement_no_initializer() {
         let (tokens, _) = scan(&"for (; i < 10; i = i + 1) print i;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("while ( (< i 10) ) { print i; i = (+ i 1); }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "while ( (< i 10) ) { print i; i = (+ i 1); }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
     #[test]
     fn for_statement_no_condition() {
         let (tokens, _) = scan(&"for (var i = 0;; i = i + 1) print i;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( true ) { print i; i = (+ i 1); } }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "{ var i = 0; while ( true ) { print i; i = (+ i 1); } }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1126,8 +1294,10 @@ mod tests {
         let (tokens, _) = scan(&"for (var i = 0; i < 10;) print i;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("{ var i = 0; while ( (< i 10) ) print i; }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "{ var i = 0; while ( (< i 10) ) print i; }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1135,8 +1305,10 @@ mod tests {
         let (tokens, _) = scan(&"fun add(){return 1;}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("fun add () { return 1; }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "fun add () { return 1; }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1144,8 +1316,10 @@ mod tests {
         let (tokens, _) = scan(&"fun add(x){return 2*x;}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("fun add (x ) { return (* 2 x); }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "fun add (x ) { return (* 2 x); }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1153,8 +1327,10 @@ mod tests {
         let (tokens, _) = scan(&"fun add(x,y){return x + y;}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("fun add (x y ) { return (+ x y); }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "fun add (x y ) { return (+ x y); }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1162,8 +1338,10 @@ mod tests {
         let (tokens, _) = scan(&"class A{m(){print 1;}}");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("class A { m () { print 1; } }",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "class A { m () { print 1; } }",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 
     #[test]
@@ -1171,8 +1349,7 @@ mod tests {
         let (tokens, _) = scan(&"a.b;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("a.b;",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!("a.b;", statements[0].pretty_print(&parser.identifier_map));
     }
 
     #[test]
@@ -1180,7 +1357,9 @@ mod tests {
         let (tokens, _) = scan(&"a.b = 10;");
         let mut parser = Parser::new();
         let statements = parser.parse(&tokens).unwrap();
-        assert_eq!("a.b = 10;",
-                   statements[0].pretty_print(&parser.identifier_map));
+        assert_eq!(
+            "a.b = 10;",
+            statements[0].pretty_print(&parser.identifier_map)
+        );
     }
 }

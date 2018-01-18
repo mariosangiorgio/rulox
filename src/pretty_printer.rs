@@ -13,6 +13,10 @@ impl PrettyPrint for Expr {
     fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
         match *self {
             Expr::This(_, _) => pretty_printed.push_str("this"),
+            Expr::Super(_, _, ref identifier) => {
+                pretty_printed.push_str("super.");
+                identifier.pretty_print_into(identifier_map, pretty_printed)
+            }
             Expr::Literal(ref l) => l.pretty_print_into(identifier_map, pretty_printed),
             Expr::Unary(ref u) => u.pretty_print_into(identifier_map, pretty_printed),
             Expr::Binary(ref b) => b.pretty_print_into(identifier_map, pretty_printed),
@@ -28,10 +32,11 @@ impl PrettyPrint for Expr {
 }
 
 impl PrettyPrint for UnaryOperator {
-    fn pretty_print_into(&self,
-                         _identifier_map: &IdentifierMap,
-                         pretty_printed: &mut String)
-                         -> () {
+    fn pretty_print_into(
+        &self,
+        _identifier_map: &IdentifierMap,
+        pretty_printed: &mut String,
+    ) -> () {
         match *self {
             UnaryOperator::Bang => pretty_printed.push_str("!"),
             UnaryOperator::Minus => pretty_printed.push_str("-"),
@@ -40,10 +45,11 @@ impl PrettyPrint for UnaryOperator {
 }
 
 impl PrettyPrint for BinaryOperator {
-    fn pretty_print_into(&self,
-                         _identifier_map: &IdentifierMap,
-                         pretty_printed: &mut String)
-                         -> () {
+    fn pretty_print_into(
+        &self,
+        _identifier_map: &IdentifierMap,
+        pretty_printed: &mut String,
+    ) -> () {
         match *self {
             BinaryOperator::Minus => pretty_printed.push_str("-"),
             BinaryOperator::Plus => pretty_printed.push_str("+"),
@@ -60,10 +66,11 @@ impl PrettyPrint for BinaryOperator {
 }
 
 impl PrettyPrint for LogicOperator {
-    fn pretty_print_into(&self,
-                         _identifier_map: &IdentifierMap,
-                         pretty_printed: &mut String)
-                         -> () {
+    fn pretty_print_into(
+        &self,
+        _identifier_map: &IdentifierMap,
+        pretty_printed: &mut String,
+    ) -> () {
         match *self {
             LogicOperator::Or => pretty_printed.push_str("or"),
             LogicOperator::And => pretty_printed.push_str("and"),
@@ -72,10 +79,11 @@ impl PrettyPrint for LogicOperator {
 }
 
 impl PrettyPrint for Literal {
-    fn pretty_print_into(&self,
-                         _identifier_map: &IdentifierMap,
-                         pretty_printed: &mut String)
-                         -> () {
+    fn pretty_print_into(
+        &self,
+        _identifier_map: &IdentifierMap,
+        pretty_printed: &mut String,
+    ) -> () {
         match *self {
             Literal::NilLiteral => pretty_printed.push_str("null"),
             Literal::BoolLiteral(ref b) => pretty_printed.push_str(&b.to_string()),
@@ -303,14 +311,19 @@ mod tests {
             operator: UnaryOperator::Minus,
             right: Expr::Literal(Literal::NumberLiteral(123f64)),
         };
-        let subexpr2 = Grouping { expr: Expr::Literal(Literal::NumberLiteral(45.67f64)) };
+        let subexpr2 = Grouping {
+            expr: Expr::Literal(Literal::NumberLiteral(45.67f64)),
+        };
         let binary_expr = BinaryExpr {
             left: Expr::Unary(Box::new(subexpr1)),
             operator: BinaryOperator::Star,
             right: Expr::Grouping(Box::new(subexpr2)),
         };
         let expr = Expr::Binary(Box::new(binary_expr));
-        assert_eq!("(* (- 123) (group 45.67))", &expr.pretty_print(&identifier_map));
+        assert_eq!(
+            "(* (- 123) (group 45.67))",
+            &expr.pretty_print(&identifier_map)
+        );
     }
 
     #[test]
@@ -321,12 +334,16 @@ mod tests {
         let statements = vec![
             Statement::VariableDefinitionWithInitalizer(
                 identifier.clone(),
-                Expr::Literal(Literal::BoolLiteral(true))
-                ),
-            Statement::Print(
-                Expr::Identifier(handle_factory.next(), identifier.clone()))
-                    ];
-        let block = Statement::Block(Box::new(Block { statements: statements }));
-        assert_eq!("{ var x = true; print x; }", &block.pretty_print(&identifier_map));
+                Expr::Literal(Literal::BoolLiteral(true)),
+            ),
+            Statement::Print(Expr::Identifier(handle_factory.next(), identifier.clone())),
+        ];
+        let block = Statement::Block(Box::new(Block {
+            statements: statements,
+        }));
+        assert_eq!(
+            "{ var x = true; print x; }",
+            &block.pretty_print(&identifier_map)
+        );
     }
 }
