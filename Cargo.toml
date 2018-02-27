@@ -5,3 +5,7 @@ authors = ["Mario Sangiorgio <mariosangiorgio@gmail.com>"]
 
 [dependencies]
 itertools = "0.5.9"
+fnv = "1.0.6"
+
+[profile.release]
+debug = true

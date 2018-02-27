@@ -1,6 +1,6 @@
 use ast::*;
 use lexical_scope_resolver::*;
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use std::io;
 use std::io::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,7 +18,7 @@ pub enum Callable {
 #[derive(Debug, PartialEq)]
 pub struct Class {
     superclass: Option<Rc<Class>>,
-    methods: HashMap<Identifier, Callable>,
+    methods: FnvHashMap<Identifier, Callable>,
 }
 
 impl Callable {
@@ -109,7 +109,7 @@ impl Callable {
 #[derive(Debug, PartialEq)]
 pub struct _Instance {
     class: Rc<Class>,
-    fields: HashMap<Identifier, Value>,
+    fields: FnvHashMap<Identifier, Value>,
 }
 
 // This needs to be Rc a "by reference" semantics
@@ -120,7 +120,7 @@ impl Instance {
     fn new(class: &Rc<Class>) -> Instance {
         Instance(Rc::new(RefCell::new(_Instance {
             class: class.clone(),
-            fields: HashMap::new(),
+            fields: FnvHashMap::default(),
         })))
     }
 
@@ -193,7 +193,7 @@ impl Value {
 #[derive(Debug)]
 struct EnvironmentImpl {
     parent: Option<Environment>,
-    values: HashMap<Identifier, Value>,
+    values: FnvHashMap<Identifier, Value>,
 }
 
 #[derive(Clone, Debug)]
@@ -211,7 +211,7 @@ impl Environment {
     fn new() -> Environment {
         let actual = EnvironmentImpl {
             parent: None,
-            values: HashMap::new(),
+            values: FnvHashMap::default(),
         };
         Environment {
             actual: Rc::new(RefCell::new(actual)),
@@ -221,7 +221,7 @@ impl Environment {
     fn new_with_parent(parent: &Environment) -> Environment {
         let actual = EnvironmentImpl {
             parent: Some(parent.clone()),
-            values: HashMap::new(),
+            values: FnvHashMap::default(),
         };
         Environment {
             actual: Rc::new(RefCell::new(actual)),
@@ -632,7 +632,7 @@ impl Execute for Statement {
                     } else {
                         (None, environment.clone())
                     };
-                let mut methods = HashMap::new();
+                let mut methods = FnvHashMap::default();
                 for method_definition in c.methods.iter() {
                     methods.insert(
                         method_definition.name,

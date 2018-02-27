@@ -6,6 +6,7 @@ mod interpreter;
 mod lexical_scope_resolver;
 
 extern crate itertools;
+extern crate fnv;
 
 use std::env;
 use std::fs::File;
