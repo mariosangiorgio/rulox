@@ -8,7 +8,6 @@ mod lexical_scope_resolver;
 extern crate itertools;
 extern crate fnv;
 
-use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -17,7 +16,7 @@ use parser::{ParseError, Parser};
 use lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
 
 #[derive(Debug)]
-enum RunResult {
+pub enum RunResult {
     Ok,
     IoError(String),
     InputError(Vec<InputError>),
@@ -26,7 +25,7 @@ enum RunResult {
 }
 
 #[derive(Debug)]
-enum InputError {
+pub enum InputError {
     ScannerError(scanner::ScannerError),
     ParserError(ParseError),
 }
@@ -90,7 +89,7 @@ fn run(
     }
 }
 
-fn run_file(file_name: &str) -> RunResult {
+pub fn run_file(file_name: &str) -> RunResult {
     match File::open(file_name) {
         Err(_) => {
             RunResult::IoError("Error opening file".into()) // TODO: add context
@@ -115,7 +114,7 @@ fn run_file(file_name: &str) -> RunResult {
     }
 }
 
-fn run_prompt() -> RunResult {
+pub fn run_prompt() -> RunResult {
     println!("Rulox - A lox interpreter written in Rust");
     let mut parser = Parser::new();
     let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
@@ -141,25 +140,4 @@ fn run_prompt() -> RunResult {
             }
         }
     }
-}
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let result = match args.len() {
-        // The first argument is the program name
-        1 => run_prompt(),
-        2 => run_file(&args[1]),
-        _ => {
-            println!("Usage: rulox [script]");
-            RunResult::Ok
-        }
-    };
-    let exit_code = match result {
-        RunResult::Ok => 0,
-        _ => {
-            println!("{:?}", result);
-            1
-        }
-    };
-    std::process::exit(exit_code)
 }
