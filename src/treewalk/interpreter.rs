@@ -1,5 +1,5 @@
-use ast::*;
-use lexical_scope_resolver::*;
+use treewalk::ast::*;
+use treewalk::lexical_scope_resolver::*;
 use fnv::FnvHashMap;
 use std::io;
 use std::io::prelude::*;
@@ -656,11 +656,11 @@ impl Execute for Statement {
 
 #[cfg(test)]
 mod tests {
-    use ast::*;
-    use interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
-    use lexical_scope_resolver::ProgramLexicalScopesResolver;
-    use scanner::*;
-    use parser::*;
+    use treewalk::ast::*;
+    use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
+    use treewalk::lexical_scope_resolver::ProgramLexicalScopesResolver;
+    use treewalk::scanner::*;
+    use treewalk::parser::*;
 
     //TODO: change these tests so that:
     // - they have an helper with all the repeated structure

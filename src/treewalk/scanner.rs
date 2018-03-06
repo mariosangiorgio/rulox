@@ -318,7 +318,7 @@ pub fn scan(source: &str) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
 
 #[cfg(test)]
 mod tests {
-    use scanner::*;
+    use treewalk::scanner::*;
 
     #[test]
     fn single_token() {

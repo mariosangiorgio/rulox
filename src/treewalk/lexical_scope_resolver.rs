@@ -1,4 +1,4 @@
-use ast::*;
+use treewalk::ast::*;
 use fnv::FnvHashMap;
 
 pub type Depth = usize;
@@ -298,9 +298,9 @@ impl LexicalScopesResolver for FunctionDefinition {
 
 #[cfg(test)]
 mod tests {
-    use scanner::*;
-    use parser::*;
-    use lexical_scope_resolver::*;
+    use treewalk::scanner::*;
+    use treewalk::parser::*;
+    use treewalk::lexical_scope_resolver::*;
 
     #[test]
     fn global_variable() {

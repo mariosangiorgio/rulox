@@ -1,4 +1,4 @@
-use ast::*;
+use treewalk::ast::*;
 
 pub trait PrettyPrint {
     fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> ();
@@ -293,8 +293,8 @@ impl PrettyPrint for Set {
 
 #[cfg(test)]
 mod tests {
-    use ast::*;
-    use pretty_printer::PrettyPrint;
+    use treewalk::ast::*;
+    use treewalk::pretty_printer::PrettyPrint;
 
     #[test]
     fn literal() {
