@@ -5,10 +5,12 @@ use rulox::vm::bytecode::{Chunk, OpCode};
 fn main() {
     println!("Usage: ruloxvm [script]");
     let mut chunk = Chunk::new();
-    chunk.add_instruction(OpCode::Return);
+    let offset = chunk.add_constant(1.2);
+    chunk.add_instruction(OpCode::Constant(offset), 123);
+    chunk.add_instruction(OpCode::Return, 123);
 
     let stdout = std::io::stdout();
-    let mut handle = stdout.lock();
+    let handle = stdout.lock();
     let mut writer = std::io::LineWriter::new(handle);
-    chunk.disassemble("test", &mut writer);
+    chunk.disassemble("test", &mut writer).unwrap();
 }
