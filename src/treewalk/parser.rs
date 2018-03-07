@@ -1,5 +1,5 @@
-use ast::*;
-use scanner::{Lexeme, Position, Token, TokenWithContext};
+use treewalk::ast::*;
+use treewalk::scanner::{Lexeme, Position, Token, TokenWithContext};
 use std::iter::Peekable;
 use std::rc::Rc;
 use std::mem::replace;
@@ -1060,9 +1060,9 @@ impl Parser {
 }
 #[cfg(test)]
 mod tests {
-    use scanner::*;
-    use parser::*;
-    use pretty_printer::PrettyPrint;
+    use treewalk::scanner::*;
+    use treewalk::parser::*;
+    use treewalk::pretty_printer::PrettyPrint;
 
     #[test]
     fn literal() {

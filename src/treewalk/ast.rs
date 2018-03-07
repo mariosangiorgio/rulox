@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Error, Formatter};
 use std::cmp::PartialEq;
 use std::rc::Rc;
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 #[derive(Debug)]
 pub enum UnaryOperator {
@@ -48,12 +48,12 @@ impl Identifier {
 
 pub struct IdentifierMap {
     next: u64,
-    map: HashMap<String, Identifier>,
+    map: FnvHashMap<String, Identifier>,
 }
 
 impl IdentifierMap {
     pub fn new() -> IdentifierMap {
-        let mut map = HashMap::new();
+        let mut map = FnvHashMap::default();
         // Reserved identifiers
         map.insert("this".into(), Identifier::this());
         map.insert("init".into(), Identifier::init());

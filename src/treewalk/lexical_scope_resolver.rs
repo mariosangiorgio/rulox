@@ -1,16 +1,16 @@
-use ast::*;
-use std::collections::HashMap;
+use treewalk::ast::*;
+use fnv::FnvHashMap;
 
 pub type Depth = usize;
 
 pub struct LexicalScopes {
-    depths: HashMap<VariableUseHandle, Depth>,
+    depths: FnvHashMap<VariableUseHandle, Depth>,
 }
 
 impl LexicalScopes {
     fn new() -> LexicalScopes {
         LexicalScopes {
-            depths: HashMap::new(),
+            depths: FnvHashMap::default(),
         }
     }
 
@@ -53,7 +53,7 @@ enum ClassType {
 
 pub struct ProgramLexicalScopesResolver {
     // Note that this doesn't track globals at all
-    scopes: Vec<HashMap<Identifier, VariableDefinition>>,
+    scopes: Vec<FnvHashMap<Identifier, VariableDefinition>>,
     current_function: Option<FunctionKind>,
     current_class: ClassType,
     lexical_scopes: LexicalScopes,
@@ -70,7 +70,7 @@ impl ProgramLexicalScopesResolver {
     }
 
     fn begin_scope(&mut self) -> () {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(FnvHashMap::default());
     }
 
     fn end_scope(&mut self) -> () {
@@ -298,9 +298,9 @@ impl LexicalScopesResolver for FunctionDefinition {
 
 #[cfg(test)]
 mod tests {
-    use scanner::*;
-    use parser::*;
-    use lexical_scope_resolver::*;
+    use treewalk::scanner::*;
+    use treewalk::parser::*;
+    use treewalk::lexical_scope_resolver::*;
 
     #[test]
     fn global_variable() {
