@@ -29,13 +29,25 @@ impl Chunk {
     /// ```
     /// use rulox::vm::bytecode::*;
     /// let mut chunk = Chunk::new();
-    /// chunk.add_instruction(OpCode::Return, 1);
+    /// let line = 1;
+    /// chunk.add_instruction(OpCode::Return, line);
     /// ```
     pub fn add_instruction(&mut self, instruction: OpCode, line: Line) -> () {
         self.instructions.push(instruction);
         self.lines.push(line);
     }
 
+    /// Constants live in a separate pool that needs to be pre-populated.
+    /// Instructions that wants to use them need to reference them by
+    /// their offset, which is returned by this function.
+    /// # Example
+    /// ```
+    /// use rulox::vm::bytecode::*;
+    /// let mut chunk = Chunk::new();
+    /// let offset = chunk.add_constant(1.2);
+    /// let line = 1;
+    /// chunk.add_instruction(OpCode::Constant(offset), line);
+    /// ```
     pub fn add_constant(&mut self, constant: Value) -> Offset {
         self.values.push(constant);
         self.values.len() - 1
