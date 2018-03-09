@@ -24,6 +24,13 @@ impl Chunk {
         }
     }
 
+    /// Adds a new instruction to the chunk
+    /// # Example
+    /// ```
+    /// use rulox::vm::bytecode::*;
+    /// let mut chunk = Chunk::new();
+    /// chunk.add_instruction(OpCode::Return, 1);
+    /// ```
     pub fn add_instruction(&mut self, instruction: OpCode, line: Line) -> () {
         self.instructions.push(instruction);
         self.lines.push(line);
