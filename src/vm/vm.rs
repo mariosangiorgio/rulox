@@ -1,8 +1,10 @@
 use vm::bytecode::{disassemble_instruction, Chunk, OpCode, Value};
 use std::io::{stdout, Error, LineWriter, Write};
 
+#[derive(Debug)]
 pub enum RuntimeError {
     TracingError(Error),
+    StackUnderflow
 }
 
 struct Vm<'a> {
@@ -30,15 +32,23 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
-        match self.chunk.get(self.program_counter - 1)
-        {
-            OpCode::Return =>{
+        match self.chunk.get(self.program_counter - 1) {
+            OpCode::Return => {
                 let value = self.stack.pop();
-                format!{"{:?}", value};
-            // Temporarily changed the meaning
-            return Ok(false)
-            },
+                println!{"{:?}", value};
+                // Temporarily changed the meaning
+                return Ok(false);
+            }
             OpCode::Constant(offset) => self.stack.push(self.chunk.get_value(offset)),
+            OpCode::Negate =>{
+                if let Some(value) = self.stack.pop()
+                {
+                    self.stack.push(-value);
+                }
+                else{
+                    return Err(RuntimeError::StackUnderflow)
+                }
+            }
         };
         Ok(true)
     }
@@ -46,7 +56,7 @@ impl<'a> Vm<'a> {
     where
         T: Write,
     {
-        try!(write!(out, "          "));
+        try!(write!(out, "Stack: "));
         for value in self.stack.iter() {
             try!(write!(out, "[ {} ]", value));
         }

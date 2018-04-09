@@ -8,6 +8,7 @@ type Line = usize;
 pub enum OpCode {
     Constant(Offset),
     Return,
+    Negate,
 }
 
 pub struct Chunk {
@@ -79,6 +80,7 @@ where
             offset,
             chunk.get_value(offset)
         ),
+        &OpCode::Negate => writeln!(out, "OP_NEGATE"),
     };
 }
 
