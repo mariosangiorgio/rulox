@@ -9,6 +9,19 @@ pub enum OpCode {
     Constant(Offset),
     Return,
     Negate,
+    // Having a single binary opcode parametrized on its operand makes
+    // the code cleaner.
+    // Since constant already has an offset we're not making the
+    // encoding worse. The extra space would have been allocated anyway.
+    Binary(BinaryOp),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
 pub struct Chunk {
@@ -81,6 +94,12 @@ where
             chunk.get_value(offset)
         ),
         &OpCode::Negate => writeln!(out, "OP_NEGATE"),
+        &OpCode::Binary(ref operator) => match operator {
+            &BinaryOp::Add => writeln!(out, "OP_ADD"),
+            &BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
+            &BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
+            &BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
+        },
     };
 }
 

@@ -1,10 +1,10 @@
-use vm::bytecode::{disassemble_instruction, Chunk, OpCode, Value};
+use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 use std::io::{stdout, Error, LineWriter, Write};
 
 #[derive(Debug)]
 pub enum RuntimeError {
     TracingError(Error),
-    StackUnderflow
+    StackUnderflow,
 }
 
 struct Vm<'a> {
@@ -19,6 +19,14 @@ impl<'a> Vm<'a> {
             chunk: chunk,
             program_counter: 0,
             stack: vec![],
+        }
+    }
+
+    fn pop(&mut self) -> Result<Value, RuntimeError> {
+        if let Some(value) = self.stack.pop() {
+            Ok(value)
+        } else {
+            Err(RuntimeError::StackUnderflow)
         }
     }
 
@@ -40,14 +48,22 @@ impl<'a> Vm<'a> {
                 return Ok(false);
             }
             OpCode::Constant(offset) => self.stack.push(self.chunk.get_value(offset)),
-            OpCode::Negate =>{
-                if let Some(value) = self.stack.pop()
-                {
-                    self.stack.push(-value);
-                }
-                else{
-                    return Err(RuntimeError::StackUnderflow)
-                }
+            OpCode::Negate => {
+                let op = try!(self.pop());
+                self.stack.push(-op);
+            }
+            OpCode::Binary(ref operator) => {
+                // Note the order!
+                // Op2 is the topmost element of the stack,
+                // Op1 is the second topmost element
+                let op2 = try!(self.pop());
+                let op1 = try!(self.pop());
+                self.stack.push(match operator {
+                    &BinaryOp::Add => op1 + op2,
+                    &BinaryOp::Subtract => op1 - op2,
+                    &BinaryOp::Multiply => op1 * op2,
+                    &BinaryOp::Divide => op1 / op2,
+                })
             }
         };
         Ok(true)
