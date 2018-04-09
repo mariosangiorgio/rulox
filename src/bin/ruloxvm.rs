@@ -1,6 +1,6 @@
 extern crate rulox;
 
-use rulox::vm::bytecode::{Chunk, OpCode};
+use rulox::vm::bytecode::{disassemble, Chunk, OpCode};
 
 fn main() {
     println!("Usage: ruloxvm [script]");
@@ -12,5 +12,5 @@ fn main() {
     let stdout = std::io::stdout();
     let handle = stdout.lock();
     let mut writer = std::io::LineWriter::new(handle);
-    chunk.disassemble("test", &mut writer).unwrap();
+    disassemble(&chunk, "test", &mut writer).unwrap();
 }
