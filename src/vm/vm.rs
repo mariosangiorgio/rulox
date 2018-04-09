@@ -1,4 +1,4 @@
-use vm::bytecode::{disassemble_instruction, Chunk, OpCode};
+use vm::bytecode::{disassemble_instruction, Chunk, OpCode, Value};
 use std::io::{stdout, Error, LineWriter, Write};
 
 pub enum RuntimeError {
@@ -8,6 +8,7 @@ pub enum RuntimeError {
 struct Vm<'a> {
     chunk: &'a Chunk,
     program_counter: usize,
+    stack: Vec<Value>,
 }
 
 impl<'a> Vm<'a> {
@@ -15,6 +16,7 @@ impl<'a> Vm<'a> {
         Vm {
             chunk: chunk,
             program_counter: 0,
+            stack: vec![],
         }
     }
 
@@ -22,6 +24,7 @@ impl<'a> Vm<'a> {
     /// The execution of this function have some side effects including:
     ///  * update of the program counter to have it point to the next
     ///    instruction
+    ///  * mutate the state of the stack
     ///
     /// This function true if there are other instructions left to execute
     /// or false if we're done interpreting the chunk.
@@ -29,19 +32,26 @@ impl<'a> Vm<'a> {
         self.program_counter += 1;
         match self.chunk.get(self.program_counter - 1)
         {
-            OpCode::Return =>
+            OpCode::Return =>{
+                let value = self.stack.pop();
+                format!{"{:?}", value};
             // Temporarily changed the meaning
-            return Ok(false),
-            OpCode::Constant(offset) => format!("{}", self.chunk.get_value(offset)),
+            return Ok(false)
+            },
+            OpCode::Constant(offset) => self.stack.push(self.chunk.get_value(offset)),
         };
         Ok(true)
     }
-    fn trace<T>(&mut self, out: &mut LineWriter<T>) -> Result<(), RuntimeError>
+    fn trace<T>(&mut self, out: &mut LineWriter<T>) -> Result<(), Error>
     where
         T: Write,
     {
+        try!(write!(out, "          "));
+        for value in self.stack.iter() {
+            try!(write!(out, "[ {} ]", value));
+        }
+        try!(writeln!(out));
         disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
-            .map_err(RuntimeError::TracingError)
     }
 }
 
@@ -58,7 +68,7 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
     let handle = stdout.lock();
     let mut writer = LineWriter::new(handle);
     while {
-        try!{vm.trace(&mut writer)};
+        try!{vm.trace(&mut writer).map_err(RuntimeError::TracingError)};
         try!{vm.interpret_next()}
     } {}
     Ok(())

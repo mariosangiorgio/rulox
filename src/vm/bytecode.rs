@@ -1,7 +1,7 @@
 use std::io::{Error, LineWriter, Write};
 
 type Offset = usize;
-type Value = f64;
+pub type Value = f64;
 type Line = usize;
 
 #[derive(Debug, Clone, Copy)]
