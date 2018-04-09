@@ -4,6 +4,7 @@ type Offset = usize;
 type Value = f64;
 type Line = usize;
 
+#[derive(Debug, Clone, Copy)]
 pub enum OpCode {
     Constant(Offset),
     Return,
@@ -22,6 +23,14 @@ impl Chunk {
             values: Vec::new(),
             lines: Vec::new(),
         }
+    }
+
+    pub fn get(&self, index: usize) -> OpCode {
+        self.instructions[index]
+    }
+
+    pub fn get_value(&self, index: usize) -> Value {
+        self.values[index]
     }
 
     /// Adds a new instruction to the chunk

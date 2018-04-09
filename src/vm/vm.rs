@@ -1,4 +1,4 @@
-use vm::bytecode::{Chunk};
+use vm::bytecode::{Chunk, OpCode};
 
 pub enum RuntimeError {
 }
@@ -16,11 +16,20 @@ impl<'a> Vm<'a> {
         }
     }
     fn interpret(&mut self) -> Result<(), RuntimeError> {
-        Ok(())
+        loop {
+            self.program_counter += 1;
+            match self.chunk.get(self.program_counter -1)
+        {
+          OpCode::Return =>
+            // Temporarily changed the meaning
+            return Ok(()),
+          OpCode::Constant(offset) => format!("{}", self.chunk.get_value(offset)),
+        };
+        }
     }
 }
 
-pub fn interpret(chunk: & Chunk) -> Result<(), RuntimeError> {
+pub fn interpret(chunk: &Chunk) -> Result<(), RuntimeError> {
     let mut vm = Vm::new(chunk);
     vm.interpret()
 }
