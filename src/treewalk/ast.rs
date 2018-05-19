@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Error, Formatter};
-use std::cmp::PartialEq;
-use std::rc::Rc;
 use fnv::FnvHashMap;
+use std::cmp::PartialEq;
+use std::fmt::{Debug, Error, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum UnaryOperator {

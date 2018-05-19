@@ -1,5 +1,5 @@
-pub mod common;
 pub mod treewalk;
+pub mod user_interface;
 pub mod vm;
 
 extern crate fnv;
