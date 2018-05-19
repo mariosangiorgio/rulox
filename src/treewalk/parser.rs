@@ -1,40 +1,45 @@
+use std::iter::Peekable;
+use std::mem::replace;
+use std::rc::Rc;
 use treewalk::ast::*;
 use treewalk::scanner::{Lexeme, Position, Token, TokenWithContext};
-use std::iter::Peekable;
-use std::rc::Rc;
-use std::mem::replace;
 
 /// This behave exactly as try! but wraps the returned result in a Some.
 /// It's useful to remove some boilerplate in the code introduced by
 /// the use of Option<Result<T, E>>
 macro_rules! try_wrap_err {
-    ($e:expr) => (match $e {Ok(e) => e, Err(e) => return Some(Err(e))})
+    ($e:expr) => {
+        match $e {
+            Ok(e) => e,
+            Err(e) => return Some(Err(e)),
+        }
+    };
 }
 
 macro_rules! consume_expected_token_with_action {
-    ($tokens:expr, $expected: pat, $transform_token: expr, $required_element: expr) => (
-    match $tokens.peek().map(|t| &t.token) {
-        Some($expected) => {
-            let _ = $tokens.next();
-            Ok($transform_token)
-        }
-        Some(_) => {
-            let token = $tokens.next().unwrap();
-            Err(
-                ParseError::Missing(
+    ($tokens:expr, $expected:pat, $transform_token:expr, $required_element:expr) => {
+        match $tokens.peek().map(|t| &t.token) {
+            Some($expected) => {
+                let _ = $tokens.next();
+                Ok($transform_token)
+            }
+            Some(_) => {
+                let token = $tokens.next().unwrap();
+                Err(ParseError::Missing(
                     $required_element,
                     token.lexeme.clone(),
-                    token.position))
+                    token.position,
+                ))
+            }
+            None => Err(ParseError::UnexpectedEndOfFile),
         }
-        None => Err(ParseError::UnexpectedEndOfFile),
-    }
-    )
+    };
 }
 
 macro_rules! consume_expected_token {
-    ($tokens:expr, $expected: pat, $required_element: expr) => (
+    ($tokens:expr, $expected:pat, $required_element:expr) => {
         consume_expected_token_with_action!($tokens, $expected, (), $required_element)
-    )
+    };
 }
 
 #[derive(Debug)]
@@ -1060,9 +1065,9 @@ impl Parser {
 }
 #[cfg(test)]
 mod tests {
-    use treewalk::scanner::*;
     use treewalk::parser::*;
     use treewalk::pretty_printer::PrettyPrint;
+    use treewalk::scanner::*;
 
     #[test]
     fn literal() {

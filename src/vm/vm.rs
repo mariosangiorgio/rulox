@@ -1,5 +1,5 @@
-use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 use std::io::{stdout, Error, LineWriter, Write};
+use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 
 #[derive(Debug)]
 pub enum RuntimeError {
