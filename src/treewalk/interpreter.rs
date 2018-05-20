@@ -660,11 +660,11 @@ impl Execute for Statement {
 
 #[cfg(test)]
 mod tests {
+    use frontend::scanner::*;
     use treewalk::ast::*;
     use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
     use treewalk::lexical_scope_resolver::ProgramLexicalScopesResolver;
     use treewalk::parser::*;
-    use frontend::scanner::*;
 
     //TODO: change these tests so that:
     // - they have an helper with all the repeated structure

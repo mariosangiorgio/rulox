@@ -7,8 +7,8 @@ mod pretty_printer;
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
 use self::parser::{ParseError, Parser};
-use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 use frontend::scanner;
+use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 
 #[derive(Debug)]
 enum RunResult {

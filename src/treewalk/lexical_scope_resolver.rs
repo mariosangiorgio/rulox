@@ -298,9 +298,9 @@ impl LexicalScopesResolver for FunctionDefinition {
 
 #[cfg(test)]
 mod tests {
+    use frontend::scanner::*;
     use treewalk::lexical_scope_resolver::*;
     use treewalk::parser::*;
-    use frontend::scanner::*;
 
     #[test]
     fn global_variable() {
