@@ -119,7 +119,7 @@ fn is_whitespace(c: char) -> bool {
 }
 
 impl<'a> Scanner<'a> {
-    fn initialize(source: &str) -> Scanner {
+    fn initialize(source: &'a str) -> Scanner {
         Scanner {
             current_position: Position::initial(),
             current_lexeme: "".into(),
@@ -297,11 +297,29 @@ impl<'a> Scanner<'a> {
     }
 }
 
+struct TokensIterator<'a> {
+    scanner: Scanner<'a>,
+}
+
+impl<'a> Iterator for TokensIterator<'a> {
+    type Item = Result<TokenWithContext, ScannerError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.scanner.scan_next()
+    }
+}
+
+pub fn scan_into_iterator<'a>(
+    source: &'a str,
+) -> impl Iterator<Item = Result<TokenWithContext, ScannerError>> + 'a {
+    TokensIterator {
+        scanner: Scanner::initialize(source),
+    }
+}
+
 pub fn scan(source: &str) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
-    let mut scanner = Scanner::initialize(source);
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
-    while let Some(result) = scanner.scan_next() {
+    for result in scan_into_iterator(source) {
         match result {
             Ok(token_with_context) => {
                 match token_with_context.token {
@@ -318,7 +336,7 @@ pub fn scan(source: &str) -> (Vec<TokenWithContext>, Vec<ScannerError>) {
 
 #[cfg(test)]
 mod tests {
-    use treewalk::scanner::*;
+    use frontend::scanner::*;
 
     #[test]
     fn single_token() {
