@@ -1,11 +1,11 @@
-use treewalk::ast::*;
-use treewalk::lexical_scope_resolver::*;
 use fnv::FnvHashMap;
+use std::cell::RefCell;
 use std::io;
 use std::io::prelude::*;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::time::{SystemTime, UNIX_EPOCH};
+use treewalk::ast::*;
+use treewalk::lexical_scope_resolver::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
@@ -208,6 +208,12 @@ impl PartialEq for Environment {
 }
 
 impl Environment {
+    pub fn new_with_natives(identifier_map: &mut IdentifierMap) -> Environment {
+        let environment = Environment::new();
+        Callable::register_natives(&environment, identifier_map);
+        environment
+    }
+
     fn new() -> Environment {
         let actual = EnvironmentImpl {
             parent: None,
@@ -272,9 +278,7 @@ pub struct StatementInterpreter {
 }
 
 impl StatementInterpreter {
-    pub fn new(identifier_map: &mut IdentifierMap) -> StatementInterpreter {
-        let environment = Environment::new();
-        Callable::register_natives(&environment, identifier_map);
+    pub fn new(environment: Environment) -> StatementInterpreter {
         StatementInterpreter {
             environment: environment,
         }
@@ -656,10 +660,10 @@ impl Execute for Statement {
 
 #[cfg(test)]
 mod tests {
+    use frontend::scanner::*;
     use treewalk::ast::*;
     use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
     use treewalk::lexical_scope_resolver::ProgramLexicalScopesResolver;
-    use treewalk::scanner::*;
     use treewalk::parser::*;
 
     //TODO: change these tests so that:
@@ -708,7 +712,8 @@ mod tests {
     #[test]
     fn unary_minus_only_applies_to_numbers() {
         let mut identifier_map = IdentifierMap::new();
-        let mut interpreter = StatementInterpreter::new(&mut identifier_map);
+        let mut interpreter =
+            StatementInterpreter::new(Environment::new_with_natives(&mut identifier_map));
         let scope_resolver = ProgramLexicalScopesResolver::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Minus,
