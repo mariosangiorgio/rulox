@@ -3,12 +3,12 @@ mod interpreter;
 mod lexical_scope_resolver;
 mod parser;
 mod pretty_printer;
-mod scanner;
 
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
 use self::parser::{ParseError, Parser};
 use user_interface::{RuloxImplementation, RunResult as UiRunResult};
+use frontend::scanner;
 
 #[derive(Debug)]
 enum RunResult {

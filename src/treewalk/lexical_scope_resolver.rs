@@ -300,7 +300,7 @@ impl LexicalScopesResolver for FunctionDefinition {
 mod tests {
     use treewalk::lexical_scope_resolver::*;
     use treewalk::parser::*;
-    use treewalk::scanner::*;
+    use frontend::scanner::*;
 
     #[test]
     fn global_variable() {

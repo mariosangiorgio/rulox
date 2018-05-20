@@ -664,7 +664,7 @@ mod tests {
     use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
     use treewalk::lexical_scope_resolver::ProgramLexicalScopesResolver;
     use treewalk::parser::*;
-    use treewalk::scanner::*;
+    use frontend::scanner::*;
 
     //TODO: change these tests so that:
     // - they have an helper with all the repeated structure
