@@ -24,3 +24,16 @@ impl RuloxImplementation for RuloxVm {
         UiRunResult::Error //TODO: implement
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use vm::*;
+
+    proptest! {
+    #[test]
+    fn doesnt_crash(ref input in "\\PC*") {
+        let mut ruloxvm = RuloxVm::new();
+        ruloxvm.run(input)
+    }
+    }
+}
