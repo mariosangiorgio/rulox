@@ -119,6 +119,7 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
 mod tests {
     use vm::*;
     use vm::bytecode::*;
+    use proptest::strategy::*;
     use proptest::prelude::*;
     use proptest::collection::*;
     use proptest::num::*;
@@ -127,9 +128,18 @@ mod tests {
         prop::collection::vec(any::<Value>(), 0..max_constants)
     }
 
-    fn arb_instruction(max_offset : usize) -> BoxedStrategy<OpCode> {
-        (0..max_offset)
-        .prop_map(|offset| OpCode::Constant(offset))
+    fn arb_instruction(max_offset: usize) -> BoxedStrategy<OpCode> {
+        prop_oneof![
+        (0..max_offset).prop_map(OpCode::Constant),
+        Just(OpCode::Return),
+        Just(OpCode::Negate),
+        prop_oneof![
+                Just(BinaryOp::Add),
+                Just(BinaryOp::Subtract),
+                Just(BinaryOp::Multiply),
+                Just(BinaryOp::Divide),
+            ].prop_map(OpCode::Binary)
+        ]
         .boxed()
     }
 
