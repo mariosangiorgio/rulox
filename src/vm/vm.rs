@@ -5,6 +5,13 @@ use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 pub enum RuntimeError {
     TracingError(Error),
     StackUnderflow,
+    // The following out of bound errors have been found using
+    // property based testing.
+    // Unless I can statically determine that a chunk it is well-formed
+    // they should be there, with a runtime penalty of bound checking
+    // at every instruction
+    InstructionOutOfBound,
+    ValueOutOfBound,
 }
 
 struct Vm<'a> {
@@ -40,6 +47,9 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
+        if self.program_counter >= self.chunk.instruction_count(){
+            return Err(RuntimeError::InstructionOutOfBound)
+        }
         match self.chunk.get(self.program_counter - 1) {
             OpCode::Return => {
                 let value = self.stack.pop();
@@ -47,7 +57,12 @@ impl<'a> Vm<'a> {
                 // Temporarily changed the meaning
                 return Ok(false);
             }
-            OpCode::Constant(offset) => self.stack.push(self.chunk.get_value(offset)),
+            OpCode::Constant(offset) =>{
+                if offset >= self.chunk.values_count(){
+                    return Err(RuntimeError::ValueOutOfBound)
+                }
+                self.stack.push(self.chunk.get_value(offset))
+            },
             OpCode::Negate => {
                 let op = try!(self.pop());
                 self.stack.push(-op);
@@ -98,4 +113,61 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
         try!{vm.interpret_next()}
     } {}
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use vm::*;
+    use vm::bytecode::*;
+    use proptest::strategy::*;
+    use proptest::prelude::*;
+    use proptest::collection::*;
+    use proptest::num::*;
+
+    fn arb_constants(max_constants : usize) -> VecStrategy<f64::Any>{
+        prop::collection::vec(any::<Value>(), 0..max_constants)
+    }
+
+    fn arb_instruction(max_offset: usize) -> BoxedStrategy<OpCode> {
+        prop_oneof![
+        (0..max_offset).prop_map(OpCode::Constant),
+        Just(OpCode::Return),
+        Just(OpCode::Negate),
+        prop_oneof![
+                Just(BinaryOp::Add),
+                Just(BinaryOp::Subtract),
+                Just(BinaryOp::Multiply),
+                Just(BinaryOp::Divide),
+            ].prop_map(OpCode::Binary)
+        ]
+        .boxed()
+    }
+
+    fn arb_instructions(max_offset : usize, max_instructions : usize) -> VecStrategy<BoxedStrategy<OpCode>>{
+        prop::collection::vec(arb_instruction(max_offset), 0..max_instructions)
+    }
+
+    prop_compose!{
+        fn arb_chunk(max_offset : usize, max_instructions : usize)
+            (constants in arb_constants(max_offset),
+             instructions in arb_instructions(max_offset, max_instructions)) -> Chunk{
+            let mut chunk = Chunk::new();
+            for constant in constants{
+                let _offset = chunk.add_constant(constant);
+            }
+            let mut line = 0;
+            for instruction in instructions{
+                chunk.add_instruction(instruction, line);
+                line = line + 1;
+            }
+            chunk
+        }
+    }
+
+    proptest! {
+    #[test]
+    fn doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let _ = vm::interpret(chunk);
+    }
+    }
 }

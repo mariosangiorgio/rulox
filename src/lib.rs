@@ -5,3 +5,7 @@ pub mod vm;
 
 extern crate fnv;
 extern crate itertools;
+
+#[cfg(test)]
+#[macro_use]
+extern crate proptest;

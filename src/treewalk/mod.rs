@@ -104,3 +104,16 @@ impl RuloxImplementation for TreeWalkRuloxInterpreter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use treewalk::*;
+
+    proptest! {
+    #[test]
+    fn doesnt_crash(ref input in "\\PC*") {
+        let mut ruloxvm = TreeWalkRuloxInterpreter::new();
+        ruloxvm.run(input)
+    }
+    }
+}
