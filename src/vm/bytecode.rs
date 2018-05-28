@@ -24,6 +24,7 @@ pub enum BinaryOp {
     Divide,
 }
 
+#[derive(Debug)]
 pub struct Chunk {
     instructions: Vec<OpCode>,
     values: Vec<Value>,

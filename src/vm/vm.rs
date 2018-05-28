@@ -99,3 +99,50 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
     } {}
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use vm::*;
+    use vm::bytecode::*;
+    use proptest::prelude::*;
+    use proptest::collection::*;
+    use proptest::num::*;
+
+    fn arb_constants(max_constants : usize) -> VecStrategy<f64::Any>{
+        prop::collection::vec(any::<Value>(), 0..max_constants)
+    }
+
+    fn arb_instruction(max_offset : usize) -> BoxedStrategy<OpCode> {
+        (0..max_offset)
+        .prop_map(|offset| OpCode::Constant(offset))
+        .boxed()
+    }
+
+    fn arb_instructions(max_offset : usize, max_instructions : usize) -> VecStrategy<BoxedStrategy<OpCode>>{
+        prop::collection::vec(arb_instruction(max_offset), 0..max_instructions)
+    }
+
+    prop_compose!{
+        fn arb_chunk(max_offset : usize, max_instructions : usize)
+            (constants in arb_constants(max_offset),
+             instructions in arb_instructions(max_offset, max_instructions)) -> Chunk{
+            let mut chunk = Chunk::new();
+            for constant in constants{
+                let _offset = chunk.add_constant(constant);
+            }
+            let mut line = 0;
+            for instruction in instructions{
+                chunk.add_instruction(instruction, line);
+                line = line + 1;
+            }
+            chunk
+        }
+    }
+
+    proptest! {
+    #[test]
+    fn doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let _ = vm::interpret(chunk);
+    }
+    }
+}
