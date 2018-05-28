@@ -61,6 +61,10 @@ impl Chunk {
         self.lines.push(line);
     }
 
+    pub fn instruction_count(&self) -> usize{
+        self.instructions.len()
+    }
+
     /// Constants live in a separate pool that needs to be pre-populated.
     /// Instructions that wants to use them need to reference them by
     /// their offset, which is returned by this function.
@@ -75,6 +79,10 @@ impl Chunk {
     pub fn add_constant(&mut self, constant: Value) -> Offset {
         self.values.push(constant);
         self.values.len() - 1
+    }
+
+    pub fn values_count(&self) -> usize{
+        self.values.len()
     }
 }
 

@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+xs 1136841434 683214073 2319951799 2957114076 # shrinks to ref chunk = Chunk { instructions: [], values: [], lines: [] }
+xs 306729797 3591207882 3040529161 1894776248 # shrinks to ref chunk = Chunk { instructions: [Constant(0), Constant(0)], values: [], lines: [0, 1] }

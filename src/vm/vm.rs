@@ -5,6 +5,13 @@ use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 pub enum RuntimeError {
     TracingError(Error),
     StackUnderflow,
+    // The following out of bound errors have been found using
+    // property based testing.
+    // Unless I can statically determine that a chunk it is well-formed
+    // they should be there, with a runtime penalty of bound checking
+    // at every instruction
+    InstructionOutOfBound,
+    ValueOutOfBound,
 }
 
 struct Vm<'a> {
@@ -40,6 +47,9 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
+        if self.program_counter >= self.chunk.instruction_count(){
+            return Err(RuntimeError::InstructionOutOfBound)
+        }
         match self.chunk.get(self.program_counter - 1) {
             OpCode::Return => {
                 let value = self.stack.pop();
@@ -47,7 +57,12 @@ impl<'a> Vm<'a> {
                 // Temporarily changed the meaning
                 return Ok(false);
             }
-            OpCode::Constant(offset) => self.stack.push(self.chunk.get_value(offset)),
+            OpCode::Constant(offset) =>{
+                if offset >= self.chunk.values_count(){
+                    return Err(RuntimeError::ValueOutOfBound)
+                }
+                self.stack.push(self.chunk.get_value(offset))
+            },
             OpCode::Negate => {
                 let op = try!(self.pop());
                 self.stack.push(-op);
