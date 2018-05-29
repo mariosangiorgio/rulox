@@ -96,12 +96,23 @@ where
 {
     return match instruction {
         &OpCode::Return => writeln!(out, "OP_RETURN"),
-        &OpCode::Constant(offset) => writeln!(
-            out,
-            "OP_CONSTANT {:4} '{:}'",
-            offset,
-            chunk.get_value(offset)
-        ),
+        &OpCode::Constant(offset) =>
+            if offset >= chunk.values_count()
+            {
+                //TODO: this should probably return an error
+                writeln!(
+                out,
+                "OP_CONSTANT {:4} 'ILLEGAL_ACCESS'",
+                offset
+                )
+            }
+            else{
+                writeln!(
+                out,
+                "OP_CONSTANT {:4} '{:}'",
+                offset,
+                chunk.get_value(offset)
+                )},
         &OpCode::Negate => writeln!(out, "OP_NEGATE"),
         &OpCode::Binary(ref operator) => match operator {
             &BinaryOp::Add => writeln!(out, "OP_ADD"),

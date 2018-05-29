@@ -1,4 +1,4 @@
-use std::io::{stdout, Error, LineWriter, Write};
+use std::io::{Error, LineWriter, Write};
 use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 
 #[derive(Debug)]
@@ -92,7 +92,13 @@ impl<'a> Vm<'a> {
             try!(write!(out, "[ {} ]", value));
         }
         try!(writeln!(out));
-        disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
+        if self.program_counter < self.chunk.instruction_count(){
+            disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
+        }
+        else{
+            //TODO: is this really ok?
+            Ok(())
+        }
     }
 }
 
@@ -102,14 +108,13 @@ pub fn interpret(chunk: &Chunk) -> Result<(), RuntimeError> {
     Ok(())
 }
 
-pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
+pub fn trace<T>(chunk: &Chunk, writer: &mut LineWriter<T>) -> Result<(), RuntimeError>
+where
+    T: Write,
+{
     let mut vm = Vm::new(chunk);
-    // Destination of the trace output
-    let stdout = stdout();
-    let handle = stdout.lock();
-    let mut writer = LineWriter::new(handle);
     while {
-        try!{vm.trace(&mut writer).map_err(RuntimeError::TracingError)};
+        try!{vm.trace(writer).map_err(RuntimeError::TracingError)};
         try!{vm.interpret_next()}
     } {}
     Ok(())
@@ -117,6 +122,7 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::*;
     use vm::*;
     use vm::bytecode::*;
     use proptest::strategy::*;
@@ -166,8 +172,24 @@ mod tests {
 
     proptest! {
     #[test]
-    fn doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+    fn interpret_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
         let _ = vm::interpret(chunk);
+    }
+    }
+
+    proptest! {
+    #[test]
+    fn trace_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let mut writer = LineWriter::new(sink());
+        let _ = vm::trace(chunk, &mut writer);
+    }
+    }
+
+    proptest! {
+    #[test]
+    fn disassemble_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let mut writer = LineWriter::new(sink());
+        let _ = disassemble(chunk, "Test", &mut writer);
     }
     }
 }
