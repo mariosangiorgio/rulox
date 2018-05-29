@@ -61,7 +61,7 @@ impl Chunk {
         self.lines.push(line);
     }
 
-    pub fn instruction_count(&self) -> usize{
+    pub fn instruction_count(&self) -> usize {
         self.instructions.len()
     }
 
@@ -81,7 +81,7 @@ impl Chunk {
         self.values.len() - 1
     }
 
-    pub fn values_count(&self) -> usize{
+    pub fn values_count(&self) -> usize {
         self.values.len()
     }
 }
@@ -96,23 +96,17 @@ where
 {
     return match instruction {
         &OpCode::Return => writeln!(out, "OP_RETURN"),
-        &OpCode::Constant(offset) =>
-            if offset >= chunk.values_count()
-            {
-                //TODO: this should probably return an error
-                writeln!(
-                out,
-                "OP_CONSTANT {:4} 'ILLEGAL_ACCESS'",
-                offset
-                )
-            }
-            else{
-                writeln!(
+        &OpCode::Constant(offset) => if offset >= chunk.values_count() {
+            //TODO: this should probably return an error
+            writeln!(out, "OP_CONSTANT {:4} 'ILLEGAL_ACCESS'", offset)
+        } else {
+            writeln!(
                 out,
                 "OP_CONSTANT {:4} '{:}'",
                 offset,
                 chunk.get_value(offset)
-                )},
+            )
+        },
         &OpCode::Negate => writeln!(out, "OP_NEGATE"),
         &OpCode::Binary(ref operator) => match operator {
             &BinaryOp::Add => writeln!(out, "OP_ADD"),

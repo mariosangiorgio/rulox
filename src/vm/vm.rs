@@ -47,8 +47,8 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
-        if self.program_counter >= self.chunk.instruction_count(){
-            return Err(RuntimeError::InstructionOutOfBound)
+        if self.program_counter >= self.chunk.instruction_count() {
+            return Err(RuntimeError::InstructionOutOfBound);
         }
         match self.chunk.get(self.program_counter - 1) {
             OpCode::Return => {
@@ -57,12 +57,12 @@ impl<'a> Vm<'a> {
                 // Temporarily changed the meaning
                 return Ok(false);
             }
-            OpCode::Constant(offset) =>{
-                if offset >= self.chunk.values_count(){
-                    return Err(RuntimeError::ValueOutOfBound)
+            OpCode::Constant(offset) => {
+                if offset >= self.chunk.values_count() {
+                    return Err(RuntimeError::ValueOutOfBound);
                 }
                 self.stack.push(self.chunk.get_value(offset))
-            },
+            }
             OpCode::Negate => {
                 let op = try!(self.pop());
                 self.stack.push(-op);
@@ -92,10 +92,9 @@ impl<'a> Vm<'a> {
             try!(write!(out, "[ {} ]", value));
         }
         try!(writeln!(out));
-        if self.program_counter < self.chunk.instruction_count(){
+        if self.program_counter < self.chunk.instruction_count() {
             disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
-        }
-        else{
+        } else {
             //TODO: is this really ok?
             Ok(())
         }
@@ -122,34 +121,36 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io::*;
-    use vm::*;
-    use vm::bytecode::*;
-    use proptest::strategy::*;
-    use proptest::prelude::*;
     use proptest::collection::*;
     use proptest::num::*;
+    use proptest::prelude::*;
+    use proptest::strategy::*;
+    use std::io::*;
+    use vm::bytecode::*;
+    use vm::*;
 
-    fn arb_constants(max_constants : usize) -> VecStrategy<f64::Any>{
+    fn arb_constants(max_constants: usize) -> VecStrategy<f64::Any> {
         prop::collection::vec(any::<Value>(), 0..max_constants)
     }
 
     fn arb_instruction(max_offset: usize) -> BoxedStrategy<OpCode> {
         prop_oneof![
-        (0..max_offset).prop_map(OpCode::Constant),
-        Just(OpCode::Return),
-        Just(OpCode::Negate),
-        prop_oneof![
+            (0..max_offset).prop_map(OpCode::Constant),
+            Just(OpCode::Return),
+            Just(OpCode::Negate),
+            prop_oneof![
                 Just(BinaryOp::Add),
                 Just(BinaryOp::Subtract),
                 Just(BinaryOp::Multiply),
                 Just(BinaryOp::Divide),
-            ].prop_map(OpCode::Binary)
-        ]
-        .boxed()
+            ].prop_map(OpCode::Binary),
+        ].boxed()
     }
 
-    fn arb_instructions(max_offset : usize, max_instructions : usize) -> VecStrategy<BoxedStrategy<OpCode>>{
+    fn arb_instructions(
+        max_offset: usize,
+        max_instructions: usize,
+    ) -> VecStrategy<BoxedStrategy<OpCode>> {
         prop::collection::vec(arb_instruction(max_offset), 0..max_instructions)
     }
 
