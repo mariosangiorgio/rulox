@@ -1,4 +1,4 @@
-use std::io::{stdout, Error, LineWriter, Write};
+use std::io::{Error, LineWriter, Write};
 use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
 
 #[derive(Debug)]
@@ -47,8 +47,8 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
-        if self.program_counter >= self.chunk.instruction_count(){
-            return Err(RuntimeError::InstructionOutOfBound)
+        if self.program_counter >= self.chunk.instruction_count() {
+            return Err(RuntimeError::InstructionOutOfBound);
         }
         match self.chunk.get(self.program_counter - 1) {
             OpCode::Return => {
@@ -57,12 +57,12 @@ impl<'a> Vm<'a> {
                 // Temporarily changed the meaning
                 return Ok(false);
             }
-            OpCode::Constant(offset) =>{
-                if offset >= self.chunk.values_count(){
-                    return Err(RuntimeError::ValueOutOfBound)
+            OpCode::Constant(offset) => {
+                if offset >= self.chunk.values_count() {
+                    return Err(RuntimeError::ValueOutOfBound);
                 }
                 self.stack.push(self.chunk.get_value(offset))
-            },
+            }
             OpCode::Negate => {
                 let op = try!(self.pop());
                 self.stack.push(-op);
@@ -92,7 +92,12 @@ impl<'a> Vm<'a> {
             try!(write!(out, "[ {} ]", value));
         }
         try!(writeln!(out));
-        disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
+        if self.program_counter < self.chunk.instruction_count() {
+            disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
+        } else {
+            //TODO: is this really ok?
+            Ok(())
+        }
     }
 }
 
@@ -102,14 +107,13 @@ pub fn interpret(chunk: &Chunk) -> Result<(), RuntimeError> {
     Ok(())
 }
 
-pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
+pub fn trace<T>(chunk: &Chunk, writer: &mut LineWriter<T>) -> Result<(), RuntimeError>
+where
+    T: Write,
+{
     let mut vm = Vm::new(chunk);
-    // Destination of the trace output
-    let stdout = stdout();
-    let handle = stdout.lock();
-    let mut writer = LineWriter::new(handle);
     while {
-        try!{vm.trace(&mut writer).map_err(RuntimeError::TracingError)};
+        try!{vm.trace(writer).map_err(RuntimeError::TracingError)};
         try!{vm.interpret_next()}
     } {}
     Ok(())
@@ -117,33 +121,35 @@ pub fn trace(chunk: &Chunk) -> Result<(), RuntimeError> {
 
 #[cfg(test)]
 mod tests {
-    use vm::*;
-    use vm::bytecode::*;
-    use proptest::strategy::*;
-    use proptest::prelude::*;
     use proptest::collection::*;
     use proptest::num::*;
+    use proptest::prelude::*;
+    use std::io::*;
+    use vm::bytecode::*;
+    use vm::*;
 
-    fn arb_constants(max_constants : usize) -> VecStrategy<f64::Any>{
+    fn arb_constants(max_constants: usize) -> VecStrategy<f64::Any> {
         prop::collection::vec(any::<Value>(), 0..max_constants)
     }
 
     fn arb_instruction(max_offset: usize) -> BoxedStrategy<OpCode> {
         prop_oneof![
-        (0..max_offset).prop_map(OpCode::Constant),
-        Just(OpCode::Return),
-        Just(OpCode::Negate),
-        prop_oneof![
+            (0..max_offset).prop_map(OpCode::Constant),
+            Just(OpCode::Return),
+            Just(OpCode::Negate),
+            prop_oneof![
                 Just(BinaryOp::Add),
                 Just(BinaryOp::Subtract),
                 Just(BinaryOp::Multiply),
                 Just(BinaryOp::Divide),
-            ].prop_map(OpCode::Binary)
-        ]
-        .boxed()
+            ].prop_map(OpCode::Binary),
+        ].boxed()
     }
 
-    fn arb_instructions(max_offset : usize, max_instructions : usize) -> VecStrategy<BoxedStrategy<OpCode>>{
+    fn arb_instructions(
+        max_offset: usize,
+        max_instructions: usize,
+    ) -> VecStrategy<BoxedStrategy<OpCode>> {
         prop::collection::vec(arb_instruction(max_offset), 0..max_instructions)
     }
 
@@ -166,8 +172,24 @@ mod tests {
 
     proptest! {
     #[test]
-    fn doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+    fn interpret_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
         let _ = vm::interpret(chunk);
+    }
+    }
+
+    proptest! {
+    #[test]
+    fn trace_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let mut writer = LineWriter::new(sink());
+        let _ = vm::trace(chunk, &mut writer);
+    }
+    }
+
+    proptest! {
+    #[test]
+    fn disassemble_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
+        let mut writer = LineWriter::new(sink());
+        let _ = disassemble(chunk, "Test", &mut writer);
     }
     }
 }
