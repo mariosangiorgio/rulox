@@ -124,7 +124,6 @@ mod tests {
     use proptest::collection::*;
     use proptest::num::*;
     use proptest::prelude::*;
-    use proptest::strategy::*;
     use std::io::*;
     use vm::bytecode::*;
     use vm::*;
