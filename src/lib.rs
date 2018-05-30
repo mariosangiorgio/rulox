@@ -1,3 +1,5 @@
+#[macro_use]
+mod arb;
 mod frontend;
 pub mod treewalk;
 pub mod user_interface;

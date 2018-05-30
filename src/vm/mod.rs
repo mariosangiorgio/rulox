@@ -1,5 +1,4 @@
 pub mod bytecode;
-pub mod vm;
 
 use frontend::scanner;
 use user_interface::{RuloxImplementation, RunResult as UiRunResult};
@@ -21,19 +20,12 @@ impl RuloxImplementation for RuloxVm {
                 Err(error) => errors.push(error), //TODO: wrap in generic error
             }
         }
-        UiRunResult::Error //TODO: implement
+        UiRunResult::RuntimeError //TODO: implement
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use vm::*;
-
-    proptest! {
-    #[test]
-    fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = RuloxVm::new();
-        ruloxvm.run(input)
-    }
-    }
+    use vm::RuloxVm;
+    rulox_implementation_tests!{RuloxVm}
 }

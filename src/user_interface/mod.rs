@@ -2,10 +2,11 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RunResult {
     Ok,
-    Error,
+    RuntimeError,
+    InvalidProgram,
     IoError(String), //TODO: improve error reporting
 }
 

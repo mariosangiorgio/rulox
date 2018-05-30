@@ -1,8 +1,8 @@
-mod ast;
+pub mod ast;
 mod interpreter;
 mod lexical_scope_resolver;
 mod parser;
-mod pretty_printer;
+pub mod pretty_printer;
 
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
@@ -64,7 +64,7 @@ impl TreeWalkRuloxInterpreter {
         }
     }
 
-    fn run(&mut self, source: &str) -> RunResult {
+    fn run_impl(&mut self, source: &str) -> RunResult {
         match self.scan_and_parse(source) {
             Ok(statements) => {
                 // Once we get the statements and their AST we run the following passes:
@@ -97,23 +97,17 @@ impl TreeWalkRuloxInterpreter {
 
 impl RuloxImplementation for TreeWalkRuloxInterpreter {
     fn run(&mut self, source: &str) -> UiRunResult {
-        match self.run(source) {
+        match self.run_impl(source) {
             RunResult::Ok => UiRunResult::Ok,
-            //TODO: improve
-            _ => UiRunResult::Error,
+            RunResult::InputError(_) => UiRunResult::InvalidProgram,
+            RunResult::LexicalScopesResolutionError(_) => UiRunResult::InvalidProgram,
+            RunResult::RuntimeError(_) => UiRunResult::RuntimeError,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use treewalk::*;
-
-    proptest! {
-    #[test]
-    fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = TreeWalkRuloxInterpreter::new();
-        ruloxvm.run(input)
-    }
-    }
+    use treewalk::TreeWalkRuloxInterpreter;
+    rulox_implementation_tests!{TreeWalkRuloxInterpreter}
 }

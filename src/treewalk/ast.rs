@@ -83,10 +83,12 @@ impl IdentifierMap {
     }
 }
 
+#[derive(Debug)]
 pub enum Target {
     Identifier(Identifier),
 }
 
+#[derive(Debug, Clone)]
 pub enum Literal {
     NilLiteral,
     BoolLiteral(bool),
@@ -94,11 +96,13 @@ pub enum Literal {
     NumberLiteral(f64),
 }
 
+#[derive(Debug)]
 pub struct UnaryExpr {
     pub operator: UnaryOperator,
     pub right: Expr,
 }
 
+#[derive(Debug)]
 pub struct BinaryExpr {
     pub left: Expr,
     pub operator: BinaryOperator,
@@ -106,32 +110,38 @@ pub struct BinaryExpr {
 }
 
 // Same as BinaryExpr, but with short-circuiting
+#[derive(Debug)]
 pub struct LogicExpr {
     pub left: Expr,
     pub operator: LogicOperator,
     pub right: Expr,
 }
 
+#[derive(Debug)]
 pub struct Grouping {
     pub expr: Expr,
 }
 
+#[derive(Debug)]
 pub struct Assignment {
     pub handle: VariableUseHandle,
     pub lvalue: Target,
     pub rvalue: Expr,
 }
 
+#[derive(Debug)]
 pub struct Call {
     pub callee: Expr,
     pub arguments: Vec<Expr>,
 }
 
+#[derive(Debug)]
 pub struct Get {
     pub instance: Expr,
     pub property: Identifier,
 }
 
+#[derive(Debug)]
 pub struct Set {
     pub instance: Expr,
     pub property: Identifier,
@@ -165,6 +175,7 @@ impl VariableUseHandleFactory {
     }
 }
 
+#[derive(Debug)]
 pub enum Expr {
     This(VariableUseHandle, Identifier),
     Super(VariableUseHandle, Identifier, Identifier),
@@ -180,6 +191,7 @@ pub enum Expr {
     Set(Box<Set>),
 }
 
+#[derive(Debug)]
 pub enum Statement {
     Print(Expr),
     Expression(Expr),
@@ -194,21 +206,25 @@ pub enum Statement {
     Class(ClassDefinition),
 }
 
+#[derive(Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
 }
 
+#[derive(Debug)]
 pub struct IfThen {
     pub condition: Expr,
     pub then_branch: Statement,
 }
 
+#[derive(Debug)]
 pub struct IfThenElse {
     pub condition: Expr,
     pub then_branch: Statement,
     pub else_branch: Statement,
 }
 
+#[derive(Debug)]
 pub struct While {
     pub condition: Expr,
     pub body: Statement,
