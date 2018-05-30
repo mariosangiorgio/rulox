@@ -5,7 +5,7 @@ use std::io::prelude::*;
 #[derive(Debug, PartialEq)]
 pub enum RunResult {
     Ok,
-    RuntimeError,
+    Error,
     InvalidProgram,
     IoError(String), //TODO: improve error reporting
 }

@@ -3,7 +3,7 @@ use std::cmp::PartialEq;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum UnaryOperator {
     Bang,
     Minus,
@@ -83,7 +83,7 @@ impl IdentifierMap {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Target {
     Identifier(Identifier),
 }
@@ -96,13 +96,13 @@ pub enum Literal {
     NumberLiteral(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct UnaryExpr {
     pub operator: UnaryOperator,
     pub right: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct BinaryExpr {
     pub left: Expr,
     pub operator: BinaryOperator,
@@ -110,38 +110,38 @@ pub struct BinaryExpr {
 }
 
 // Same as BinaryExpr, but with short-circuiting
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct LogicExpr {
     pub left: Expr,
     pub operator: LogicOperator,
     pub right: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Grouping {
     pub expr: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Assignment {
     pub handle: VariableUseHandle,
     pub lvalue: Target,
     pub rvalue: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Call {
     pub callee: Expr,
     pub arguments: Vec<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Get {
     pub instance: Expr,
     pub property: Identifier,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Set {
     pub instance: Expr,
     pub property: Identifier,
@@ -175,7 +175,7 @@ impl VariableUseHandleFactory {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     This(VariableUseHandle, Identifier),
     Super(VariableUseHandle, Identifier, Identifier),
@@ -191,7 +191,7 @@ pub enum Expr {
     Set(Box<Set>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Print(Expr),
     Expression(Expr),
@@ -206,25 +206,25 @@ pub enum Statement {
     Class(ClassDefinition),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub statements: Vec<Statement>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfThen {
     pub condition: Expr,
     pub then_branch: Statement,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfThenElse {
     pub condition: Expr,
     pub then_branch: Statement,
     pub else_branch: Statement,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct While {
     pub condition: Expr,
     pub body: Statement,
@@ -256,6 +256,7 @@ impl PartialEq for FunctionDefinition {
     }
 }
 
+#[derive(Clone)]
 pub struct ClassDefinition {
     pub name: Identifier,
     pub superclass: Option<Expr>,

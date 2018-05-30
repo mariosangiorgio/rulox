@@ -15,7 +15,12 @@ fn arb_expression() -> BoxedStrategy<Expr> {
 
 fn arb_statement() -> BoxedStrategy<Statement> {
     //TODO: add missing statements
-    prop_oneof![arb_expression().prop_map(Statement::Print),].boxed()
+    prop_oneof![
+        arb_expression().prop_map(Statement::Print),
+        arb_expression().prop_map(Statement::Expression),
+        arb_expression().prop_map(|e|Statement::Return(Some(e))),
+        Just(Statement::Return(None)),
+        ].boxed()
 }
 
 pub fn arb_program() -> VecStrategy<BoxedStrategy<Statement>> {

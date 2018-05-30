@@ -100,8 +100,9 @@ impl RuloxImplementation for TreeWalkRuloxInterpreter {
         match self.run_impl(source) {
             RunResult::Ok => UiRunResult::Ok,
             RunResult::InputError(_) => UiRunResult::InvalidProgram,
-            RunResult::LexicalScopesResolutionError(_) => UiRunResult::InvalidProgram,
-            RunResult::RuntimeError(_) => UiRunResult::RuntimeError,
+            //TODO: decide how to classify this
+            RunResult::LexicalScopesResolutionError(_) => UiRunResult::Error,
+            RunResult::RuntimeError(_) => UiRunResult::Error,
         }
     }
 }
