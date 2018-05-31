@@ -16,7 +16,11 @@ fn arb_identifier(identifier_map: &mut IdentifierMap) -> BoxedStrategy<Identifie
 
 fn arb_literal() -> BoxedStrategy<Literal> {
     //TODO: add missing literals
-    prop_oneof![Just(Literal::NilLiteral),].boxed()
+    prop_oneof![
+        Just(Literal::NilLiteral),
+        Just(Literal::BoolLiteral(false)),
+        Just(Literal::BoolLiteral(true)),
+        ].boxed()
 }
 
 fn arb_expression() -> BoxedStrategy<Expr> {
