@@ -11,8 +11,7 @@ fn arb_identifier(identifier_map: &mut IdentifierMap) -> BoxedStrategy<Identifie
         Just(identifier_map.from_name("a")),
         Just(identifier_map.from_name("b")),
         Just(identifier_map.from_name("c")),
-    ]
-    .boxed()
+    ].boxed()
 }
 
 fn arb_literal() -> BoxedStrategy<Literal> {
@@ -25,25 +24,78 @@ fn arb_expression() -> BoxedStrategy<Expr> {
     prop_oneof![arb_literal().prop_map(Expr::Literal),].boxed()
 }
 
-fn arb_statement(identifier_map: &mut IdentifierMap) -> BoxedStrategy<Statement> {
-    //TODO: add missing statements
+fn arb_simple_statement(identifier_map: &mut IdentifierMap) -> BoxedStrategy<Statement> {
     prop_oneof![
         arb_expression().prop_map(Statement::Print),
         arb_expression().prop_map(Statement::Expression),
-        arb_expression().prop_map(|e|Statement::Return(Some(e))),
+        arb_expression().prop_map(|e| Statement::Return(Some(e))),
         Just(Statement::Return(None)),
         arb_identifier(identifier_map).prop_map(Statement::VariableDefinition),
-        ].boxed()
+        (arb_identifier(identifier_map), arb_expression())
+            .prop_map(|(id, expr)| Statement::VariableDefinitionWithInitalizer(id, expr)),
+    ].boxed()
 }
 
-pub fn arb_program(identifier_map: &mut IdentifierMap) -> VecStrategy<BoxedStrategy<Statement>> {
-    prop::collection::vec(arb_statement(identifier_map), 0..10)
+fn arb_complex_statement(
+    identifier_map: &mut IdentifierMap,
+    depth: u8,
+) -> BoxedStrategy<Statement> {
+    prop_oneof![
+        arb_statements(identifier_map, depth).prop_map(|statements| Statement::Block(Box::new(
+            Block {
+                statements: statements
+            }
+        ))),
+        (arb_expression(), arb_statement(identifier_map, depth)).prop_map(|(expr, statement)| {
+            Statement::IfThen(Box::new(IfThen {
+                condition: expr,
+                then_branch: statement,
+            }))
+        }),
+        (
+            arb_expression(),
+            arb_statement(identifier_map, depth),
+            arb_statement(identifier_map, depth)
+        ).prop_map(
+            |(expr, then_statement, else_statement)| Statement::IfThenElse(Box::new(IfThenElse {
+                condition: expr,
+                then_branch: then_statement,
+                else_branch: else_statement
+            }))
+        ),
+        (arb_expression(), arb_statement(identifier_map, depth)).prop_map(|(expr, statement)| {
+            Statement::While(Box::new(While {
+                condition: expr,
+                body: statement,
+            }))
+        }),
+        //TODO: add FunctionDefinition
+        //TODO: add Class
+    ].boxed()
+}
+
+fn arb_statement(identifier_map: &mut IdentifierMap, depth: u8) -> BoxedStrategy<Statement> {
+    if depth < 5 {
+        prop_oneof![
+            arb_simple_statement(identifier_map),
+            arb_complex_statement(identifier_map, depth + 1),
+        ].boxed()
+    } else {
+        arb_simple_statement(identifier_map)
+    }
+}
+
+pub fn arb_statements(
+    identifier_map: &mut IdentifierMap,
+    depth: u8,
+) -> VecStrategy<BoxedStrategy<Statement>> {
+    prop::collection::vec(arb_statement(identifier_map, depth), 0..10)
 }
 
 pub fn arb_program_text() -> BoxedStrategy<String> {
     //TODO: provide some sample identifiers
     let mut identifier_map = IdentifierMap::new();
-    arb_program(&mut identifier_map)
+    arb_statements(&mut identifier_map, 0)
         .prop_map(move |statements| {
             let mut text = String::new();
             for s in statements {
