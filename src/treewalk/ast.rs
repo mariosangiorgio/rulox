@@ -3,7 +3,7 @@ use std::cmp::PartialEq;
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum UnaryOperator {
     Bang,
     Minus,
@@ -83,7 +83,7 @@ impl IdentifierMap {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Target {
     Identifier(Identifier),
 }
@@ -96,13 +96,13 @@ pub enum Literal {
     NumberLiteral(f64),
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub operator: UnaryOperator,
     pub right: Expr,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpr {
     pub left: Expr,
     pub operator: BinaryOperator,
@@ -110,38 +110,38 @@ pub struct BinaryExpr {
 }
 
 // Same as BinaryExpr, but with short-circuiting
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct LogicExpr {
     pub left: Expr,
     pub operator: LogicOperator,
     pub right: Expr,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Grouping {
     pub expr: Expr,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Assignment {
     pub handle: VariableUseHandle,
     pub lvalue: Target,
     pub rvalue: Expr,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Call {
     pub callee: Expr,
     pub arguments: Vec<Expr>,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Get {
     pub instance: Expr,
     pub property: Identifier,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Set {
     pub instance: Expr,
     pub property: Identifier,

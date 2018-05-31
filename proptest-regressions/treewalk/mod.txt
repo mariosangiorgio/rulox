@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 xs 2719771747 1373496833 1318825072 1659011585 # shrinks to ref input = "return null;\n"
+xs 1006514479 3243745029 4271447889 1437238176 # shrinks to ref input = "var super;\n"

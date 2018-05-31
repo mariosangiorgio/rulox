@@ -20,7 +20,7 @@ impl RuloxImplementation for RuloxVm {
                 Err(error) => errors.push(error), //TODO: wrap in generic error
             }
         }
-        UiRunResult::Error //TODO: implement
+        UiRunResult::RuntimeError //TODO: implement
     }
 }
 
