@@ -119,18 +119,18 @@ macro_rules! rulox_implementation_tests {
 
         proptest! {
         #[test]
+        #[ignore] // It might not terminate if the input contains an infinite loop
         fn doesnt_crash_with_random_input(ref input in "\\PC*") {
             let mut ruloxvm = $implementation::new();
-            //TODO: this might not terminate if the input contains an infinite loop
             ruloxvm.run(input)
         }
         }
 
         proptest! {
         #[test]
+        #[ignore] // It might not terminate if the input contains an infinite loop
         fn doesnt_crash_with_arbitrary_program(ref input in arb_program_text()) {
             let mut ruloxvm = $implementation::new();
-            //TODO: this might not terminate if the input contains an infinite loop
             let _result = ruloxvm.run(input);
             // arb_program_text isn't good enough to generate valid
             // programs from the ast structure.
