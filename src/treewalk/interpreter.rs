@@ -59,10 +59,12 @@ impl Callable {
                 if arguments.len() != 0 {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
-                Ok(Value::Number(SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as f64))
+                Ok(Value::Number(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as f64,
+                ))
             }
             Callable::Function(ref function_definition, ref environment) => {
                 if arguments.len() != function_definition.arguments.len() {
@@ -877,13 +879,13 @@ mod tests {
                 .execute(&environment, &scope_resolver)
                 .unwrap()
         );
-        let statements = vec![
-            Statement::Expression(Expr::Assignment(Box::new(Assignment {
+        let statements = vec![Statement::Expression(Expr::Assignment(Box::new(
+            Assignment {
                 handle: handle_factory.next(),
                 lvalue: Target::Identifier(identifier),
                 rvalue: Expr::Literal(Literal::BoolLiteral(false)),
-            }))),
-        ];
+            },
+        )))];
         let block = Statement::Block(Box::new(Block {
             statements: statements,
         }));
@@ -901,9 +903,10 @@ mod tests {
         let scope_resolver = ProgramLexicalScopesResolver::new();
         let identifier = identifier_map.from_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
-        let statements = vec![
-            Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr),
-        ];
+        let statements = vec![Statement::VariableDefinitionWithInitalizer(
+            identifier.clone(),
+            expr,
+        )];
         let block = Statement::Block(Box::new(Block {
             statements: statements,
         }));
@@ -1075,9 +1078,11 @@ mod tests {
         };
         assert_eq!(
             true,
-            is_instance(&environment
-                .get(&parser.identifier_map.from_name(&"c"), 0)
-                .unwrap())
+            is_instance(
+                &environment
+                    .get(&parser.identifier_map.from_name(&"c"), 0)
+                    .unwrap()
+            )
         );
     }
 

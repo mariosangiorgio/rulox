@@ -342,8 +342,7 @@ impl Parser {
             let _ = tokens.next();
             match self.parse_expression(tokens) {
                 Some(Ok(expression)) => Some(Ok(Statement::VariableDefinitionWithInitalizer(
-                    identifier,
-                    expression,
+                    identifier, expression,
                 ))),
                 Some(Err(error)) => Some(Err(error)),
                 None => Some(Err(ParseError::Missing(
