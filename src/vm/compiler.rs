@@ -300,7 +300,7 @@ where
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
                 token: Token::Minus,
-                position: position,
+                position,
                 lexeme: _,
             }) => (OpCode::Negate, position.line),
             _ => {
@@ -317,22 +317,22 @@ where
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
                 token: Token::Plus,
-                position: position,
+                position,
                 lexeme: _,
             }) => (OpCode::Binary(BinaryOp::Add), position.line),
             Some(TokenWithContext {
                 token: Token::Minus,
-                position: position,
+                position,
                 lexeme: _,
             }) => (OpCode::Binary(BinaryOp::Subtract), position.line),
             Some(TokenWithContext {
                 token: Token::Star,
-                position: position,
+                position,
                 lexeme: _,
             }) => (OpCode::Binary(BinaryOp::Multiply), position.line),
             Some(TokenWithContext {
                 token: Token::Slash,
-                position: position,
+                position,
                 lexeme: _,
             }) => (OpCode::Binary(BinaryOp::Divide), position.line),
             _ => {
