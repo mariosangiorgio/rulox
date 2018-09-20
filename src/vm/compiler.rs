@@ -52,116 +52,58 @@ struct Rule {
     infix: Option<RuleFunction>,
 }
 
-struct Parser<'a, I>
-where
-    I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
-{
-    chunk: &'a mut Chunk,
-    previous: Option<TokenWithContext>,
-    current: Option<TokenWithContext>,
-    tokens: Peekable<I>,
-    errors: Vec<CompilationError>,
-}
-
-impl<'a, I> Parser<'a, I>
-where
-    I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
-{
-    fn new(chunk: &'a mut Chunk, tokens: I) -> Parser<I> {
-        Parser {
-            chunk: chunk,
-            previous: None,
-            current: None,
-            tokens: tokens.peekable(),
-            errors: vec![],
-        }
-    }
-
-    fn shift(&mut self, current: Option<TokenWithContext>) -> () {
-        self.previous = self.current.clone();
-        self.current = current;
-    }
-
-    fn advance(&mut self) -> () {
-        loop {
-            match self.tokens.next() {
-                None => {
-                    self.shift(None);
-                    return;
-                }
-                Some(Ok(t)) => {
-                    self.shift(Some(t));
-                    return;
-                }
-                Some(Err(e)) => self.errors.push(CompilationError::ScannerError(e)),
-            }
-        }
-    }
-
-    fn emit(&mut self, opcode: OpCode) -> () {
-        if let Some(ref t) = self.previous {
-            self.chunk.add_instruction(opcode, t.position.line)
-        } else {
-            // TODO: this is a bit lame
-            panic!("How did we get here?");
-        }
-    }
-
-    fn find_rule(&mut self) -> Rule {
-        match self.current {
-            Some(ref t) => match t.token {
-                Token::LeftParen => Rule {
-                    precedence: Precedence::Call,
-                    prefix: Some(RuleFunction::Grouping),
-                    infix: None,
-                },
-                Token::LeftParen => Rule {
-                    precedence: Precedence::None,
-                    prefix: None,
-                    infix: None,
-                },
-                Token::LeftBrace => Rule {
-                    precedence: Precedence::None,
-                    prefix: Some(RuleFunction::Grouping),
-                    infix: None,
-                },
-                Token::RightBrace => Rule {
-                    precedence: Precedence::None,
-                    prefix: None,
-                    infix: None,
-                },
-                Token::Comma => Rule {
-                    precedence: Precedence::None,
-                    prefix: None,
-                    infix: None,
-                },
-                Token::Dot => Rule {
-                    precedence: Precedence::Call,
-                    prefix: None,
-                    infix: None,
-                },
-                Token::Minus => Rule {
-                    precedence: Precedence::Call,
-                    prefix: Some(RuleFunction::Unary),
-                    infix: Some(RuleFunction::Binary),
-                },
-                Token::Plus => Rule {
-                    precedence: Precedence::Term,
-                    prefix: None,
-                    infix: Some(RuleFunction::Binary),
-                },
-                Token::Semicolon => Rule {
-                    precedence: Precedence::None,
-                    prefix: None,
-                    infix: None,
-                },
-                Token::NumberLiteral(_) => Rule {
-                    precedence: Precedence::None,
-                    prefix: Some(RuleFunction::Number),
-                    infix: None,
-                },
-                _ => unimplemented!(),
-                /*
+impl Rule {
+    /// Finds the rule associated with a Token type.
+    /// This is derived straight from the Pratt Parser table.
+    fn find(token: &Token) -> Rule {
+        match token {
+            Token::LeftParen => Rule {
+                precedence: Precedence::Call,
+                prefix: Some(RuleFunction::Grouping),
+                infix: None,
+            },
+            Token::LeftBrace => Rule {
+                precedence: Precedence::None,
+                prefix: Some(RuleFunction::Grouping),
+                infix: None,
+            },
+            Token::RightBrace => Rule {
+                precedence: Precedence::None,
+                prefix: None,
+                infix: None,
+            },
+            Token::Comma => Rule {
+                precedence: Precedence::None,
+                prefix: None,
+                infix: None,
+            },
+            Token::Dot => Rule {
+                precedence: Precedence::Call,
+                prefix: None,
+                infix: None,
+            },
+            Token::Minus => Rule {
+                precedence: Precedence::Call,
+                prefix: Some(RuleFunction::Unary),
+                infix: Some(RuleFunction::Binary),
+            },
+            Token::Plus => Rule {
+                precedence: Precedence::Term,
+                prefix: None,
+                infix: Some(RuleFunction::Binary),
+            },
+            Token::Semicolon => Rule {
+                precedence: Precedence::None,
+                prefix: None,
+                infix: None,
+            },
+            Token::NumberLiteral(_) => Rule {
+                precedence: Precedence::None,
+                prefix: Some(RuleFunction::Number),
+                infix: None,
+            },
+            _ => unimplemented!(),
+            /*
   { NULL,     binary,  PREC_FACTOR },     // TOKEN_SLASH
   { NULL,     binary,  PREC_FACTOR },     // TOKEN_STAR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_BANG
@@ -193,9 +135,76 @@ where
   { NULL,     NULL,    PREC_NONE },       // TOKEN_ERROR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_EOF
 */
-            },
-            None => unimplemented!(),
         }
+    }
+}
+
+struct Parser<'a, I>
+where
+    I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
+{
+    chunk: &'a mut Chunk,
+    tokens: Peekable<I>,
+    errors: Vec<CompilationError>,
+}
+
+impl<'a, I> Parser<'a, I>
+where
+    I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
+{
+    fn new(chunk: &'a mut Chunk, tokens: I) -> Parser<I> {
+        Parser {
+            chunk: chunk,
+            tokens: tokens.peekable(),
+            errors: vec![],
+        }
+    }
+
+    /// Peeks for the next valid token.
+    /// If necessary it will skip errors (and keep track of them)
+    fn peek(&mut self) -> Option<Token> {
+        loop {
+            {
+                match self.tokens.peek() {
+                    Some(Ok(TokenWithContext {
+                        token: Token::Whitespace,
+                        lexeme: _,
+                        position: _,
+                    })) => {
+                        // No op, just skip it
+                    }
+                    Some(Ok(TokenWithContext {
+                        token: Token::Comment,
+                        lexeme: _,
+                        position: _,
+                    })) => {
+                        // No op, just skip it
+                    }
+                    Some(Ok(ref t)) => return Some(t.token.clone()),
+                    None => return None,
+                    Some(Err(ref e)) => {
+                        self.errors.push(CompilationError::ScannerError(e.clone()));
+                    }
+                }
+            }
+            {
+                let _ = self.tokens.next();
+            }
+        }
+    }
+
+    /// Advances to the next valid token (skipping and keeping track of errors).
+    /// This consumes an item from the token stream and returns it.
+    fn advance(&mut self) -> Option<TokenWithContext> {
+        // Peek to skip errors and keep track of them.
+        // This makes unwrapping safe.
+        self.peek();
+        self.tokens.next().map(|r| r.unwrap())
+    }
+
+    /// Adds an opcode to the current chunk
+    fn emit(&mut self, opcode: OpCode, line: usize) -> () {
+        self.chunk.add_instruction(opcode, line)
     }
 
     fn dispatch(&mut self, rule_function: RuleFunction) -> Result<(), ()> {
@@ -208,24 +217,34 @@ where
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ()> {
-        let prefix_rule = self.find_rule();
-        match prefix_rule.prefix {
-            None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
-            Some(prefix_function) => {
-                try!{self.dispatch(prefix_function)}
-            }
-        };
-        loop {
-            let infix_rule = self.find_rule();
-            if precedence <= infix_rule.precedence {
-                match infix_rule.infix {
+        match self.peek() {
+            Some(ref token) => {
+                let prefix_rule = Rule::find(&token);
+                match prefix_rule.prefix {
                     None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
                     Some(prefix_function) => {
                         try!{self.dispatch(prefix_function)}
                     }
+                };
+            }
+            None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
+        }
+        loop {
+            match self.peek() {
+                Some(ref token) => {
+                    let infix_rule = Rule::find(&token);
+                    if precedence <= infix_rule.precedence {
+                        match infix_rule.infix {
+                            None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
+                            Some(prefix_function) => {
+                                try!{self.dispatch(prefix_function)}
+                            }
+                        }
+                    } else {
+                        return Ok(());
+                    }
                 }
-            } else {
-                return Ok(());
+                None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
             }
         }
     }
@@ -235,8 +254,8 @@ where
     }
 
     fn consume(&mut self, token: Token) -> Result<(), ()> {
-        self.advance();
-        if let Some(ref token_with_context) = self.current {
+        let current = self.advance();
+        if let Some(ref token_with_context) = current {
             if token_with_context.token == token {
                 Ok(())
             } else {
@@ -248,10 +267,12 @@ where
     }
 
     fn number(&mut self) -> Result<(), ()> {
-        let (value, line) = if let Some(ref t) = self.previous {
+        let current = self.advance();
+        let (value, line) = if let Some(ref t) = current {
             if let Token::NumberLiteral(ref n) = t.token {
                 (*n, t.position.line)
             } else {
+                // TODO: better message. To get here we had to peek a NumberLiteral
                 panic!()
             }
         } else {
@@ -268,47 +289,59 @@ where
     }
 
     fn unary(&mut self) -> Result<(), ()> {
-        let token = if let Some(ref t) = self.previous {
-            t.token.clone()
-        } else {
-            panic!()
-        };
-        self.expression()?;
-        match token {
-            Token::Minus => {
-                self.emit(OpCode::Negate);
-                Ok(())
+        let (opcode, line) = match self.advance() {
+            Some(TokenWithContext {
+                token: Token::Minus,
+                position: position,
+                lexeme: _,
+            }) => (OpCode::Negate, position.line),
+            _ => {
+                // TODO: better error. To get here we had to peek
+                panic!()
             }
-            _ => unimplemented!(),
-        }
+        };
+        let _ = self.expression()?;
+        self.emit(opcode, line);
+        Ok(())
     }
 
     fn binary(&mut self) -> Result<(), ()> {
-        let token = if let Some(ref t) = self.previous {
-            t.token.clone()
-        } else {
-            panic!()
+        let (opcode, line) = match self.advance() {
+            Some(TokenWithContext {
+                token: Token::Plus,
+                position: position,
+                lexeme: _,
+            }) => (OpCode::Binary(BinaryOp::Add), position.line),
+            Some(TokenWithContext {
+                token: Token::Minus,
+                position: position,
+                lexeme: _,
+            }) => (OpCode::Binary(BinaryOp::Subtract), position.line),
+            Some(TokenWithContext {
+                token: Token::Star,
+                position: position,
+                lexeme: _,
+            }) => (OpCode::Binary(BinaryOp::Multiply), position.line),
+            Some(TokenWithContext {
+                token: Token::Slash,
+                position: position,
+                lexeme: _,
+            }) => (OpCode::Binary(BinaryOp::Divide), position.line),
+            _ => {
+                // TODO: better error. To get here we had to peek
+                panic!()
+            }
         };
-        let rule = self.find_rule();
-        self.parse_precedence(rule.precedence.next())?;
-        match token {
-            Token::Plus => {
-                self.emit(OpCode::Binary(BinaryOp::Add));
+        match self.peek() {
+            Some(ref token) => {
+                let rule = Rule::find(&token);
+                self.parse_precedence(rule.precedence.next())?;
+                self.emit(opcode, line);
                 Ok(())
             }
-            Token::Minus => {
-                self.emit(OpCode::Binary(BinaryOp::Subtract));
-                Ok(())
-            }
-            Token::Star => {
-                self.emit(OpCode::Binary(BinaryOp::Multiply));
-                Ok(())
-            }
-            Token::Slash => {
-                self.emit(OpCode::Binary(BinaryOp::Divide));
-                Ok(())
-            }
-            _ => unimplemented!(),
+            // TODO: I think this is not okay.
+            // In any case, we need a good error message
+            None => Err(()),
         }
     }
 }
@@ -320,7 +353,18 @@ pub fn compile(text: &str) -> Result<Chunk, ()> {
         let mut parser = Parser::new(&mut chunk, tokens);
         parser.expression()?;
         // TODO: assert that we consumed everything
-        parser.emit(OpCode::Return);
+        parser.emit(OpCode::Return, 0); // Line is meaningless
     }
     Ok(chunk)
+}
+
+#[cfg(test)]
+mod tests {
+    use vm::compiler::*;
+
+    #[test]
+    pub fn number() {
+        let _ = compile("5").unwrap();
+        // TODO: assert
+    }
 }

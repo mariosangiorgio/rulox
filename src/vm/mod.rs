@@ -3,8 +3,8 @@ pub mod compiler;
 pub mod vm;
 
 use frontend::scanner;
-use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 use std::io::{stdout, LineWriter};
+use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 
 pub struct RuloxVm {}
 
