@@ -92,6 +92,16 @@ impl Rule {
                 prefix: None,
                 infix: Some(RuleFunction::Binary),
             },
+            Token::Slash => Rule {
+                precedence: Precedence::Factor,
+                prefix: None,
+                infix: Some(RuleFunction::Binary),
+            },
+            Token::Star => Rule {
+                precedence: Precedence::Factor,
+                prefix: None,
+                infix: Some(RuleFunction::Binary),
+            },
             Token::Semicolon => Rule {
                 precedence: Precedence::None,
                 prefix: None,
@@ -104,8 +114,6 @@ impl Rule {
             },
             _ => unimplemented!(),
             /*
-  { NULL,     binary,  PREC_FACTOR },     // TOKEN_SLASH
-  { NULL,     binary,  PREC_FACTOR },     // TOKEN_STAR
   { NULL,     NULL,    PREC_NONE },       // TOKEN_BANG
   { NULL,     NULL,    PREC_EQUALITY },   // TOKEN_BANG_EQUAL
   { NULL,     NULL,    PREC_NONE },       // TOKEN_EQUAL
@@ -365,6 +373,24 @@ mod tests {
     #[test]
     pub fn number() {
         let _ = compile("5").unwrap();
+        // TODO: assert
+    }
+
+    #[test]
+    pub fn unary() {
+        let _ = compile("-5").unwrap();
+        // TODO: assert
+    }
+
+    #[test]
+    pub fn binary() {
+        let _ = compile("5+10").unwrap();
+        // TODO: assert
+    }
+
+    #[test]
+    pub fn complex() {
+        let _ = compile("-5+10*3").unwrap();
         // TODO: assert
     }
 }
