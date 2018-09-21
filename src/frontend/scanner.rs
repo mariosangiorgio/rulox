@@ -78,7 +78,7 @@ impl Position {
 
 pub type Lexeme = String;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TokenWithContext {
     pub token: Token,
     // Takes a copy. Tokens can outlive the file they came from
