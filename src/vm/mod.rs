@@ -20,6 +20,7 @@ impl RuloxImplementation for RuloxVm {
         let handle = stdout.lock();
         let mut writer = LineWriter::new(handle);
         let _ = bytecode::disassemble(&chunk, "Test", &mut writer).unwrap();
+        let _ = vm::trace(&chunk, &mut writer).unwrap();
         UiRunResult::Ok
     }
 }
@@ -30,6 +31,7 @@ mod tests {
 
     proptest! {
     #[test]
+    #[ignore]
     fn doesnt_crash(ref input in "\\PC*") {
         let mut ruloxvm = RuloxVm::new();
         ruloxvm.run(input)

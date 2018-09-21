@@ -83,7 +83,7 @@ impl Rule {
                 infix: None,
             },
             Token::Minus => Rule {
-                precedence: Precedence::Call,
+                precedence: Precedence::Term,
                 prefix: Some(RuleFunction::Unary),
                 infix: Some(RuleFunction::Binary),
             },

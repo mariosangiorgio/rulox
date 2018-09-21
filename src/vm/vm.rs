@@ -47,7 +47,7 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
-        if self.program_counter >= self.chunk.instruction_count() {
+        if self.program_counter > self.chunk.instruction_count() {
             return Err(RuntimeError::InstructionOutOfBound);
         }
         match self.chunk.get(self.program_counter - 1) {
@@ -87,6 +87,8 @@ impl<'a> Vm<'a> {
     where
         T: Write,
     {
+        try!(write!(out, "Program Counter: {}", self.program_counter));
+        try!(writeln!(out));
         try!(write!(out, "Stack: "));
         for value in self.stack.iter() {
             try!(write!(out, "[ {} ]", value));
