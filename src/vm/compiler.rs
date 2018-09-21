@@ -62,6 +62,11 @@ impl Rule {
                 prefix: Some(RuleFunction::Grouping),
                 infix: None,
             },
+            Token::RightParen => Rule {
+                precedence: Precedence::None,
+                prefix: None,
+                infix: None,
+            },
             Token::LeftBrace => Rule {
                 precedence: Precedence::None,
                 prefix: Some(RuleFunction::Grouping),
@@ -292,6 +297,7 @@ where
     }
 
     fn grouping(&mut self) -> Result<(), ()> {
+        let _ = self.consume(Token::LeftParen)?;
         self.expression()?;
         self.consume(Token::RightParen)
     }
