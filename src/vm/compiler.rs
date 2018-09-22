@@ -193,7 +193,7 @@ where
                 Some(Err(ref e)) => {
                     self.errors.push(CompilationError::ScannerError(e.clone()));
                 }
-                _ => return ()
+                _ => return (),
             }
             let _ = self.tokens.next();
         }
@@ -213,6 +213,14 @@ where
         self.chunk.add_instruction(opcode, line)
     }
 
+    fn peek(&mut self) -> Option<&TokenWithContext> {
+        self.skip_to_valid();
+        self.tokens.peek().map(|result| match result {
+            Ok(ref token_with_context) => token_with_context,
+            Err(_) => unreachable!("We already skipped errors"),
+        })
+    }
+
     fn dispatch(&mut self, rule_function: RuleFunction) -> Result<(), ()> {
         match rule_function {
             RuleFunction::Grouping => self.grouping(),
@@ -223,37 +231,26 @@ where
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ()> {
-        self.skip_to_valid();
-        let rule = match self.tokens.peek() {
-            Some(Ok(ref token_with_context)) => {
-                let prefix_rule = Rule::find(&token_with_context.token);
-                match prefix_rule.prefix {
-                    Some(prefix_function) => prefix_function,
-                    None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
-                }
-            }
-            Some(Err(_)) => unreachable!("We already skipped errors"),
-            None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
+        let prefix_function = {
+            let peeked = self.peek().ok_or_else(|| ())?; //TODO: fill with details. Is this even okay?
+            Rule::find(&peeked.token).prefix.ok_or_else(|| ())? //TODO: fill with details
         };
-        self.dispatch(rule)?;
+        self.dispatch(prefix_function)?;
         loop {
-            self.skip_to_valid();
-            let rule = match self.tokens.peek() {
-                Some(Ok(ref token_with_context)) => {
-                    let infix_rule = Rule::find(&token_with_context.token);
-                    if precedence <= infix_rule.precedence {
-                        match infix_rule.infix {
-                            None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
-                            Some(prefix_function) => prefix_function,
+            let infix_function = {
+                match self.peek() {
+                    Some(peeked) => {
+                        let infix_rule = Rule::find(&peeked.token);
+                        if precedence <= infix_rule.precedence {
+                            infix_rule.infix.ok_or_else(|| ())? // TODO: make it meaningful. Was: error("Expect expression.");
+                        } else {
+                            return Ok(());
                         }
-                    } else {
-                        return Ok(());
                     }
+                    None => return Ok(()),
                 }
-                Some(Err(_)) => unreachable!("We already skipped errors"),
-                None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
             };
-            self.dispatch(rule)?;
+            self.dispatch(infix_function)?;
         }
     }
 
@@ -337,16 +334,9 @@ where
                 unreachable!("This code is executed only when we know we have a binary expression")
             }
         };
-        self.skip_to_valid();
-        let precedence = match self.tokens.peek() {
-            Some(Ok(ref token)) => {
-                let rule = Rule::find(&token.token);
-                rule.precedence.next()
-            }
-            Some(Err(_)) => unreachable!("We already skipped past errors"),
-            // TODO: I think this is not okay.
-            // In any case, we need a good error message
-            None => return Err(()),
+        let precedence = {
+            let peeked = self.peek().ok_or_else(|| ())?; //TODO: fill in details
+            Rule::find(&peeked.token).precedence.next()
         };
         self.parse_precedence(precedence)?;
         self.emit(opcode, line);
