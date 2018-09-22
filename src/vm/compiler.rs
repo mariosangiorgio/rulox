@@ -371,32 +371,3 @@ pub fn compile(text: &str) -> Result<Chunk, ()> {
     }
     Ok(chunk)
 }
-
-#[cfg(test)]
-mod tests {
-    use vm::compiler::*;
-
-    #[test]
-    pub fn number() {
-        let _ = compile("5").unwrap();
-        // TODO: assert
-    }
-
-    #[test]
-    pub fn unary() {
-        let _ = compile("-5").unwrap();
-        // TODO: assert
-    }
-
-    #[test]
-    pub fn binary() {
-        let _ = compile("5+10").unwrap();
-        // TODO: assert
-    }
-
-    #[test]
-    pub fn complex() {
-        let _ = compile("-5+10*3").unwrap();
-        // TODO: assert
-    }
-}
