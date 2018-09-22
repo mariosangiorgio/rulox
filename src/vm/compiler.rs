@@ -1,10 +1,10 @@
-use frontend::scanner::{scan_into_iterator, ScannerError, Token, TokenWithContext, Position};
+use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
 use std::iter::Peekable;
 use vm::bytecode::{BinaryOp, Chunk, OpCode};
 
 enum ParsingError {
     UnexpectedEndOfFile,
-    Unexpected(String, Position)
+    Unexpected(String, Position),
 }
 
 enum CompilationError {
@@ -251,9 +251,9 @@ where
                     Some(peeked) => {
                         let infix_rule = Rule::find(&peeked.token);
                         if precedence <= infix_rule.precedence {
-                            infix_rule
-                                .infix
-                                .ok_or_else(|| ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position))?
+                            infix_rule.infix.ok_or_else(|| {
+                                ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position)
+                            })?
                         } else {
                             return Ok(());
                         }
@@ -274,7 +274,10 @@ where
         if current.token == token {
             Ok(())
         } else {
-            Err(ParsingError::Unexpected(current.lexeme.clone(), current.position))
+            Err(ParsingError::Unexpected(
+                current.lexeme.clone(),
+                current.position,
+            ))
         }
     }
 
