@@ -114,6 +114,18 @@ where
         })
     }
 
+    /// Represents the table for the Pratt Parser.
+    /// Given the next token it will return a triple containing
+    /// (Precedence, Prefix function, Infix function).
+    /// The two functions are optional as they might not be specified.
+    ///
+    /// Note that this function doesn't care about the values possibly
+    /// associated with a token. It operates only according to their
+    /// variant.
+    ///
+    /// This is generally used on the token peeked from the front of
+    /// the iterator. This lookahead allows us to decide what to do next
+    /// according to the "table" below.
     fn find_rule(
         token: &Token,
     ) -> (
@@ -124,7 +136,6 @@ where
     where
         I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
     {
-        // (Precedence, Prefix, Infix)
         match token {
             Token::LeftParen => (Precedence::Call, Some(Parser::grouping), None),
             Token::RightParen => (Precedence::None, None, None),
