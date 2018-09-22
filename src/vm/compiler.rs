@@ -173,36 +173,29 @@ where
         }
     }
 
-    /// Peeks for the next valid token.
-    /// If necessary it will skip errors (and keep track of them)
-    fn peek(&mut self) -> Option<Token> {
+    fn skip_to_valid(&mut self) -> () {
         loop {
-            {
-                match self.tokens.peek() {
-                    Some(Ok(TokenWithContext {
-                        token: Token::Whitespace,
-                        lexeme: _,
-                        position: _,
-                    })) => {
-                        // No op, just skip it
-                    }
-                    Some(Ok(TokenWithContext {
-                        token: Token::Comment,
-                        lexeme: _,
-                        position: _,
-                    })) => {
-                        // No op, just skip it
-                    }
-                    Some(Ok(ref t)) => return Some(t.token.clone()),
-                    None => return None,
-                    Some(Err(ref e)) => {
-                        self.errors.push(CompilationError::ScannerError(e.clone()));
-                    }
+            match self.tokens.peek() {
+                Some(Ok(TokenWithContext {
+                    token: Token::Whitespace,
+                    lexeme: _,
+                    position: _,
+                })) => {
+                    // No op, just skip it
                 }
+                Some(Ok(TokenWithContext {
+                    token: Token::Comment,
+                    lexeme: _,
+                    position: _,
+                })) => {
+                    // No op, just skip it
+                }
+                Some(Err(ref e)) => {
+                    self.errors.push(CompilationError::ScannerError(e.clone()));
+                }
+                _ => return ()
             }
-            {
-                let _ = self.tokens.next();
-            }
+            let _ = self.tokens.next();
         }
     }
 
@@ -211,7 +204,7 @@ where
     fn advance(&mut self) -> Option<TokenWithContext> {
         // Peek to skip errors and keep track of them.
         // This makes unwrapping safe.
-        self.peek();
+        self.skip_to_valid();
         self.tokens.next().map(|r| r.unwrap())
     }
 
@@ -230,35 +223,37 @@ where
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ()> {
-        match self.peek() {
-            Some(ref token) => {
-                let prefix_rule = Rule::find(&token);
+        self.skip_to_valid();
+        let rule = match self.tokens.peek() {
+            Some(Ok(ref token_with_context)) => {
+                let prefix_rule = Rule::find(&token_with_context.token);
                 match prefix_rule.prefix {
+                    Some(prefix_function) => prefix_function,
                     None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
-                    Some(prefix_function) => {
-                        try!{self.dispatch(prefix_function)}
-                    }
-                };
+                }
             }
+            Some(Err(_)) => unreachable!("We already skipped errors"),
             None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
-        }
+        };
+        self.dispatch(rule)?;
         loop {
-            match self.peek() {
-                Some(ref token) => {
-                    let infix_rule = Rule::find(&token);
+            self.skip_to_valid();
+            let rule = match self.tokens.peek() {
+                Some(Ok(ref token_with_context)) => {
+                    let infix_rule = Rule::find(&token_with_context.token);
                     if precedence <= infix_rule.precedence {
                         match infix_rule.infix {
                             None => return Err(()), // TODO: make it meaningful. Was: error("Expect expression.");
-                            Some(prefix_function) => {
-                                try!{self.dispatch(prefix_function)}
-                            }
+                            Some(prefix_function) => prefix_function,
                         }
                     } else {
                         return Ok(());
                     }
                 }
+                Some(Err(_)) => unreachable!("We already skipped errors"),
                 None => return Ok(()), // TODO: check if this is okay. Do we always expect something?
-            }
+            };
+            self.dispatch(rule)?;
         }
     }
 
@@ -342,17 +337,20 @@ where
                 unreachable!("This code is executed only when we know we have a binary expression")
             }
         };
-        match self.peek() {
-            Some(ref token) => {
-                let rule = Rule::find(&token);
-                self.parse_precedence(rule.precedence.next())?;
-                self.emit(opcode, line);
-                Ok(())
+        self.skip_to_valid();
+        let precedence = match self.tokens.peek() {
+            Some(Ok(ref token)) => {
+                let rule = Rule::find(&token.token);
+                rule.precedence.next()
             }
+            Some(Err(_)) => unreachable!("We already skipped past errors"),
             // TODO: I think this is not okay.
             // In any case, we need a good error message
-            None => Err(()),
-        }
+            None => return Err(()),
+        };
+        self.parse_precedence(precedence)?;
+        self.emit(opcode, line);
+        Ok(())
     }
 }
 

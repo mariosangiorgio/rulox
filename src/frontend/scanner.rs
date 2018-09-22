@@ -1,7 +1,7 @@
 use itertools::{multipeek, MultiPeek};
 use std::str;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     LeftParen,
     RightParen,
