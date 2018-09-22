@@ -39,6 +39,7 @@ impl Precedence {
     }
 }
 
+//TODO: replace with "function pointers", if possible
 enum RuleFunction {
     Grouping,
     Unary,
