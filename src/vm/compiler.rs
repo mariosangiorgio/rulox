@@ -45,120 +45,6 @@ impl Precedence {
     }
 }
 
-//TODO: replace with "function pointers", if possible
-enum RuleFunction {
-    Grouping,
-    Unary,
-    Binary,
-    Number,
-}
-
-struct Rule {
-    precedence: Precedence,
-    prefix: Option<RuleFunction>,
-    infix: Option<RuleFunction>,
-}
-
-impl Rule {
-    /// Finds the rule associated with a Token type.
-    /// This is derived straight from the Pratt Parser table.
-    fn find(token: &Token) -> Rule {
-        match token {
-            Token::LeftParen => Rule {
-                precedence: Precedence::Call,
-                prefix: Some(RuleFunction::Grouping),
-                infix: None,
-            },
-            Token::RightParen => Rule {
-                precedence: Precedence::None,
-                prefix: None,
-                infix: None,
-            },
-            Token::LeftBrace => Rule {
-                precedence: Precedence::None,
-                prefix: Some(RuleFunction::Grouping),
-                infix: None,
-            },
-            Token::RightBrace => Rule {
-                precedence: Precedence::None,
-                prefix: None,
-                infix: None,
-            },
-            Token::Comma => Rule {
-                precedence: Precedence::None,
-                prefix: None,
-                infix: None,
-            },
-            Token::Dot => Rule {
-                precedence: Precedence::Call,
-                prefix: None,
-                infix: None,
-            },
-            Token::Minus => Rule {
-                precedence: Precedence::Term,
-                prefix: Some(RuleFunction::Unary),
-                infix: Some(RuleFunction::Binary),
-            },
-            Token::Plus => Rule {
-                precedence: Precedence::Term,
-                prefix: None,
-                infix: Some(RuleFunction::Binary),
-            },
-            Token::Slash => Rule {
-                precedence: Precedence::Factor,
-                prefix: None,
-                infix: Some(RuleFunction::Binary),
-            },
-            Token::Star => Rule {
-                precedence: Precedence::Factor,
-                prefix: None,
-                infix: Some(RuleFunction::Binary),
-            },
-            Token::Semicolon => Rule {
-                precedence: Precedence::None,
-                prefix: None,
-                infix: None,
-            },
-            Token::NumberLiteral(_) => Rule {
-                precedence: Precedence::None,
-                prefix: Some(RuleFunction::Number),
-                infix: None,
-            },
-            _ => unimplemented!(),
-            /*
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_BANG
-  { NULL,     NULL,    PREC_EQUALITY },   // TOKEN_BANG_EQUAL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_EQUAL
-  { NULL,     NULL,    PREC_EQUALITY },   // TOKEN_EQUAL_EQUAL
-  { NULL,     NULL,    PREC_COMPARISON }, // TOKEN_GREATER
-  { NULL,     NULL,    PREC_COMPARISON }, // TOKEN_GREATER_EQUAL
-  { NULL,     NULL,    PREC_COMPARISON }, // TOKEN_LESS
-  { NULL,     NULL,    PREC_COMPARISON }, // TOKEN_LESS_EQUAL
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_IDENTIFIER
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_STRING
-  { NULL,     NULL,    PREC_AND },        // TOKEN_AND
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_CLASS
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_ELSE
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_FALSE
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_FUN
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_FOR
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_IF
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_NIL
-  { NULL,     NULL,    PREC_OR },         // TOKEN_OR
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_PRINT
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_RETURN
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_SUPER
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_THIS
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_TRUE
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_VAR
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_WHILE
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_ERROR
-  { NULL,     NULL,    PREC_NONE },       // TOKEN_EOF
-*/
-        }
-    }
-}
-
 struct Parser<'a, I>
 where
     I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
@@ -228,30 +114,52 @@ where
         })
     }
 
-    fn dispatch(&mut self, rule_function: RuleFunction) -> Result<(), ParsingError> {
-        match rule_function {
-            RuleFunction::Grouping => self.grouping(),
-            RuleFunction::Unary => self.unary(),
-            RuleFunction::Binary => self.binary(),
-            RuleFunction::Number => self.number(),
+    fn find_rule(
+        token: &Token,
+    ) -> (
+        Precedence,
+        Option<fn(&mut Self) -> Result<(), ParsingError>>,
+        Option<fn(&mut Self) -> Result<(), ParsingError>>,
+    )
+    where
+        I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
+    {
+        // (Precedence, Prefix, Infix)
+        match token {
+            Token::LeftParen => (Precedence::Call, Some(Parser::grouping), None),
+            Token::RightParen => (Precedence::None, None, None),
+            Token::Comma => (Precedence::None, None, None),
+            Token::Dot => (Precedence::Call, None, None),
+            Token::Minus => (
+                Precedence::Term,
+                Some(Parser::unary),
+                Some(Parser::binary),
+            ),
+            Token::Plus => (Precedence::Term, None, Some(Parser::binary)),
+            Token::Slash => (Precedence::Factor, None, Some(Parser::binary)),
+            Token::Star => (Precedence::Factor, None, Some(Parser::binary)),
+            Token::Semicolon => (Precedence::None, None, None),
+            Token::NumberLiteral(_) => (Precedence::None, Some(Parser::number), None),
+            _ => unimplemented!(),
         }
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParsingError> {
         let prefix_function = {
             let peeked = self.peek().ok_or(ParsingError::UnexpectedEndOfFile)?;
-            Rule::find(&peeked.token)
-                .prefix
+            let (_, prefix_function, _) = Self::find_rule(&peeked.token);
+            prefix_function
                 .ok_or_else(|| ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position))?
         };
-        self.dispatch(prefix_function)?;
+        prefix_function(self)?;
         loop {
             let infix_function = {
                 match self.peek() {
                     Some(peeked) => {
-                        let infix_rule = Rule::find(&peeked.token);
-                        if precedence <= infix_rule.precedence {
-                            infix_rule.infix.ok_or_else(|| {
+                        let (infix_rule_precedence, _, infix_function) =
+                            Self::find_rule(&peeked.token);
+                        if precedence <= infix_rule_precedence {
+                            infix_function.ok_or_else(|| {
                                 ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position)
                             })?
                         } else {
@@ -261,7 +169,7 @@ where
                     None => return Ok(()),
                 }
             };
-            self.dispatch(infix_function)?;
+            infix_function(self)?;
         }
     }
 
@@ -347,7 +255,8 @@ where
             let peeked = self
                 .peek()
                 .ok_or_else(|| ParsingError::UnexpectedEndOfFile)?;
-            Rule::find(&peeked.token).precedence.next()
+            let (precedence, _, _) = Self::find_rule(&peeked.token);
+            precedence.next()
         };
         self.parse_precedence(precedence)?;
         self.emit(opcode, line);
