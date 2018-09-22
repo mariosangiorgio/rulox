@@ -309,12 +309,9 @@ where
                 position,
                 lexeme: _,
             }) => (OpCode::Negate, position.line),
-            _ => {
-                // TODO: better error. To get here we had to peek
-                panic!()
-            }
+            _ => unreachable!("This code is executed only when we know we have a unary expression"),
         };
-        let _ = self.expression()?;
+        let _ = self.parse_precedence(Precedence::Unary)?;
         self.emit(opcode, line);
         Ok(())
     }
@@ -342,8 +339,7 @@ where
                 lexeme: _,
             }) => (OpCode::Binary(BinaryOp::Divide), position.line),
             _ => {
-                // TODO: better error. To get here we had to peek
-                panic!()
+                unreachable!("This code is executed only when we know we have a binary expression")
             }
         };
         match self.peek() {
