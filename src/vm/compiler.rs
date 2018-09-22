@@ -2,8 +2,14 @@ use frontend::scanner::{scan_into_iterator, ScannerError, Token, TokenWithContex
 use std::iter::Peekable;
 use vm::bytecode::{BinaryOp, Chunk, OpCode};
 
+enum ParsingError {
+    UnexpectedEndOfFile,
+    ExpectedAtLine(usize),
+}
+
 enum CompilationError {
     ScannerError(ScannerError),
+    ParsingError(ParsingError),
 }
 
 #[derive(PartialEq, PartialOrd)]
@@ -222,7 +228,7 @@ where
         })
     }
 
-    fn dispatch(&mut self, rule_function: RuleFunction) -> Result<(), ()> {
+    fn dispatch(&mut self, rule_function: RuleFunction) -> Result<(), ParsingError> {
         match rule_function {
             RuleFunction::Grouping => self.grouping(),
             RuleFunction::Unary => self.unary(),
@@ -231,10 +237,12 @@ where
         }
     }
 
-    fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ()> {
+    fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParsingError> {
         let prefix_function = {
-            let peeked = self.peek().ok_or_else(|| ())?; //TODO: fill with details. Is this even okay?
-            Rule::find(&peeked.token).prefix.ok_or_else(|| ())? //TODO: fill with details
+            let peeked = self.peek().ok_or(ParsingError::UnexpectedEndOfFile)?;
+            Rule::find(&peeked.token)
+                .prefix
+                .ok_or_else(|| ParsingError::ExpectedAtLine(peeked.position.line))?
         };
         self.dispatch(prefix_function)?;
         loop {
@@ -243,7 +251,9 @@ where
                     Some(peeked) => {
                         let infix_rule = Rule::find(&peeked.token);
                         if precedence <= infix_rule.precedence {
-                            infix_rule.infix.ok_or_else(|| ())? // TODO: make it meaningful. Was: error("Expect expression.");
+                            infix_rule
+                                .infix
+                                .ok_or_else(|| ParsingError::ExpectedAtLine(peeked.position.line))?
                         } else {
                             return Ok(());
                         }
@@ -255,31 +265,26 @@ where
         }
     }
 
-    fn expression(&mut self) -> Result<(), ()> {
+    fn expression(&mut self) -> Result<(), ParsingError> {
         self.parse_precedence(Precedence::Assignment)
     }
 
-    fn consume(&mut self, token: Token) -> Result<(), ()> {
-        let current = self.advance();
-        if let Some(ref token_with_context) = current {
-            if token_with_context.token == token {
-                Ok(())
-            } else {
-                Err(())
-            }
+    fn consume(&mut self, token: Token) -> Result<(), ParsingError> {
+        let current = self.advance().ok_or(ParsingError::UnexpectedEndOfFile)?;
+        if current.token == token {
+            Ok(())
         } else {
-            Err(()) //TODO: make it meaningful. Was "Expect ')' after expression.");
+            Err(ParsingError::ExpectedAtLine(current.position.line))
         }
     }
 
-    fn number(&mut self) -> Result<(), ()> {
+    fn number(&mut self) -> Result<(), ParsingError> {
         let current = self.advance();
         let (value, line) = if let Some(ref t) = current {
             if let Token::NumberLiteral(ref n) = t.token {
                 (*n, t.position.line)
             } else {
-                // TODO: better message. To get here we had to peek a NumberLiteral
-                panic!()
+                unreachable!()
             }
         } else {
             panic!()
@@ -289,13 +294,13 @@ where
         Ok(())
     }
 
-    fn grouping(&mut self) -> Result<(), ()> {
+    fn grouping(&mut self) -> Result<(), ParsingError> {
         let _ = self.consume(Token::LeftParen)?;
         self.expression()?;
         self.consume(Token::RightParen)
     }
 
-    fn unary(&mut self) -> Result<(), ()> {
+    fn unary(&mut self) -> Result<(), ParsingError> {
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
                 token: Token::Minus,
@@ -309,7 +314,7 @@ where
         Ok(())
     }
 
-    fn binary(&mut self) -> Result<(), ()> {
+    fn binary(&mut self) -> Result<(), ParsingError> {
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
                 token: Token::Plus,
@@ -336,12 +341,26 @@ where
             }
         };
         let precedence = {
-            let peeked = self.peek().ok_or_else(|| ())?; //TODO: fill in details
+            let peeked = self
+                .peek()
+                .ok_or_else(|| ParsingError::UnexpectedEndOfFile)?;
             Rule::find(&peeked.token).precedence.next()
         };
         self.parse_precedence(precedence)?;
         self.emit(opcode, line);
         Ok(())
+    }
+
+    fn parse(&mut self) -> Result<(), ()> {
+        loop {
+            match self.expression() {
+                Ok(()) => return Ok(()),
+                Err(error) => {
+                    self.errors.push(CompilationError::ParsingError(error))
+                    //TODO: add recovery mode
+                }
+            }
+        }
     }
 }
 
@@ -350,7 +369,7 @@ pub fn compile(text: &str) -> Result<Chunk, ()> {
     let tokens = scan_into_iterator(text);
     {
         let mut parser = Parser::new(&mut chunk, tokens);
-        parser.expression()?;
+        parser.parse()?;
         // TODO: assert that we consumed everything
         parser.emit(OpCode::Return, 0); // Line is meaningless
     }
