@@ -1,6 +1,7 @@
 use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
 use std::iter::Peekable;
 use vm::bytecode::{BinaryOp, Chunk, OpCode};
+use num_traits::{FromPrimitive,ToPrimitive};
 
 enum ParsingError {
     UnexpectedEndOfFile,
@@ -12,7 +13,7 @@ enum CompilationError {
     ParsingError(ParsingError),
 }
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd, FromPrimitive, ToPrimitive)]
 enum Precedence {
     None,
     Assignment,
@@ -29,19 +30,8 @@ enum Precedence {
 
 impl Precedence {
     fn next(&self) -> Precedence {
-        match *self {
-            Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::Or,
-            Precedence::Or => Precedence::And,
-            Precedence::And => Precedence::Equality,
-            Precedence::Equality => Precedence::Comparison,
-            Precedence::Comparison => Precedence::Term,
-            Precedence::Term => Precedence::Factor,
-            Precedence::Factor => Precedence::Unary,
-            Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Primary,
-            Precedence::Primary => panic!("What is it supposed to happen"),
-        }
+        // This reduces some boilerplate
+        Precedence::from_u8(self.to_u8().unwrap()+1).unwrap()
     }
 }
 
