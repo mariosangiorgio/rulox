@@ -1,14 +1,20 @@
 use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
+use num_traits::{FromPrimitive, ToPrimitive};
 use std::iter::Peekable;
 use vm::bytecode::{BinaryOp, Chunk, OpCode};
-use num_traits::{FromPrimitive,ToPrimitive};
 
-enum ParsingError {
+#[derive(Debug)]
+pub enum ParsingError {
+    /// The end of file has been reached but the parser expected
+    /// to find some other token
     UnexpectedEndOfFile,
+    /// The parser was expecting a specific token (TODO: we should
+    /// report which) but it instead found the reported lexeme
     Unexpected(String, Position),
 }
 
-enum CompilationError {
+#[derive(Debug)]
+pub enum CompilationError {
     ScannerError(ScannerError),
     ParsingError(ParsingError),
 }
@@ -29,12 +35,18 @@ enum Precedence {
 }
 
 impl Precedence {
+    /// Returns the next (as in the immediately higher) Precedence.
+    /// Note that this is not defined for the item with the highest
+    /// precedence. In such case you'll get a panic
     fn next(&self) -> Precedence {
-        // This reduces some boilerplate
-        Precedence::from_u8(self.to_u8().unwrap()+1).unwrap()
+        // This reduces some boilerplate.
+        Precedence::from_u8(self.to_u8().unwrap() + 1).unwrap()
     }
 }
 
+/// A single-pass Pratt Parser that consumes tokens from an iterator,
+/// parses them into a Lox programs and emits a chunk of bytecode.
+/// The parser also keeps tracks of errors.
 struct Parser<'a, I>
 where
     I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
@@ -56,6 +68,11 @@ where
         }
     }
 
+    /// Ignores irrelevant (comments and whitespaces) and invalid
+    /// tokens.
+    /// When invalid tokens are encountered a corresponding error
+    /// is generated so that they can be reported and compilation
+    /// fails.
     fn skip_to_valid(&mut self) -> () {
         loop {
             match self.tokens.peek() {
@@ -96,12 +113,28 @@ where
         self.chunk.add_instruction(opcode, line)
     }
 
+    /// Peeks the first *valid* token in the iterator
     fn peek(&mut self) -> Option<&TokenWithContext> {
         self.skip_to_valid();
         self.tokens.peek().map(|result| match result {
             Ok(ref token_with_context) => token_with_context,
             Err(_) => unreachable!("We already skipped errors"),
         })
+    }
+
+    /// Ensures that a specific token is the next in the input iterator.
+    /// If that's the case, it will just consumes it.
+    /// If not, it will return a parsing error.
+    fn consume(&mut self, token: Token) -> Result<(), ParsingError> {
+        let current = self.advance().ok_or(ParsingError::UnexpectedEndOfFile)?;
+        if current.token == token {
+            Ok(())
+        } else {
+            Err(ParsingError::Unexpected(
+                current.lexeme.clone(),
+                current.position,
+            ))
+        }
     }
 
     /// Represents the table for the Pratt Parser.
@@ -131,11 +164,7 @@ where
             Token::RightParen => (Precedence::None, None, None),
             Token::Comma => (Precedence::None, None, None),
             Token::Dot => (Precedence::Call, None, None),
-            Token::Minus => (
-                Precedence::Term,
-                Some(Parser::unary),
-                Some(Parser::binary),
-            ),
+            Token::Minus => (Precedence::Term, Some(Parser::unary), Some(Parser::binary)),
             Token::Plus => (Precedence::Term, None, Some(Parser::binary)),
             Token::Slash => (Precedence::Factor, None, Some(Parser::binary)),
             Token::Star => (Precedence::Factor, None, Some(Parser::binary)),
@@ -145,6 +174,9 @@ where
         }
     }
 
+    /// The core of a Pratt Parser.
+    /// It peeks tokens to figure out what rule to apply and dispatches the corresponding
+    /// functions.
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParsingError> {
         let prefix_function = {
             let peeked = self.peek().ok_or(ParsingError::UnexpectedEndOfFile)?;
@@ -174,20 +206,23 @@ where
         }
     }
 
-    fn expression(&mut self) -> Result<(), ParsingError> {
-        self.parse_precedence(Precedence::Assignment)
+    /// Top level function of the parser.
+    /// Parses all the statements in the input and, when necessary,
+    /// applies the recovery logic for cleaner error messages.
+    fn parse(&mut self) -> Result<(), ()> {
+        loop {
+            match self.expression() {
+                Ok(()) => return Ok(()),
+                Err(error) => {
+                    self.errors.push(CompilationError::ParsingError(error))
+                    //TODO: add recovery mode
+                }
+            }
+        }
     }
 
-    fn consume(&mut self, token: Token) -> Result<(), ParsingError> {
-        let current = self.advance().ok_or(ParsingError::UnexpectedEndOfFile)?;
-        if current.token == token {
-            Ok(())
-        } else {
-            Err(ParsingError::Unexpected(
-                current.lexeme.clone(),
-                current.position,
-            ))
-        }
+    fn expression(&mut self) -> Result<(), ParsingError> {
+        self.parse_precedence(Precedence::Assignment)
     }
 
     fn number(&mut self) -> Result<(), ParsingError> {
@@ -263,28 +298,27 @@ where
         self.emit(opcode, line);
         Ok(())
     }
-
-    fn parse(&mut self) -> Result<(), ()> {
-        loop {
-            match self.expression() {
-                Ok(()) => return Ok(()),
-                Err(error) => {
-                    self.errors.push(CompilationError::ParsingError(error))
-                    //TODO: add recovery mode
-                }
-            }
-        }
-    }
 }
 
-pub fn compile(text: &str) -> Result<Chunk, ()> {
+/// Compiles a text producing either the corresponding chunk of bytecode
+/// or an error.
+/// Error reporting tries to be smart and to minimize reports adopting a
+/// "recovery logic".
+pub fn compile(text: &str) -> Result<Chunk, Vec<CompilationError>> {
     let mut chunk = Chunk::new();
     let tokens = scan_into_iterator(text);
     {
         let mut parser = Parser::new(&mut chunk, tokens);
-        parser.parse()?;
+        // Chunk is known, errors will be captured later
+        // TODO: check if this is the best design
+        let _ = parser.parse();
         // TODO: assert that we consumed everything
-        parser.emit(OpCode::Return, 0); // Line is meaningless
+        // Line is meaningless, but this is temporary to see some results
+        // while the implementation is in progress.
+        parser.emit(OpCode::Return, 0);
+        if parser.errors.len() > 0 {
+            return Err(parser.errors);
+        }
     }
     Ok(chunk)
 }
