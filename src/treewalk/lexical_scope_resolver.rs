@@ -212,16 +212,18 @@ impl LexicalScopesResolver for Expr {
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
             }
-            Expr::Super(ref handle, ref super_identifier, _member_identifier) => match resolver
-                .current_class
-            {
-                ClassType::None => Err(LexicalScopesResolutionError::UseOfSuperOutsideAClass),
-                ClassType::Class => Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass),
-                _ => {
-                    resolver.resolve_local(handle.clone(), super_identifier);
-                    Ok(())
+            Expr::Super(ref handle, ref super_identifier, _member_identifier) => {
+                match resolver.current_class {
+                    ClassType::None => Err(LexicalScopesResolutionError::UseOfSuperOutsideAClass),
+                    ClassType::Class => {
+                        Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass)
+                    }
+                    _ => {
+                        resolver.resolve_local(handle.clone(), super_identifier);
+                        Ok(())
+                    }
                 }
-            },
+            }
             Expr::Identifier(ref handle, ref identifier) => {
                 let scopes = resolver.scopes.len();
                 if scopes != 0
