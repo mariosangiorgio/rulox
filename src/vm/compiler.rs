@@ -179,27 +179,33 @@ where
     /// functions.
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParsingError> {
         let prefix_function = {
-            let peeked = self.peek().ok_or(ParsingError::UnexpectedEndOfFile)?;
-            let (_, prefix_function, _) = Self::find_rule(&peeked.token);
-            prefix_function
-                .ok_or_else(|| ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position))?
+            let (_, prefix_function, _) = {
+                let peeked = self.peek().ok_or(ParsingError::UnexpectedEndOfFile)?;
+                Self::find_rule(&peeked.token)
+            };
+            prefix_function.ok_or_else(|| {
+                // This is a bad token. We need to consume it so we can carry on.
+                let token = self.advance().unwrap();
+                ParsingError::Unexpected(token.lexeme.clone(), token.position)
+            })?
         };
         prefix_function(self)?;
         loop {
             let infix_function = {
-                match self.peek() {
-                    Some(peeked) => {
-                        let (infix_rule_precedence, _, infix_function) =
-                            Self::find_rule(&peeked.token);
-                        if precedence <= infix_rule_precedence {
-                            infix_function.ok_or_else(|| {
-                                ParsingError::Unexpected(peeked.lexeme.clone(), peeked.position)
-                            })?
-                        } else {
-                            return Ok(());
-                        }
+                let (infix_rule_precedence, _, infix_function) = {
+                    match self.peek() {
+                        Some(peeked) => Self::find_rule(&peeked.token),
+                        None => return Ok(()),
                     }
-                    None => return Ok(()),
+                };
+                if precedence <= infix_rule_precedence {
+                    infix_function.ok_or_else(|| {
+                        // This is a bad token. We need to consume it so we can carry on.
+                        let token = self.advance().unwrap();
+                        ParsingError::Unexpected(token.lexeme.clone(), token.position)
+                    })?
+                } else {
+                    return Ok(());
                 }
             };
             infix_function(self)?;
@@ -210,14 +216,15 @@ where
     /// Parses all the statements in the input and, when necessary,
     /// applies the recovery logic for cleaner error messages.
     fn parse(&mut self) -> Result<(), ()> {
-        loop {
-            match self.expression() {
-                Ok(()) => return Ok(()),
-                Err(error) => {
-                    self.errors.push(CompilationError::ParsingError(error))
-                    //TODO: add recovery mode
-                }
+        while let Some(_) = self.peek() {
+            if let Err(error) = self.expression() {
+                self.errors.push(CompilationError::ParsingError(error));
             }
+        }
+        if self.errors.len() > 0 {
+            Err(())
+        } else {
+            Ok(())
         }
     }
 
