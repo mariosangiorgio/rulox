@@ -1,7 +1,7 @@
 use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::iter::Peekable;
-use vm::bytecode::{BinaryOp, Chunk, OpCode};
+use vm::bytecode::{BinaryOp, Chunk, OpCode, Value};
 
 #[derive(Debug)]
 pub enum ParsingError {
@@ -243,7 +243,7 @@ where
         } else {
             panic!()
         };
-        let constant = self.chunk.add_constant(value);
+        let constant = self.chunk.add_constant(Value::Number(value));
         self.chunk.add_instruction(OpCode::Constant(constant), line);
         Ok(())
     }

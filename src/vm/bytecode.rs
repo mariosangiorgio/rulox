@@ -1,7 +1,10 @@
 use std::io::{Error, LineWriter, Write};
 
 type Offset = usize;
-pub type Value = f64;
+#[derive(Debug, Clone, Copy)]
+pub enum Value {
+    Number(f64),
+}
 type Line = usize;
 
 #[derive(Debug, Clone, Copy)]
@@ -102,7 +105,7 @@ where
         } else {
             writeln!(
                 out,
-                "OP_CONSTANT {:4} '{:}'",
+                "OP_CONSTANT {:4} '{:?}'",
                 offset,
                 chunk.get_value(offset)
             )

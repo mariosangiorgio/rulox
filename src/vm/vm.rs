@@ -12,6 +12,7 @@ pub enum RuntimeError {
     // at every instruction
     InstructionOutOfBound,
     ValueOutOfBound,
+    TypeError,
 }
 
 struct Vm<'a> {
@@ -65,7 +66,10 @@ impl<'a> Vm<'a> {
             }
             OpCode::Negate => {
                 let op = try!(self.pop());
-                self.stack.push(-op);
+                match op {
+                    Value::Number(n) => self.stack.push(Value::Number(-n)),
+                    _ => return Err(RuntimeError::TypeError),
+                };
             }
             OpCode::Binary(ref operator) => {
                 // Note the order!
@@ -73,12 +77,16 @@ impl<'a> Vm<'a> {
                 // Op1 is the second topmost element
                 let op2 = try!(self.pop());
                 let op1 = try!(self.pop());
-                self.stack.push(match operator {
-                    &BinaryOp::Add => op1 + op2,
-                    &BinaryOp::Subtract => op1 - op2,
-                    &BinaryOp::Multiply => op1 * op2,
-                    &BinaryOp::Divide => op1 / op2,
-                })
+                let result = match (op1, op2) {
+                    (Value::Number(op1), Value::Number(op2)) => match operator {
+                        &BinaryOp::Add => Value::Number(op1 + op2),
+                        &BinaryOp::Subtract => Value::Number(op1 - op2),
+                        &BinaryOp::Multiply => Value::Number(op1 * op2),
+                        &BinaryOp::Divide => Value::Number(op1 / op2),
+                    },
+                    _ => return Err(RuntimeError::TypeError),
+                };
+                self.stack.push(result);
             }
         };
         Ok(true)
@@ -91,7 +99,7 @@ impl<'a> Vm<'a> {
         try!(writeln!(out));
         try!(write!(out, "Stack: "));
         for value in self.stack.iter() {
-            try!(write!(out, "[ {} ]", value));
+            try!(write!(out, "[ {:?} ]", value));
         }
         try!(writeln!(out));
         if self.program_counter < self.chunk.instruction_count() {
@@ -215,7 +223,7 @@ mod end_to_end_tests {
 
         let _ = vm.interpret_next().unwrap();
 
-        assert_eq!(5.0, vm.pop().unwrap());
+        assert_eq!(Value::Boolean(5.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -226,7 +234,7 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
         let _ = vm.interpret_next().unwrap(); // Negates it
 
-        assert_eq!(-5.0, vm.pop().unwrap());
+        assert_eq!(Value::Boolean(-5.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -238,7 +246,7 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 10 on the stack
         let _ = vm.interpret_next().unwrap(); // Adds them
 
-        assert_eq!(15.0, vm.pop().unwrap());
+        assert_eq!(Value::Boolean(15.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -252,7 +260,7 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
         let _ = vm.interpret_next().unwrap(); // Multiplication
 
-        assert_eq!(45.0, vm.pop().unwrap());
+        assert_eq!(Value::Boolean(45.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -267,6 +275,6 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Multiplication
         let _ = vm.interpret_next().unwrap(); // Addition
 
-        assert_eq!(25.0, vm.pop().unwrap());
+        assert_eq!(Value::Boolean(25.0), vm.pop().unwrap());
     }
 }
