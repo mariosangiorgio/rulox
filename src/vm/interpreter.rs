@@ -71,6 +71,14 @@ impl<'a> Vm<'a> {
                     _ => return Err(RuntimeError::TypeError),
                 };
             }
+            OpCode::Not => {
+                let op = try!(self.pop());
+                match op {
+                    Value::Bool(b) => self.stack.push(Value::Bool(!b)),
+                    Value::Nil => self.stack.push(Value::Bool(true)),
+                    _ => return Err(RuntimeError::TypeError),
+                };
+            }
             OpCode::Binary(ref operator) => {
                 // Note the order!
                 // Op2 is the topmost element of the stack,
@@ -83,6 +91,25 @@ impl<'a> Vm<'a> {
                         &BinaryOp::Subtract => Value::Number(op1 - op2),
                         &BinaryOp::Multiply => Value::Number(op1 * op2),
                         &BinaryOp::Divide => Value::Number(op1 / op2),
+                        &BinaryOp::Equals => Value::Bool(op1 == op2),
+                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
+                        &BinaryOp::Greater => Value::Bool(op1 > op2),
+                        &BinaryOp::GreaterEqual => Value::Bool(op1 >= op2),
+                        &BinaryOp::Less => Value::Bool(op1 < op2),
+                        &BinaryOp::LessEqual => Value::Bool(op1 <= op2),
+                        _ => return Err(RuntimeError::TypeError),
+                    },
+                    (Value::Bool(op1), Value::Bool(op2)) => match operator {
+                        &BinaryOp::Equals => Value::Bool(op1 == op2),
+                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
+                        &BinaryOp::Or => Value::Bool(op1 || op2),
+                        &BinaryOp::And => Value::Bool(op1 && op2),
+                        _ => return Err(RuntimeError::TypeError),
+                    },
+                    (Value::Nil, Value::Nil) => match operator {
+                        &BinaryOp::Equals => Value::Bool(true),
+                        &BinaryOp::NotEqual => Value::Bool(false),
+                        _ => return Err(RuntimeError::TypeError),
                     },
                     _ => return Err(RuntimeError::TypeError),
                 };
@@ -245,6 +272,17 @@ mod end_to_end_tests {
     }
 
     #[test]
+    pub fn unary_bool() {
+        let chunk = compile("!true").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Negates it
+
+        assert_eq!(Value::Bool(false), vm.pop().unwrap());
+    }
+
+    #[test]
     pub fn binary() {
         let chunk = compile("5+10").unwrap();
         let mut vm = Vm::new(&chunk);
@@ -254,6 +292,18 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Adds them
 
         assert_eq!(Value::Number(15.0), vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn binary_bool() {
+        let chunk = compile("true or false").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts true on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts false on the stack
+        let _ = vm.interpret_next().unwrap(); // Or
+
+        assert_eq!(Value::Bool(true), vm.pop().unwrap());
     }
 
     #[test]
@@ -283,5 +333,22 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Addition
 
         assert_eq!(Value::Number(25.0), vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn complex() {
+        let chunk = compile("!(5 - 4 > 3 * 2 == !nil)").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 4 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 2 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts Nil on the stack
+        let _ = vm.interpret_next().unwrap(); // Not
+        let _ = vm.interpret_next().unwrap(); // Equals
+        let _ = vm.interpret_next().unwrap(); // Multiply
+
+        assert_eq!(Value::Bool(true), vm.pop().unwrap());
     }
 }

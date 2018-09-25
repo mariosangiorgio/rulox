@@ -5,6 +5,7 @@ type Offset = usize;
 pub enum Value {
     Number(f64),
     Bool(bool),
+    Nil,
 }
 type Line = usize;
 
@@ -13,6 +14,7 @@ pub enum OpCode {
     Constant(Offset),
     Return,
     Negate,
+    Not,
     // Having a single binary opcode parametrized on its operand makes
     // the code cleaner.
     // Since constant already has an offset we're not making the
@@ -26,6 +28,14 @@ pub enum BinaryOp {
     Subtract,
     Multiply,
     Divide,
+    Equals,
+    NotEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+    Or,
+    And,
 }
 
 #[derive(Debug)]
@@ -111,12 +121,21 @@ where
                 chunk.get_value(offset)
             )
         },
+        &OpCode::Not => writeln!(out, "OP_NOT"),
         &OpCode::Negate => writeln!(out, "OP_NEGATE"),
         &OpCode::Binary(ref operator) => match operator {
             &BinaryOp::Add => writeln!(out, "OP_ADD"),
             &BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
             &BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
             &BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
+            &BinaryOp::Equals => writeln!(out, "OP_EQUALS"),
+            &BinaryOp::NotEqual => writeln!(out, "OP_NOT_EQUAL"),
+            &BinaryOp::Greater => writeln!(out, "OP_GREATER"),
+            &BinaryOp::GreaterEqual => writeln!(out, "OP_GREATER_EQUAL"),
+            &BinaryOp::Less => writeln!(out, "OP_LESS"),
+            &BinaryOp::LessEqual => writeln!(out, "OP_LESS_EQUAL"),
+            &BinaryOp::Or => writeln!(out, "OP_OR"),
+            &BinaryOp::And => writeln!(out, "OP_AND"),
         },
     };
 }
