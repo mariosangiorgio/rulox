@@ -1,9 +1,10 @@
 use std::io::{Error, LineWriter, Write};
 
 type Offset = usize;
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value {
     Number(f64),
+    Bool(bool),
 }
 type Line = usize;
 
@@ -75,7 +76,7 @@ impl Chunk {
     /// ```
     /// use rulox::vm::bytecode::*;
     /// let mut chunk = Chunk::new();
-    /// let offset = chunk.add_constant(1.2);
+    /// let offset = chunk.add_constant(Value::Number(1.2));
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Constant(offset), line);
     /// ```
