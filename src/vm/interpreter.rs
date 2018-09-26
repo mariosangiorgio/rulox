@@ -1,5 +1,8 @@
 use std::io::{Error, LineWriter, Write};
-use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, Constant, OpCode, Value};
+use std::rc::Rc;
+use vm::bytecode::{
+    disassemble_instruction, BinaryOp, Chunk, Constant, ObjectReference, ObjectValue, OpCode, Value,
+};
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -19,6 +22,13 @@ struct Vm<'a> {
     chunk: &'a Chunk,
     program_counter: usize,
     stack: Vec<Value>,
+    /// Allocated objects so the GC can keep track of them.
+    /// The variants of ObjectReference is a ref-counted
+    /// pointer to their actual data. That is not enough to
+    /// guarantee that we free all the memory because the object
+    /// graph might contain cycles.
+    /// TODO: not sure if this should be weak or not
+    objects: Vec<ObjectReference>,
 }
 
 impl<'a> Vm<'a> {
@@ -27,6 +37,7 @@ impl<'a> Vm<'a> {
             chunk: chunk,
             program_counter: 0,
             stack: vec![],
+            objects: vec![],
         }
     }
 
@@ -36,6 +47,16 @@ impl<'a> Vm<'a> {
         } else {
             Err(RuntimeError::StackUnderflow)
         }
+    }
+
+    /// Takes ownership of the string and creates the corresponding Lox
+    /// reference type.
+    /// This method also takes care of all the book-keeping required by
+    /// the garbage collector.
+    fn allocate_string(&mut self, value: String) -> ObjectReference {
+        let o = Rc::new(ObjectValue::String(value));
+        self.objects.push(o.clone());
+        o
     }
 
     /// Interprets the next instruction.
@@ -66,7 +87,7 @@ impl<'a> Vm<'a> {
                     Constant::Number(n) => Value::Number(*n),
                     Constant::Bool(b) => Value::Bool(*b),
                     Constant::Nil => Value::Nil,
-                    Constant::String(ref s) => Value::String(s.clone()),
+                    Constant::String(ref s) => Value::Object(self.allocate_string(s.clone())),
                 };
                 self.stack.push(value)
             }
@@ -117,15 +138,19 @@ impl<'a> Vm<'a> {
                         &BinaryOp::NotEqual => Value::Bool(false),
                         _ => return Err(RuntimeError::TypeError),
                     },
-                    (Value::String(ref s1), Value::String(ref s2)) => match operator {
-                        &BinaryOp::Equals => Value::Bool(s1 == s2),
-                        &BinaryOp::NotEqual => Value::Bool(s1 != s2),
-                        &BinaryOp::Add => {
-                            let mut result = s1.clone();
-                            result.push_str(s2);
-                            Value::String(result)
+                    (Value::Object(v1), Value::Object(v2)) => match (&*v1, &*v2) {
+                        (ObjectValue::String(ref s1), ObjectValue::String(ref s2)) => {
+                            match operator {
+                                &BinaryOp::Equals => Value::Bool(s1 == s2),
+                                &BinaryOp::NotEqual => Value::Bool(s1 != s2),
+                                &BinaryOp::Add => {
+                                    let mut result = s1.clone();
+                                    result.push_str(&*s2);
+                                    Value::Object(self.allocate_string(result))
+                                }
+                                _ => return Err(RuntimeError::TypeError),
+                            }
                         }
-                        _ => return Err(RuntimeError::TypeError),
                     },
                     _ => return Err(RuntimeError::TypeError),
                 };

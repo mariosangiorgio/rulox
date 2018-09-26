@@ -1,11 +1,22 @@
 use std::io::{Error, LineWriter, Write};
+use std::rc::Rc;
 
 type Offset = usize;
+/// A Lox value, which could be either a value
+/// or a reference type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+    Object(ObjectReference),
+}
+/// Reference types.
+/// TODO: this should probably be a refcell, we will want to mutate objects
+/// TODO: this should be a reference to a (GcMetadata, ObjectValue)
+pub type ObjectReference = Rc<ObjectValue>;
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectValue {
     String(String),
 }
 /// Subset of values that can be initialised when a chunk is created.
