@@ -342,12 +342,15 @@ mod end_to_end_tests {
 
         let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
         let _ = vm.interpret_next().unwrap(); // Puts 4 on the stack
-        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Subtract
         let _ = vm.interpret_next().unwrap(); // Puts 2 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Multiply
+        let _ = vm.interpret_next().unwrap(); // Greater
         let _ = vm.interpret_next().unwrap(); // Puts Nil on the stack
         let _ = vm.interpret_next().unwrap(); // Not
         let _ = vm.interpret_next().unwrap(); // Equals
-        let _ = vm.interpret_next().unwrap(); // Multiply
+        let _ = vm.interpret_next().unwrap(); // Not
 
         assert_eq!(Value::Bool(true), vm.pop().unwrap());
     }

@@ -306,7 +306,7 @@ where
 
     fn binary(&mut self) -> Result<(), ParsingError> {
         let current = self.advance();
-        let (opcode, line) = if let Some(t) = current {
+        let (opcode, line, precedence) = if let Some(t) = current {
             let op = match t.token {
                 Token::Plus => BinaryOp::Add,
                 Token::Minus => BinaryOp::Subtract,
@@ -322,16 +322,10 @@ where
                 Token::And => BinaryOp::And,
                 _ => unreachable!(),
             };
-            (OpCode::Binary(op), t.position.line)
+            let (precedence, _, _) = Self::find_rule(&t.token);
+            (OpCode::Binary(op), t.position.line, precedence.next())
         } else {
             unreachable!()
-        };
-        let precedence = {
-            let peeked = self
-                .peek()
-                .ok_or_else(|| ParsingError::UnexpectedEndOfFile)?;
-            let (precedence, _, _) = Self::find_rule(&peeked.token);
-            precedence.next()
         };
         self.parse_precedence(precedence)?;
         self.emit(opcode, line);
