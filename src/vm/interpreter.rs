@@ -117,6 +117,16 @@ impl<'a> Vm<'a> {
                         &BinaryOp::NotEqual => Value::Bool(false),
                         _ => return Err(RuntimeError::TypeError),
                     },
+                    (Value::String(ref s1), Value::String(ref s2)) => match operator {
+                        &BinaryOp::Equals => Value::Bool(s1 == s2),
+                        &BinaryOp::NotEqual => Value::Bool(s1 != s2),
+                        &BinaryOp::Add => {
+                            let mut result = s1.clone();
+                            result.push_str(s2);
+                            Value::String(result)
+                        }
+                        _ => return Err(RuntimeError::TypeError),
+                    },
                     _ => return Err(RuntimeError::TypeError),
                 };
                 self.stack.push(result);

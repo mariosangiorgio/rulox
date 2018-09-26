@@ -96,7 +96,7 @@ impl Chunk {
     /// ```
     /// use rulox::vm::bytecode::*;
     /// let mut chunk = Chunk::new();
-    /// let offset = chunk.add_constant(Value::Number(1.2));
+    /// let offset = chunk.add_constant(Constant::Number(1.2));
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Constant(offset), line);
     /// ```

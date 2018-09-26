@@ -177,7 +177,7 @@ where
             }
             Token::Semicolon => (Precedence::None, None, None),
             Token::NumberLiteral(_) => (Precedence::None, Some(Parser::number), None),
-            Token::True | Token::False | Token::Nil => {
+            Token::True | Token::False | Token::Nil | Token::StringLiteral(_) => {
                 (Precedence::None, Some(Parser::literal), None)
             }
             Token::Or => (Precedence::Or, None, Some(Parser::binary)),
@@ -246,11 +246,15 @@ where
 
     fn literal(&mut self) -> Result<(), ParsingError> {
         let current = self.advance();
-        let (value, line) = if let Some(ref t) = current {
+        let (value, line) = if let Some(t) = current {
             match t.token {
                 Token::True => (Constant::Bool(true), t.position.line),
                 Token::False => (Constant::Bool(false), t.position.line),
                 Token::Nil => (Constant::Nil, t.position.line),
+                Token::StringLiteral(s) => {
+                    let line = t.position.line;
+                    (Constant::String(s), line)
+                }
                 _ => unreachable!(),
             }
         } else {
