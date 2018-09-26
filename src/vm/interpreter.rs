@@ -1,5 +1,5 @@
 use std::io::{Error, LineWriter, Write};
-use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, OpCode, Value};
+use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, Constant, OpCode, Value};
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -62,7 +62,13 @@ impl<'a> Vm<'a> {
                 if offset >= self.chunk.values_count() {
                     return Err(RuntimeError::ValueOutOfBound);
                 }
-                self.stack.push(self.chunk.get_value(offset))
+                let value = match self.chunk.get_value(offset) {
+                    Constant::Number(n) => Value::Number(*n),
+                    Constant::Bool(b) => Value::Bool(*b),
+                    Constant::Nil => Value::Nil,
+                    Constant::String(ref s) => Value::String(s.clone()),
+                };
+                self.stack.push(value)
             }
             OpCode::Negate => {
                 let op = try!(self.pop());
@@ -165,11 +171,11 @@ mod tests {
     use vm::bytecode::*;
     use vm::interpreter::{interpret, trace};
 
-    fn arb_constants(max_constants: usize) -> VecStrategy<BoxedStrategy<Value>> {
+    fn arb_constants(max_constants: usize) -> VecStrategy<BoxedStrategy<Constant>> {
         prop::collection::vec(
             prop_oneof![
-                prop::num::f64::ANY.prop_map(Value::Number),
-                prop::bool::ANY.prop_map(Value::Bool),
+                prop::num::f64::ANY.prop_map(Constant::Number),
+                prop::bool::ANY.prop_map(Constant::Bool),
             ].boxed(),
             0..max_constants,
         )

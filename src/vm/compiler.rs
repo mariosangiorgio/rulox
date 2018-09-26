@@ -1,7 +1,7 @@
 use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::iter::Peekable;
-use vm::bytecode::{BinaryOp, Chunk, OpCode, Value};
+use vm::bytecode::{BinaryOp, Chunk, Constant, OpCode};
 
 #[derive(Debug)]
 pub enum ParsingError {
@@ -248,9 +248,9 @@ where
         let current = self.advance();
         let (value, line) = if let Some(ref t) = current {
             match t.token {
-                Token::True => (Value::Bool(true), t.position.line),
-                Token::False => (Value::Bool(false), t.position.line),
-                Token::Nil => (Value::Nil, t.position.line),
+                Token::True => (Constant::Bool(true), t.position.line),
+                Token::False => (Constant::Bool(false), t.position.line),
+                Token::Nil => (Constant::Nil, t.position.line),
                 _ => unreachable!(),
             }
         } else {
@@ -272,7 +272,7 @@ where
         } else {
             unreachable!()
         };
-        let constant = self.chunk.add_constant(Value::Number(value));
+        let constant = self.chunk.add_constant(Constant::Number(value));
         self.chunk.add_instruction(OpCode::Constant(constant), line);
         Ok(())
     }

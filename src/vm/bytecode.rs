@@ -1,11 +1,21 @@
 use std::io::{Error, LineWriter, Write};
 
 type Offset = usize;
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+    String(String),
+}
+/// Subset of values that can be initialised when a chunk is created.
+/// They will be turned into proper values when the VM accesses them.
+#[derive(Debug)]
+pub enum Constant {
+    Number(f64),
+    Bool(bool),
+    Nil,
+    String(String),
 }
 type Line = usize;
 
@@ -41,7 +51,7 @@ pub enum BinaryOp {
 #[derive(Debug)]
 pub struct Chunk {
     instructions: Vec<OpCode>,
-    values: Vec<Value>,
+    values: Vec<Constant>,
     lines: Vec<Line>,
 }
 
@@ -58,8 +68,8 @@ impl Chunk {
         self.instructions[index]
     }
 
-    pub fn get_value(&self, index: usize) -> Value {
-        self.values[index]
+    pub fn get_value(&self, index: usize) -> &Constant {
+        &self.values[index]
     }
 
     /// Adds a new instruction to the chunk
@@ -90,7 +100,7 @@ impl Chunk {
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Constant(offset), line);
     /// ```
-    pub fn add_constant(&mut self, constant: Value) -> Offset {
+    pub fn add_constant(&mut self, constant: Constant) -> Offset {
         self.values.push(constant);
         self.values.len() - 1
     }
