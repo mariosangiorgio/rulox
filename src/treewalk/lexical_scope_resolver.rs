@@ -1,4 +1,5 @@
 use fnv::FnvHashMap;
+use std::collections::hash_map::Entry;
 use treewalk::ast::*;
 
 pub type Depth = usize;
@@ -14,8 +15,8 @@ impl LexicalScopes {
         }
     }
 
-    pub fn get_depth(&self, handle: &VariableUseHandle) -> Option<&Depth> {
-        self.depths.get(handle)
+    pub fn get_depth(&self, handle: VariableUseHandle) -> Option<&Depth> {
+        self.depths.get(&handle)
     }
 }
 
@@ -77,31 +78,32 @@ impl ProgramLexicalScopesResolver {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, identifier: &Identifier) -> Result<(), LexicalScopesResolutionError> {
+    fn declare(&mut self, identifier: Identifier) -> Result<(), LexicalScopesResolutionError> {
         let scopes = self.scopes.len();
         if scopes == 0 {
             return Ok(());
         };
-        if self.scopes[scopes - 1].contains_key(&identifier) {
-            Err(LexicalScopesResolutionError::VariableAlreadyExistsInScope)
-        } else {
-            self.scopes[scopes - 1].insert(*identifier, VariableDefinition::Declared);
-            Ok(())
+        match self.scopes[scopes - 1].entry(identifier) {
+            Entry::Occupied(_) => Err(LexicalScopesResolutionError::VariableAlreadyExistsInScope),
+            Entry::Vacant(v) => {
+                v.insert(VariableDefinition::Declared);
+                Ok(())
+            }
         }
     }
 
-    fn define(&mut self, identifier: &Identifier) -> () {
+    fn define(&mut self, identifier: Identifier) -> () {
         let scopes = self.scopes.len();
         if scopes == 0 {
             return;
         };
-        self.scopes[scopes - 1].insert(*identifier, VariableDefinition::Defined);
+        self.scopes[scopes - 1].insert(identifier, VariableDefinition::Defined);
     }
 
-    fn resolve_local(&mut self, handle: VariableUseHandle, identifier: &Identifier) -> () {
+    fn resolve_local(&mut self, handle: VariableUseHandle, identifier: Identifier) -> () {
         let max_depth = self.scopes.len();
         for depth in 0..max_depth {
-            if self.scopes[max_depth - depth - 1].contains_key(identifier) {
+            if self.scopes[max_depth - depth - 1].contains_key(&identifier) {
                 self.lexical_scopes.depths.insert(handle, depth);
                 return;
             }
@@ -116,7 +118,7 @@ impl ProgramLexicalScopesResolver {
         statement.resolve(self)
     }
 
-    pub fn get_depth(&self, handle: &VariableUseHandle) -> Option<&Depth> {
+    pub fn get_depth(&self, handle: VariableUseHandle) -> Option<&Depth> {
         self.lexical_scopes.get_depth(handle)
     }
 }
@@ -136,35 +138,35 @@ impl LexicalScopesResolver for Statement {
                 Ok(())
             }
             Statement::VariableDefinition(ref identifier) => {
-                let _ = try!(resolver.declare(identifier));
-                resolver.define(identifier);
+                try!(resolver.declare(*identifier));
+                resolver.define(*identifier);
                 Ok(())
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
-                let _ = try!(resolver.declare(identifier));
+                try!(resolver.declare(*identifier));
                 try!(initializer.resolve(resolver));
-                resolver.define(identifier);
+                resolver.define(*identifier);
                 Ok(())
             }
             Statement::FunctionDefinition(ref f) => f.resolve(resolver),
             Statement::Class(ref c) => {
-                let _ = try!(resolver.declare(&c.name));
+                try!(resolver.declare(c.name));
                 let enclosing_class = resolver.current_class;
                 resolver.current_class = ClassType::Class;
-                resolver.define(&c.name);
+                resolver.define(c.name);
                 if let Some(ref superclass) = c.superclass {
                     resolver.current_class = ClassType::Subclass;
-                    let _ = try!(superclass.resolve(resolver));
+                    try!(superclass.resolve(resolver));
                     resolver.begin_scope();
-                    resolver.define(&Identifier::super_identifier());
+                    resolver.define(Identifier::super_identifier());
                 }
                 resolver.begin_scope();
-                resolver.define(&Identifier::this());
-                for method in c.methods.iter() {
-                    let _ = try!(method.resolve(resolver));
+                resolver.define(Identifier::this());
+                for method in &c.methods {
+                    try!(method.resolve(resolver));
                 }
                 resolver.end_scope();
-                if let Some(_) = c.superclass {
+                if c.superclass.is_some() {
                     resolver.end_scope();
                 }
                 resolver.current_class = enclosing_class;
@@ -209,7 +211,7 @@ impl LexicalScopesResolver for Expr {
                 if let ClassType::None = resolver.current_class {
                     return Err(LexicalScopesResolutionError::UseOfThisOutsideAClass);
                 }
-                resolver.resolve_local(handle.clone(), identifier);
+                resolver.resolve_local(handle.clone(), *identifier);
                 Ok(())
             }
             Expr::Super(ref handle, ref super_identifier, _member_identifier) => {
@@ -219,7 +221,7 @@ impl LexicalScopesResolver for Expr {
                         Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass)
                     }
                     _ => {
-                        resolver.resolve_local(handle.clone(), super_identifier);
+                        resolver.resolve_local(handle.clone(), *super_identifier);
                         Ok(())
                     }
                 }
@@ -234,7 +236,7 @@ impl LexicalScopesResolver for Expr {
                 {
                     Err(LexicalScopesResolutionError::ReadLocalInItsOwnInitializer)
                 } else {
-                    resolver.resolve_local(*handle, &identifier);
+                    resolver.resolve_local(*handle, *identifier);
                     Ok(())
                 }
             }
@@ -252,7 +254,7 @@ impl LexicalScopesResolver for Expr {
             Expr::Grouping(ref e) => e.expr.resolve(resolver),
             Expr::Call(ref e) => {
                 try!(e.callee.resolve(resolver));
-                for argument in e.arguments.iter() {
+                for argument in &e.arguments {
                     try!(argument.resolve(resolver));
                 }
                 Ok(())
@@ -277,7 +279,7 @@ impl LexicalScopesResolver for Assignment {
     ) -> Result<(), LexicalScopesResolutionError> {
         try!{self.rvalue.resolve(resolver)};
         let Target::Identifier(ref identifier) = self.lvalue;
-        resolver.resolve_local(self.handle, identifier);
+        resolver.resolve_local(self.handle, *identifier);
         Ok(())
     }
 }
@@ -287,16 +289,16 @@ impl LexicalScopesResolver for FunctionDefinition {
         &self,
         resolver: &mut ProgramLexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
-        let _ = try!(resolver.declare(&self.name));
+        try!(resolver.declare(self.name));
         let enclosing_function = resolver.current_function;
         resolver.current_function = Some(self.kind);
-        resolver.define(&self.name);
+        resolver.define(self.name);
         resolver.begin_scope();
-        for argument in self.arguments.iter() {
-            let _ = try!(resolver.declare(argument));
-            resolver.define(argument);
+        for argument in &self.arguments {
+            try!(resolver.declare(*argument));
+            resolver.define(*argument);
         }
-        let _ = try!(self.body.resolve(resolver));
+        try!(self.body.resolve(resolver));
         resolver.end_scope();
         resolver.current_function = enclosing_function;
         Ok(())
@@ -320,7 +322,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Some(&3), lexical_scopes.get_depth(&handle));
+        assert_eq!(Some(&3), lexical_scopes.get_depth(handle));
     }
 
     #[test]
@@ -334,7 +336,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Some(&2), lexical_scopes.get_depth(&handle));
+        assert_eq!(Some(&2), lexical_scopes.get_depth(handle));
     }
 
     #[test]
@@ -348,7 +350,7 @@ mod tests {
         let lexical_scopes = lexical_scope_resolver.lexical_scopes;
         let mut handle_factory = VariableUseHandleFactory::new();
         let handle = handle_factory.next(); // Use of a in the function
-        assert_eq!(Some(&3), lexical_scopes.get_depth(&handle));
+        assert_eq!(Some(&3), lexical_scopes.get_depth(handle));
     }
 
     #[test]

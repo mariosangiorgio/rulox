@@ -28,7 +28,7 @@ mod tests {
     #[test]
     #[ignore]
     fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = RuloxVm::new();
+        let mut ruloxvm = RuloxVm::default();
         ruloxvm.run(input)
     }
     }

@@ -60,7 +60,7 @@ impl<I: RuloxImplementation> Runner<I> {
         }
     }
 
-    pub fn run(&mut self, args: &Vec<String>) -> i32 {
+    pub fn run(&mut self, args: &[String]) -> i32 {
         let result = match args.len() {
             // The first argument is the program name
             1 => self.run_prompt(),

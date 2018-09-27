@@ -172,7 +172,7 @@ impl PrettyPrint for Statement {
             }
             Statement::Return(ref e) => {
                 pretty_printed.push_str("return");
-                if let &Some(ref e) = e {
+                if let Some(ref e) = *e {
                     pretty_printed.push_str(" ");
                     e.pretty_print_into(identifier_map, pretty_printed);
                 }
@@ -261,7 +261,7 @@ impl PrettyPrint for Call {
         self.callee
             .pretty_print_into(identifier_map, pretty_printed);
         pretty_printed.push_str("( ");
-        for arg in self.arguments.iter() {
+        for arg in &self.arguments {
             arg.pretty_print_into(identifier_map, pretty_printed);
             pretty_printed.push_str(" ");
         }
