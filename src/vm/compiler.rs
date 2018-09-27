@@ -349,7 +349,7 @@ pub fn compile(text: &str) -> Result<Chunk, Vec<CompilationError>> {
         // Line is meaningless, but this is temporary to see some results
         // while the implementation is in progress.
         parser.emit(OpCode::Return, 0);
-        if parser.errors.len() > 0 {
+        if !parser.errors.is_empty() {
             return Err(parser.errors);
         }
     }

@@ -540,8 +540,8 @@ impl Interpret for Call {
                 }
                 c.call(&evaluated_arguments, environment, scope_resolver)
             }
-            Ok(value) => return Err(RuntimeError::NotCallable(value)),
-            error => return error,
+            Ok(value) => Err(RuntimeError::NotCallable(value)),
+            error => error,
         }
     }
 }

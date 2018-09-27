@@ -1,3 +1,4 @@
+use std::f64::EPSILON;
 use std::io::{Error, LineWriter, Write};
 use std::rc::Rc;
 use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, Constant, OpCode};
@@ -50,7 +51,7 @@ struct Vm<'a> {
 impl<'a> Vm<'a> {
     fn new(chunk: &'a Chunk) -> Vm<'a> {
         Vm {
-            chunk: chunk,
+            chunk,
             program_counter: 0,
             stack: vec![],
             objects: vec![],
@@ -134,8 +135,8 @@ impl<'a> Vm<'a> {
                         BinaryOp::Subtract => Value::Number(op1 - op2),
                         BinaryOp::Multiply => Value::Number(op1 * op2),
                         BinaryOp::Divide => Value::Number(op1 / op2),
-                        BinaryOp::Equals => Value::Bool((op1 - op2).abs() < std::f64::EPSILON),
-                        BinaryOp::NotEqual => Value::Bool((op1 - op2).abs() >= std::f64::EPSILON),
+                        BinaryOp::Equals => Value::Bool((op1 - op2).abs() < EPSILON),
+                        BinaryOp::NotEqual => Value::Bool((op1 - op2).abs() >= EPSILON),
                         BinaryOp::Greater => Value::Bool(op1 > op2),
                         BinaryOp::GreaterEqual => Value::Bool(op1 >= op2),
                         BinaryOp::Less => Value::Bool(op1 < op2),

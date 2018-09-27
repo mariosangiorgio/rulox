@@ -276,9 +276,7 @@ impl Parser {
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
         let superclass = if let Some(&&TokenWithContext {
-            token: Token::Less,
-            lexeme: _,
-            position: _,
+            token: Token::Less, ..
         }) = tokens.peek()
         {
             let _ = tokens.next();

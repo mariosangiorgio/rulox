@@ -6,7 +6,7 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut runner = Runner::new(RuloxVm::new());
+    let mut runner = Runner::new(RuloxVm::default());
     let exit_code = runner.run(&args);
     std::process::exit(exit_code)
 }
