@@ -78,15 +78,13 @@ where
             match self.tokens.peek() {
                 Some(Ok(TokenWithContext {
                     token: Token::Whitespace,
-                    lexeme: _,
-                    position: _,
+                    ..
                 })) => {
                     // No op, just skip it
                 }
                 Some(Ok(TokenWithContext {
                     token: Token::Comment,
-                    lexeme: _,
-                    position: _,
+                    ..
                 })) => {
                     // No op, just skip it
                 }
@@ -290,9 +288,7 @@ where
     fn unary(&mut self) -> Result<(), ParsingError> {
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
-                token,
-                position,
-                lexeme: _,
+                token, position, ..
             }) => (
                 match token {
                     Token::Minus => OpCode::Negate,

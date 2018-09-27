@@ -129,37 +129,37 @@ impl<'a> Vm<'a> {
                 let op2 = try!(self.pop());
                 let op1 = try!(self.pop());
                 let result = match (op1, op2) {
-                    (Value::Number(op1), Value::Number(op2)) => match operator {
-                        &BinaryOp::Add => Value::Number(op1 + op2),
-                        &BinaryOp::Subtract => Value::Number(op1 - op2),
-                        &BinaryOp::Multiply => Value::Number(op1 * op2),
-                        &BinaryOp::Divide => Value::Number(op1 / op2),
-                        &BinaryOp::Equals => Value::Bool(op1 == op2),
-                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
-                        &BinaryOp::Greater => Value::Bool(op1 > op2),
-                        &BinaryOp::GreaterEqual => Value::Bool(op1 >= op2),
-                        &BinaryOp::Less => Value::Bool(op1 < op2),
-                        &BinaryOp::LessEqual => Value::Bool(op1 <= op2),
+                    (Value::Number(op1), Value::Number(op2)) => match *operator {
+                        BinaryOp::Add => Value::Number(op1 + op2),
+                        BinaryOp::Subtract => Value::Number(op1 - op2),
+                        BinaryOp::Multiply => Value::Number(op1 * op2),
+                        BinaryOp::Divide => Value::Number(op1 / op2),
+                        BinaryOp::Equals => Value::Bool((op1 - op2).abs() < std::f64::EPSILON),
+                        BinaryOp::NotEqual => Value::Bool((op1 - op2).abs() >= std::f64::EPSILON),
+                        BinaryOp::Greater => Value::Bool(op1 > op2),
+                        BinaryOp::GreaterEqual => Value::Bool(op1 >= op2),
+                        BinaryOp::Less => Value::Bool(op1 < op2),
+                        BinaryOp::LessEqual => Value::Bool(op1 <= op2),
                         _ => return Err(RuntimeError::TypeError),
                     },
-                    (Value::Bool(op1), Value::Bool(op2)) => match operator {
-                        &BinaryOp::Equals => Value::Bool(op1 == op2),
-                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
-                        &BinaryOp::Or => Value::Bool(op1 || op2),
-                        &BinaryOp::And => Value::Bool(op1 && op2),
+                    (Value::Bool(op1), Value::Bool(op2)) => match *operator {
+                        BinaryOp::Equals => Value::Bool(op1 == op2),
+                        BinaryOp::NotEqual => Value::Bool(op1 != op2),
+                        BinaryOp::Or => Value::Bool(op1 || op2),
+                        BinaryOp::And => Value::Bool(op1 && op2),
                         _ => return Err(RuntimeError::TypeError),
                     },
-                    (Value::Nil, Value::Nil) => match operator {
-                        &BinaryOp::Equals => Value::Bool(true),
-                        &BinaryOp::NotEqual => Value::Bool(false),
+                    (Value::Nil, Value::Nil) => match *operator {
+                        BinaryOp::Equals => Value::Bool(true),
+                        BinaryOp::NotEqual => Value::Bool(false),
                         _ => return Err(RuntimeError::TypeError),
                     },
                     (Value::Object(v1), Value::Object(v2)) => match (&*v1, &*v2) {
                         (ObjectValue::String(ref s1), ObjectValue::String(ref s2)) => {
-                            match operator {
-                                &BinaryOp::Equals => Value::Bool(s1 == s2),
-                                &BinaryOp::NotEqual => Value::Bool(s1 != s2),
-                                &BinaryOp::Add => {
+                            match *operator {
+                                BinaryOp::Equals => Value::Bool(s1 == s2),
+                                BinaryOp::NotEqual => Value::Bool(s1 != s2),
+                                BinaryOp::Add => {
                                     let mut result = s1.clone();
                                     result.push_str(&*s2);
                                     Value::Object(self.allocate_string(result))
@@ -182,7 +182,7 @@ impl<'a> Vm<'a> {
         try!(write!(out, "Program Counter: {}", self.program_counter));
         try!(writeln!(out));
         try!(write!(out, "Stack: "));
-        for value in self.stack.iter() {
+        for value in &self.stack {
             try!(write!(out, "[ {:?} ]", value));
         }
         try!(writeln!(out));

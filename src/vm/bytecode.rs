@@ -111,9 +111,9 @@ pub fn disassemble_instruction<T>(
 where
     T: Write,
 {
-    return match instruction {
-        &OpCode::Return => writeln!(out, "OP_RETURN"),
-        &OpCode::Constant(offset) => if offset >= chunk.values_count() {
+    match *instruction {
+        OpCode::Return => writeln!(out, "OP_RETURN"),
+        OpCode::Constant(offset) => if offset >= chunk.values_count() {
             //TODO: this should probably return an error
             writeln!(out, "OP_CONSTANT {:4} 'ILLEGAL_ACCESS'", offset)
         } else {
@@ -124,23 +124,23 @@ where
                 chunk.get_value(offset)
             )
         },
-        &OpCode::Not => writeln!(out, "OP_NOT"),
-        &OpCode::Negate => writeln!(out, "OP_NEGATE"),
-        &OpCode::Binary(ref operator) => match operator {
-            &BinaryOp::Add => writeln!(out, "OP_ADD"),
-            &BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
-            &BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
-            &BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
-            &BinaryOp::Equals => writeln!(out, "OP_EQUALS"),
-            &BinaryOp::NotEqual => writeln!(out, "OP_NOT_EQUAL"),
-            &BinaryOp::Greater => writeln!(out, "OP_GREATER"),
-            &BinaryOp::GreaterEqual => writeln!(out, "OP_GREATER_EQUAL"),
-            &BinaryOp::Less => writeln!(out, "OP_LESS"),
-            &BinaryOp::LessEqual => writeln!(out, "OP_LESS_EQUAL"),
-            &BinaryOp::Or => writeln!(out, "OP_OR"),
-            &BinaryOp::And => writeln!(out, "OP_AND"),
+        OpCode::Not => writeln!(out, "OP_NOT"),
+        OpCode::Negate => writeln!(out, "OP_NEGATE"),
+        OpCode::Binary(ref operator) => match *operator {
+            BinaryOp::Add => writeln!(out, "OP_ADD"),
+            BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
+            BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
+            BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
+            BinaryOp::Equals => writeln!(out, "OP_EQUALS"),
+            BinaryOp::NotEqual => writeln!(out, "OP_NOT_EQUAL"),
+            BinaryOp::Greater => writeln!(out, "OP_GREATER"),
+            BinaryOp::GreaterEqual => writeln!(out, "OP_GREATER_EQUAL"),
+            BinaryOp::Less => writeln!(out, "OP_LESS"),
+            BinaryOp::LessEqual => writeln!(out, "OP_LESS_EQUAL"),
+            BinaryOp::Or => writeln!(out, "OP_OR"),
+            BinaryOp::And => writeln!(out, "OP_AND"),
         },
-    };
+    }
 }
 
 pub fn disassemble<T>(chunk: &Chunk, name: &str, out: &mut LineWriter<T>) -> Result<(), Error>
