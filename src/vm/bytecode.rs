@@ -41,7 +41,7 @@ pub enum BinaryOp {
     And,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Chunk {
     instructions: Vec<OpCode>,
     values: Vec<Constant>,
@@ -49,14 +49,6 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new() -> Chunk {
-        Chunk {
-            instructions: Vec::new(),
-            values: Vec::new(),
-            lines: Vec::new(),
-        }
-    }
-
     pub fn get(&self, index: usize) -> OpCode {
         self.instructions[index]
     }
@@ -69,7 +61,7 @@ impl Chunk {
     /// # Example
     /// ```
     /// use rulox::vm::bytecode::*;
-    /// let mut chunk = Chunk::new();
+    /// let mut chunk = Chunk::default();
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Return, line);
     /// ```
@@ -88,7 +80,7 @@ impl Chunk {
     /// # Example
     /// ```
     /// use rulox::vm::bytecode::*;
-    /// let mut chunk = Chunk::new();
+    /// let mut chunk = Chunk::default();
     /// let offset = chunk.add_constant(Constant::Number(1.2));
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Constant(offset), line);
@@ -148,9 +140,8 @@ where
     T: Write,
 {
     try!(writeln!(out, "== {} ==", name));
-    let mut i = 0;
     let mut line = 0;
-    for instruction in chunk.instructions.iter() {
+    for (i, instruction) in chunk.instructions.iter().enumerate() {
         // Note that this is not printing offsets as the book does.
         // Using the OpCode enum all the opcodes have the same size.
         // It is not space-efficient, but for now it's fine
@@ -162,7 +153,6 @@ where
             try!(write!(out, "{:4}", line));
         }
         try!(write!(out, " "));
-        i = i + 1;
         try!{disassemble_instruction(instruction, chunk, out)};
     }
     Ok(())

@@ -258,7 +258,7 @@ mod tests {
         fn arb_chunk(max_offset : usize, max_instructions : usize)
             (constants in arb_constants(max_offset),
              instructions in arb_instructions(max_offset, max_instructions)) -> Chunk{
-            let mut chunk = Chunk::new();
+            let mut chunk = Chunk::default();
             for constant in constants{
                 let _offset = chunk.add_constant(constant);
             }

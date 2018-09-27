@@ -19,7 +19,7 @@ pub enum CompilationError {
     ParsingError(ParsingError),
 }
 
-#[derive(PartialEq, PartialOrd, FromPrimitive, ToPrimitive)]
+#[derive(PartialEq, PartialOrd, FromPrimitive, ToPrimitive, Clone, Copy)]
 enum Precedence {
     None,
     Assignment,
@@ -38,7 +38,7 @@ impl Precedence {
     /// Returns the next (as in the immediately higher) Precedence.
     /// Note that this is not defined for the item with the highest
     /// precedence. In such case you'll get a panic
-    fn next(&self) -> Precedence {
+    fn next(self) -> Precedence {
         // This reduces some boilerplate.
         Precedence::from_u8(self.to_u8().unwrap() + 1).unwrap()
     }
@@ -55,6 +55,7 @@ where
     tokens: Peekable<I>,
     errors: Vec<CompilationError>,
 }
+type Rule<'a, I> = fn(&mut Parser<'a, I>) -> Result<(), ParsingError>;
 
 impl<'a, I> Parser<'a, I>
 where
@@ -62,7 +63,7 @@ where
 {
     fn new(chunk: &'a mut Chunk, tokens: I) -> Parser<I> {
         Parser {
-            chunk: chunk,
+            chunk,
             tokens: tokens.peekable(),
             errors: vec![],
         }
@@ -123,9 +124,9 @@ where
     /// Ensures that a specific token is the next in the input iterator.
     /// If that's the case, it will just consumes it.
     /// If not, it will return a parsing error.
-    fn consume(&mut self, token: Token) -> Result<(), ParsingError> {
+    fn consume(&mut self, token: &Token) -> Result<(), ParsingError> {
         let current = self.advance().ok_or(ParsingError::UnexpectedEndOfFile)?;
-        if current.token == token {
+        if &current.token == token {
             Ok(())
         } else {
             Err(ParsingError::Unexpected(
@@ -147,13 +148,7 @@ where
     /// This is generally used on the token peeked from the front of
     /// the iterator. This lookahead allows us to decide what to do next
     /// according to the "table" below.
-    fn find_rule(
-        token: &Token,
-    ) -> (
-        Precedence,
-        Option<fn(&mut Self) -> Result<(), ParsingError>>,
-        Option<fn(&mut Self) -> Result<(), ParsingError>>,
-    )
+    fn find_rule(token: &Token) -> (Precedence, Option<Rule<'a, I>>, Option<Rule<'a, I>>)
     where
         I: Iterator<Item = Result<TokenWithContext, ScannerError>>,
     {
@@ -231,7 +226,7 @@ where
                 self.errors.push(CompilationError::ParsingError(error));
             }
         }
-        if self.errors.len() > 0 {
+        if !self.errors.is_empty() {
             Err(())
         } else {
             Ok(())
@@ -280,9 +275,9 @@ where
     }
 
     fn grouping(&mut self) -> Result<(), ParsingError> {
-        let _ = self.consume(Token::LeftParen)?;
+        self.consume(&Token::LeftParen)?;
         self.expression()?;
-        self.consume(Token::RightParen)
+        self.consume(&Token::RightParen)
     }
 
     fn unary(&mut self) -> Result<(), ParsingError> {
@@ -299,7 +294,7 @@ where
             ),
             _ => unreachable!("This code is executed only when we know we have a unary expression"),
         };
-        let _ = self.parse_precedence(Precedence::Unary)?;
+        self.parse_precedence(Precedence::Unary)?;
         self.emit(opcode, line);
         Ok(())
     }
@@ -338,7 +333,7 @@ where
 /// Error reporting tries to be smart and to minimize reports adopting a
 /// "recovery logic".
 pub fn compile(text: &str) -> Result<Chunk, Vec<CompilationError>> {
-    let mut chunk = Chunk::new();
+    let mut chunk = Chunk::default();
     let tokens = scan_into_iterator(text);
     {
         let mut parser = Parser::new(&mut chunk, tokens);
