@@ -1,8 +1,24 @@
 use std::io::{Error, LineWriter, Write};
 use std::rc::Rc;
-use vm::bytecode::{
-    disassemble_instruction, BinaryOp, Chunk, Constant, ObjectReference, ObjectValue, OpCode, Value,
-};
+use vm::bytecode::{disassemble_instruction, BinaryOp, Chunk, Constant, OpCode};
+
+/// A Lox value, which could be either a value
+/// or a reference type.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Number(f64),
+    Bool(bool),
+    Nil,
+    Object(ObjectReference),
+}
+/// Reference types.
+/// TODO: this should probably be a refcell, we will want to mutate objects
+/// TODO: this should be a reference to a (GcMetadata, ObjectValue)
+pub type ObjectReference = Rc<ObjectValue>;
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectValue {
+    String(String),
+}
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -287,9 +303,8 @@ mod tests {
 // require lots of boilerplate for little benefit.
 #[cfg(test)]
 mod end_to_end_tests {
-    use vm::bytecode::Value;
     use vm::compiler::compile;
-    use vm::interpreter::Vm;
+    use vm::interpreter::{Value, Vm};
 
     #[test]
     pub fn number() {
