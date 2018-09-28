@@ -60,25 +60,25 @@ impl IdentifierMap {
         map.insert("super".into(), Identifier::super_identifier());
         IdentifierMap {
             next: map.len() as u64,
-            map: map,
+            map,
         }
     }
 
-    pub fn from_name(&mut self, name: &str) -> Identifier {
+    pub fn for_name(&mut self, name: &str) -> Identifier {
         if let Some(identifier) = self.map.get(name) {
             return *identifier;
         }
         let identifier = Identifier { handle: self.next };
-        self.next = self.next + 1;
+        self.next += 1;
         self.map.insert(name.into(), identifier);
         identifier
     }
 
-    pub fn lookup(&self, identifier: &Identifier) -> Option<&String> {
+    pub fn lookup(&self, identifier: Identifier) -> Option<&String> {
         // A bit slow, but it's used only for pretty printing and for errors
         self.map
             .iter()
-            .find(|&(_k, v)| v == identifier)
+            .find(|&(_k, v)| v == &identifier)
             .map(|(k, _v)| k)
     }
 }
@@ -160,8 +160,8 @@ impl VariableUseHandleFactory {
 
     pub fn next(&mut self) -> VariableUseHandle {
         let value = self.next_value;
-        self.next_value = self.next_value + 1;
-        VariableUseHandle { value: value }
+        self.next_value += 1;
+        VariableUseHandle { value }
     }
 }
 

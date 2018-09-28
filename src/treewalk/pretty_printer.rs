@@ -95,7 +95,7 @@ impl PrettyPrint for Literal {
 
 impl PrettyPrint for Identifier {
     fn pretty_print_into(&self, identifier_map: &IdentifierMap, pretty_printed: &mut String) -> () {
-        pretty_printed.push_str(identifier_map.lookup(self).unwrap())
+        pretty_printed.push_str(identifier_map.lookup(*self).unwrap())
     }
 }
 
@@ -330,7 +330,7 @@ mod tests {
     fn block() {
         let mut identifier_map = IdentifierMap::new();
         let mut handle_factory = VariableUseHandleFactory::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let statements = vec![
             Statement::VariableDefinitionWithInitalizer(
                 identifier.clone(),

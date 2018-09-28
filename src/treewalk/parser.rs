@@ -112,7 +112,7 @@ impl Parser {
         consume_expected_token_with_action!(
             tokens,
             &Token::Identifier(ref identifier),
-            self.identifier_map.from_name(identifier),
+            self.identifier_map.for_name(identifier),
             RequiredElement::Identifier
         )
     }
@@ -294,16 +294,18 @@ impl Parser {
             RequiredElement::LeftBrace
         ));
         let mut methods = vec![];
-        fn is_class_end(token: &&TokenWithContext) -> bool {
-            match **token {
-                TokenWithContext {
-                    token: Token::RightBrace,
-                    ..
-                } => true,
-                _ => false,
+        fn is_class_end(t: Option<&&TokenWithContext>) -> bool {
+            if let Some(&TokenWithContext {
+                token: Token::RightBrace,
+                ..
+            }) = t
+            {
+                return true;
+            } else {
+                return false;
             }
-        }
-        while let Some(false) = tokens.peek().map(&is_class_end) {
+        };
+        while !is_class_end(tokens.peek()) {
             match self.parse_function_declaration(tokens, FunctionKind::Method) {
                 Some(Ok(Statement::FunctionDefinition(method))) => methods.push(method),
                 Some(Ok(_)) => panic!("Function parsing didn't return a function"),
@@ -362,23 +364,25 @@ impl Parser {
         I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut statements = Vec::new();
-        fn is_block_end(token: &&TokenWithContext) -> bool {
-            match **token {
-                TokenWithContext {
-                    token: Token::RightBrace,
-                    ..
-                } => true,
-                _ => false,
+        fn is_block_end(t: Option<&&TokenWithContext>) -> bool {
+            if let Some(&TokenWithContext {
+                token: Token::RightBrace,
+                ..
+            }) = t
+            {
+                return true;
+            } else {
+                return false;
             }
-        }
-        while let Some(false) = tokens.peek().map(&is_block_end) {
+        };
+        while !is_block_end(tokens.peek()) {
             match self.parse_declaration(tokens) {
                 Some(Ok(statement)) => statements.push(statement),
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
                 Some(Err(error)) => return Some(Err(error)),
             }
         }
-        if let Some(true) = tokens.peek().map(&is_block_end) {
+        if is_block_end(tokens.peek()) {
             let _ = tokens.next();
             Some(Ok(Statement::Block(Box::new(Block { statements }))))
         } else {
@@ -1015,7 +1019,7 @@ impl Parser {
                 }
                 Token::Identifier(ref i) => Expr::Identifier(
                     self.variable_use_handle_factory.next(),
-                    self.identifier_map.from_name(i),
+                    self.identifier_map.for_name(i),
                 ),
                 Token::LeftParen => {
                     let expr = if let Some(result) = self.parse_expression(tokens) {

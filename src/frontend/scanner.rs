@@ -176,7 +176,7 @@ impl<'a> Scanner<'a> {
 
     fn add_context(&mut self, token: Token, initial_position: Position) -> TokenWithContext {
         TokenWithContext {
-            token: token,
+            token,
             lexeme: self.current_lexeme.clone(),
             position: initial_position,
         }
