@@ -25,14 +25,14 @@ impl Callable {
     fn to_string(&self) -> String {
         match *self {
             Callable::Function(ref function, _) => format!("<fn {} >", function.arguments.len()),
-            Callable::Class(_) => format!("<class>"),
+            Callable::Class(_) => "<class>".to_string(),
             Callable::Clock => "clock".into(),
         }
     }
 
     fn register_natives(environment: &Environment, identifier_map: &mut IdentifierMap) -> () {
         environment.define(
-            identifier_map.from_name("clock"),
+            identifier_map.for_name("clock"),
             Value::Callable(Callable::Clock),
         )
     }
@@ -50,13 +50,13 @@ impl Callable {
 
     fn call(
         &self,
-        arguments: &Vec<Value>,
+        arguments: &[Value],
         _environment: &Environment,
         scope_resolver: &ProgramLexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match *self {
             Callable::Clock => {
-                if arguments.len() != 0 {
+                if !arguments.is_empty() {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
                 Ok(Value::Number(
@@ -71,11 +71,8 @@ impl Callable {
                     return Err(RuntimeError::WrongNumberOfArguments);
                 }
                 let local_environment = Environment::new_with_parent(environment);
-                for i in 0..arguments.len() {
-                    local_environment.define(
-                        function_definition.arguments[i].clone(),
-                        arguments[i].clone(),
-                    );
+                for (i, argument) in arguments.iter().enumerate() {
+                    local_environment.define(function_definition.arguments[i], argument.clone());
                 }
                 let result = function_definition
                     .body
@@ -84,7 +81,7 @@ impl Callable {
                     Some(value) => value,
                     None => {
                         if function_definition.kind == FunctionKind::Initializer {
-                            environment.get(&Identifier::this(), 0).unwrap()
+                            environment.get(Identifier::this(), 0).unwrap()
                         // Special case, for when the initializer is
                         // called explicitly to "re-initialize" the object
                         } else {
@@ -143,7 +140,7 @@ impl Instance {
             .methods
             .get(&property)
             .cloned()
-            .or(superclass.and_then(|s| s.methods.get(&property).cloned()));
+            .or_else(|| superclass.and_then(|s| s.methods.get(&property).cloned()));
         method.map(|m| m.bind(self))
     }
 
@@ -251,25 +248,25 @@ impl Environment {
                 false
             }
         } else {
-            match &actual.parent {
-                &Some(ref parent) => parent.try_set(identifier, depth - 1, value),
-                &None => false,
+            match actual.parent {
+                Some(ref parent) => parent.try_set(identifier, depth - 1, value),
+                None => false,
             }
         }
     }
 
-    fn get(&self, identifier: &Identifier, depth: Depth) -> Option<Value> {
+    fn get(&self, identifier: Identifier, depth: Depth) -> Option<Value> {
         let actual = self.actual.borrow();
         if depth == 0 {
-            if let Some(value) = actual.values.get(identifier) {
+            if let Some(value) = actual.values.get(&identifier) {
                 Some(value.clone())
             } else {
                 None
             }
         } else {
-            match &actual.parent {
-                &Some(ref parent) => parent.get(identifier, depth - 1),
-                &None => None,
+            match actual.parent {
+                Some(ref parent) => parent.get(identifier, depth - 1),
+                None => None,
             }
         }
     }
@@ -281,9 +278,7 @@ pub struct StatementInterpreter {
 
 impl StatementInterpreter {
     pub fn new(environment: Environment) -> StatementInterpreter {
-        StatementInterpreter {
-            environment: environment,
-        }
+        StatementInterpreter { environment }
     }
 
     pub fn execute(
@@ -335,10 +330,10 @@ impl Interpret for Expr {
             Expr::Logic(ref b) => b.interpret(environment, scope_resolver),
             Expr::Grouping(ref g) => g.interpret(environment, scope_resolver),
             Expr::Super(ref handle, _identifier, member) => {
-                let depth = scope_resolver.get_depth(handle).unwrap();
+                let depth = scope_resolver.get_depth(*handle).unwrap();
                 // We know where this is because we control the layout
                 // of the environments.
-                let object = environment.get(&Identifier::this(), depth - 1).unwrap();
+                let object = environment.get(Identifier::this(), depth - 1).unwrap();
                 if let Value::Instance(instance) = object {
                     match instance.find_super_method(member) {
                         Some(member) => Ok(Value::Callable(member)),
@@ -350,12 +345,12 @@ impl Interpret for Expr {
                 }
             }
             Expr::This(ref handle, ref i) | Expr::Identifier(ref handle, ref i) => {
-                match scope_resolver.get_depth(handle) {
-                    Some(depth) => match environment.get(i, depth.clone()) {
+                match scope_resolver.get_depth(*handle) {
+                    Some(depth) => match environment.get(*i, depth.clone()) {
                         Some(value) => Ok(value.clone()),
-                        None => Err(RuntimeError::UndefinedIdentifier(i.clone())),
+                        None => Err(RuntimeError::UndefinedIdentifier(*i)),
                     },
-                    None => Err(RuntimeError::UndefinedIdentifier(i.clone())),
+                    None => Err(RuntimeError::UndefinedIdentifier(*i)),
                 }
             }
             Expr::Assignment(ref a) => a.interpret(environment, scope_resolver),
@@ -399,19 +394,17 @@ impl Interpret for Assignment {
         environment: &Environment,
         scope_resolver: &ProgramLexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
-        let target = match self.lvalue {
-            Target::Identifier(ref identifier) => identifier,
-        };
+        let Target::Identifier(target) = self.lvalue;
         match self.rvalue.interpret(environment, scope_resolver) {
             Ok(value) => {
-                if let Some(depth) = scope_resolver.get_depth(&self.handle) {
-                    if environment.try_set(target.clone(), depth.clone(), value.clone()) {
+                if let Some(depth) = scope_resolver.get_depth(self.handle) {
+                    if environment.try_set(target, depth.clone(), value.clone()) {
                         Ok(value.clone())
                     } else {
-                        Err(RuntimeError::UndefinedIdentifier(*target))
+                        Err(RuntimeError::UndefinedIdentifier(target))
                     }
                 } else {
-                    Err(RuntimeError::UndefinedIdentifier(*target))
+                    Err(RuntimeError::UndefinedIdentifier(target))
                 }
             }
             Err(error) => Err(error),
@@ -502,8 +495,8 @@ impl Interpret for LogicExpr {
         environment: &Environment,
         scope_resolver: &ProgramLexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
-        match &self.operator {
-            &LogicOperator::Or => {
+        match self.operator {
+            LogicOperator::Or => {
                 let left = try!(self.left.interpret(environment, scope_resolver));
                 if left.is_true() {
                     Ok(left)
@@ -511,7 +504,7 @@ impl Interpret for LogicExpr {
                     self.right.interpret(environment, scope_resolver)
                 }
             }
-            &LogicOperator::And => {
+            LogicOperator::And => {
                 let left = try!(self.left.interpret(environment, scope_resolver));
                 if !left.is_true() {
                     Ok(left)
@@ -532,7 +525,7 @@ impl Interpret for Call {
         match self.callee.interpret(environment, scope_resolver) {
             Ok(Value::Callable(c)) => {
                 let mut evaluated_arguments = vec![];
-                for argument in self.arguments.iter() {
+                for argument in &self.arguments {
                     match argument.interpret(environment, scope_resolver) {
                         Ok(value) => evaluated_arguments.push(value),
                         error => return error,
@@ -540,8 +533,8 @@ impl Interpret for Call {
                 }
                 c.call(&evaluated_arguments, environment, scope_resolver)
             }
-            Ok(value) => return Err(RuntimeError::NotCallable(value)),
-            error => return error,
+            Ok(value) => Err(RuntimeError::NotCallable(value)),
+            error => error,
         }
     }
 }
@@ -562,9 +555,9 @@ impl Execute for Statement {
                     None
                 })
             }
-            Statement::Return(ref e) => match e {
-                &Some(ref e) => e.interpret(environment, scope_resolver).map(Some),
-                &None => Ok(Some(Value::Nil)),
+            Statement::Return(ref e) => match *e {
+                Some(ref e) => e.interpret(environment, scope_resolver).map(Some),
+                None => Ok(Some(Value::Nil)),
             },
             Statement::VariableDefinition(ref identifier) => {
                 environment.define(*identifier, Value::Nil);
@@ -616,14 +609,14 @@ impl Execute for Statement {
             }
             Statement::FunctionDefinition(ref f) => {
                 environment.define(
-                    f.name.clone(),
+                    f.name,
                     Value::Callable(Callable::Function(f.clone(), environment.clone())),
                 );
                 Ok(None)
             }
             Statement::Class(ref c) => {
                 // Not entirely sure why
-                environment.define(c.name.clone(), Value::Nil);
+                environment.define(c.name, Value::Nil);
                 let (superclass, superclass_environment) =
                     if let Some(ref superclass) = c.superclass {
                         let value = try!(superclass.interpret(environment, scope_resolver));
@@ -639,7 +632,7 @@ impl Execute for Statement {
                         (None, environment.clone())
                     };
                 let mut methods = FnvHashMap::default();
-                for method_definition in c.methods.iter() {
+                for method_definition in &c.methods {
                     methods.insert(
                         method_definition.name,
                         Callable::Function(
@@ -650,10 +643,10 @@ impl Execute for Statement {
                 }
                 //TODO: pass trough the class name
                 let class = Rc::new(Class {
-                    methods: methods,
-                    superclass: superclass,
+                    methods,
+                    superclass,
                 });
-                environment.define(c.name.clone(), Value::Callable(Callable::Class(class)));
+                environment.define(c.name, Value::Callable(Callable::Class(class)));
                 Ok(None)
             }
         }
@@ -808,13 +801,13 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let statement = Statement::VariableDefinition(identifier);
         assert_eq!(
             None,
             statement.execute(&environment, &scope_resolver).unwrap()
         );
-        assert_eq!(Value::Nil, environment.get(&identifier, 0).unwrap());
+        assert_eq!(Value::Nil, environment.get(identifier, 0).unwrap());
     }
 
     #[test]
@@ -822,7 +815,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let statement = Statement::Expression(Expr::Identifier(handle_factory.next(), identifier));
         let _ = scope_resolver.resolve(&statement);
@@ -834,7 +827,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let statement = Statement::Expression(Expr::Assignment(Box::new(Assignment {
             handle: handle_factory.next(),
@@ -850,7 +843,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
         assert_eq!(
@@ -859,7 +852,7 @@ mod tests {
         );
         assert_eq!(
             Value::Number(1.0f64),
-            environment.get(&identifier, 0).unwrap()
+            environment.get(identifier, 0).unwrap()
         );
     }
 
@@ -868,7 +861,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let outer_statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
@@ -893,7 +886,7 @@ mod tests {
         assert!(block.execute(&environment, &scope_resolver).is_ok());
         assert_eq!(
             Value::Boolean(false),
-            environment.get(&identifier, 0).unwrap()
+            environment.get(identifier, 0).unwrap()
         );
     }
     #[test]
@@ -901,7 +894,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statements = vec![Statement::VariableDefinitionWithInitalizer(
             identifier.clone(),
@@ -912,7 +905,7 @@ mod tests {
         }));
         assert_eq!(None, block.execute(&environment, &scope_resolver).unwrap());
         // The variable declaration gets lost when we exit the scope
-        assert_eq!(None, environment.get(&identifier, 0));
+        assert_eq!(None, environment.get(identifier, 0));
     }
 
     #[test]
@@ -947,7 +940,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let scope_resolver = ProgramLexicalScopesResolver::new();
-        let identifier = identifier_map.from_name(&"x");
+        let identifier = identifier_map.for_name(&"x");
         let condition = Expr::Literal(Literal::BoolLiteral(false));
         let then_expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let else_expr = Expr::Literal(Literal::NumberLiteral(2.0f64));
@@ -963,7 +956,7 @@ mod tests {
         assert_eq!(None, block.execute(&environment, &scope_resolver).unwrap());
         assert_eq!(
             Value::Number(2.0f64),
-            environment.get(&identifier, 0).unwrap()
+            environment.get(identifier, 0).unwrap()
         );
     }
 
@@ -982,11 +975,11 @@ mod tests {
         }
         assert_eq!(
             Value::Number(0.0f64),
-            environment.get(&identifier_map.from_name(&"a"), 0).unwrap()
+            environment.get(identifier_map.for_name(&"a"), 0).unwrap()
         );
         assert_eq!(
             Value::Number(2.0f64),
-            environment.get(&identifier_map.from_name(&"b"), 0).unwrap()
+            environment.get(identifier_map.for_name(&"b"), 0).unwrap()
         );
     }
 
@@ -1006,7 +999,7 @@ mod tests {
         assert_eq!(
             Value::Number(6.0f64),
             environment
-                .get(&parser.identifier_map.from_name(&"a"), 0)
+                .get(parser.identifier_map.for_name(&"a"), 0)
                 .unwrap()
         );
     }
@@ -1027,7 +1020,7 @@ mod tests {
         assert_eq!(
             Value::Nil,
             environment
-                .get(&parser.identifier_map.from_name(&"a"), 0)
+                .get(parser.identifier_map.for_name(&"a"), 0)
                 .unwrap()
         );
     }
@@ -1048,12 +1041,12 @@ mod tests {
         assert_eq!(
             Value::Number(21.0f64),
             environment
-                .get(&parser.identifier_map.from_name(&"a"), 0)
+                .get(parser.identifier_map.for_name(&"a"), 0)
                 .unwrap()
         );
         assert_eq!(
             None,
-            environment.get(&parser.identifier_map.from_name(&"b"), 0)
+            environment.get(parser.identifier_map.for_name(&"b"), 0)
         );
     }
 
@@ -1080,7 +1073,7 @@ mod tests {
             true,
             is_instance(
                 &environment
-                    .get(&parser.identifier_map.from_name(&"c"), 0)
+                    .get(parser.identifier_map.for_name(&"c"), 0)
                     .unwrap()
             )
         );
@@ -1100,16 +1093,16 @@ mod tests {
             let _ = statement.execute(&environment, &scope_resolver);
         }
         if let Value::Instance(instance) = environment
-            .get(&parser.identifier_map.from_name(&"c"), 0)
+            .get(parser.identifier_map.for_name(&"c"), 0)
             .unwrap()
         {
             assert_eq!(
                 Value::Number(10.0),
-                instance.get(parser.identifier_map.from_name(&"a")).unwrap()
+                instance.get(parser.identifier_map.for_name(&"a")).unwrap()
             );
             assert_eq!(
                 Value::Number(11.0),
-                instance.get(parser.identifier_map.from_name(&"b")).unwrap()
+                instance.get(parser.identifier_map.for_name(&"b")).unwrap()
             );
         } else {
             assert!(false);
@@ -1132,7 +1125,7 @@ mod tests {
         assert_eq!(
             Value::Number(1.0),
             environment
-                .get(&parser.identifier_map.from_name(&"v"), 0)
+                .get(parser.identifier_map.for_name(&"v"), 0)
                 .unwrap()
         )
     }
@@ -1153,7 +1146,7 @@ mod tests {
         assert_eq!(
             Value::Number(10.0),
             environment
-                .get(&parser.identifier_map.from_name(&"v"), 0)
+                .get(parser.identifier_map.for_name(&"v"), 0)
                 .unwrap()
         )
     }

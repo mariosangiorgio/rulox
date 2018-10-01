@@ -41,7 +41,7 @@ pub enum BinaryOp {
     And,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Chunk {
     instructions: Vec<OpCode>,
     values: Vec<Constant>,
@@ -49,14 +49,6 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new() -> Chunk {
-        Chunk {
-            instructions: Vec::new(),
-            values: Vec::new(),
-            lines: Vec::new(),
-        }
-    }
-
     pub fn get(&self, index: usize) -> OpCode {
         self.instructions[index]
     }
@@ -69,7 +61,7 @@ impl Chunk {
     /// # Example
     /// ```
     /// use rulox::vm::bytecode::*;
-    /// let mut chunk = Chunk::new();
+    /// let mut chunk = Chunk::default();
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Return, line);
     /// ```
@@ -88,7 +80,7 @@ impl Chunk {
     /// # Example
     /// ```
     /// use rulox::vm::bytecode::*;
-    /// let mut chunk = Chunk::new();
+    /// let mut chunk = Chunk::default();
     /// let offset = chunk.add_constant(Constant::Number(1.2));
     /// let line = 1;
     /// chunk.add_instruction(OpCode::Constant(offset), line);
@@ -111,9 +103,9 @@ pub fn disassemble_instruction<T>(
 where
     T: Write,
 {
-    return match instruction {
-        &OpCode::Return => writeln!(out, "OP_RETURN"),
-        &OpCode::Constant(offset) => if offset >= chunk.values_count() {
+    match *instruction {
+        OpCode::Return => writeln!(out, "OP_RETURN"),
+        OpCode::Constant(offset) => if offset >= chunk.values_count() {
             //TODO: this should probably return an error
             writeln!(out, "OP_CONSTANT {:4} 'ILLEGAL_ACCESS'", offset)
         } else {
@@ -124,23 +116,23 @@ where
                 chunk.get_value(offset)
             )
         },
-        &OpCode::Not => writeln!(out, "OP_NOT"),
-        &OpCode::Negate => writeln!(out, "OP_NEGATE"),
-        &OpCode::Binary(ref operator) => match operator {
-            &BinaryOp::Add => writeln!(out, "OP_ADD"),
-            &BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
-            &BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
-            &BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
-            &BinaryOp::Equals => writeln!(out, "OP_EQUALS"),
-            &BinaryOp::NotEqual => writeln!(out, "OP_NOT_EQUAL"),
-            &BinaryOp::Greater => writeln!(out, "OP_GREATER"),
-            &BinaryOp::GreaterEqual => writeln!(out, "OP_GREATER_EQUAL"),
-            &BinaryOp::Less => writeln!(out, "OP_LESS"),
-            &BinaryOp::LessEqual => writeln!(out, "OP_LESS_EQUAL"),
-            &BinaryOp::Or => writeln!(out, "OP_OR"),
-            &BinaryOp::And => writeln!(out, "OP_AND"),
+        OpCode::Not => writeln!(out, "OP_NOT"),
+        OpCode::Negate => writeln!(out, "OP_NEGATE"),
+        OpCode::Binary(ref operator) => match *operator {
+            BinaryOp::Add => writeln!(out, "OP_ADD"),
+            BinaryOp::Subtract => writeln!(out, "OP_SUBTRACT"),
+            BinaryOp::Multiply => writeln!(out, "OP_MULTIPLY"),
+            BinaryOp::Divide => writeln!(out, "OP_DIVIDE"),
+            BinaryOp::Equals => writeln!(out, "OP_EQUALS"),
+            BinaryOp::NotEqual => writeln!(out, "OP_NOT_EQUAL"),
+            BinaryOp::Greater => writeln!(out, "OP_GREATER"),
+            BinaryOp::GreaterEqual => writeln!(out, "OP_GREATER_EQUAL"),
+            BinaryOp::Less => writeln!(out, "OP_LESS"),
+            BinaryOp::LessEqual => writeln!(out, "OP_LESS_EQUAL"),
+            BinaryOp::Or => writeln!(out, "OP_OR"),
+            BinaryOp::And => writeln!(out, "OP_AND"),
         },
-    };
+    }
 }
 
 pub fn disassemble<T>(chunk: &Chunk, name: &str, out: &mut LineWriter<T>) -> Result<(), Error>
@@ -148,9 +140,8 @@ where
     T: Write,
 {
     try!(writeln!(out, "== {} ==", name));
-    let mut i = 0;
     let mut line = 0;
-    for instruction in chunk.instructions.iter() {
+    for (i, instruction) in chunk.instructions.iter().enumerate() {
         // Note that this is not printing offsets as the book does.
         // Using the OpCode enum all the opcodes have the same size.
         // It is not space-efficient, but for now it's fine
@@ -162,7 +153,6 @@ where
             try!(write!(out, "{:4}", line));
         }
         try!(write!(out, " "));
-        i = i + 1;
         try!{disassemble_instruction(instruction, chunk, out)};
     }
     Ok(())

@@ -6,7 +6,7 @@ extern crate rulox;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut runner = Runner::new(TreeWalkRuloxInterpreter::new());
+    let mut runner = Runner::new(TreeWalkRuloxInterpreter::default());
     let exit_code = runner.run(&args);
     std::process::exit(exit_code)
 }

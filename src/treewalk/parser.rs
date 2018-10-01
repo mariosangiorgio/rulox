@@ -112,7 +112,7 @@ impl Parser {
         consume_expected_token_with_action!(
             tokens,
             &Token::Identifier(ref identifier),
-            self.identifier_map.from_name(identifier),
+            self.identifier_map.for_name(identifier),
             RequiredElement::Identifier
         )
     }
@@ -243,7 +243,7 @@ impl Parser {
             Some(parser.consume_expected_identifier(tokens))
         };
         let arguments = try_wrap_err!(self.parse_function_arguments(tokens, &parse_identifier));
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::LeftBrace,
             RequiredElement::Block
@@ -261,7 +261,7 @@ impl Parser {
                     kind
                 },
                 name: identifier,
-                arguments: arguments,
+                arguments,
                 body: block,
             },
         ))))
@@ -276,9 +276,7 @@ impl Parser {
     {
         let identifier = try_wrap_err!(self.consume_expected_identifier(tokens));
         let superclass = if let Some(&&TokenWithContext {
-            token: Token::Less,
-            lexeme: _,
-            position: _,
+            token: Token::Less, ..
         }) = tokens.peek()
         {
             let _ = tokens.next();
@@ -290,22 +288,24 @@ impl Parser {
         } else {
             None
         };
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::LeftBrace,
             RequiredElement::LeftBrace
         ));
         let mut methods = vec![];
-        fn is_class_end(token: &&TokenWithContext) -> bool {
-            match **token {
-                TokenWithContext {
-                    token: Token::RightBrace,
-                    ..
-                } => true,
-                _ => false,
+        fn is_class_end(t: Option<&&TokenWithContext>) -> bool {
+            if let Some(&TokenWithContext {
+                token: Token::RightBrace,
+                ..
+            }) = t
+            {
+                return true;
+            } else {
+                return false;
             }
-        }
-        while let Some(false) = tokens.peek().map(&is_class_end) {
+        };
+        while !is_class_end(tokens.peek()) {
             match self.parse_function_declaration(tokens, FunctionKind::Method) {
                 Some(Ok(Statement::FunctionDefinition(method))) => methods.push(method),
                 Some(Ok(_)) => panic!("Function parsing didn't return a function"),
@@ -313,15 +313,15 @@ impl Parser {
                 Some(Err(error)) => return Some(Err(error)),
             }
         }
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::RightBrace,
             RequiredElement::RightBrace
         ));
         Some(Ok(Statement::Class(ClassDefinition {
             name: identifier,
-            superclass: superclass,
-            methods: methods,
+            superclass,
+            methods,
         })))
     }
 
@@ -364,27 +364,27 @@ impl Parser {
         I: Iterator<Item = &'a TokenWithContext>,
     {
         let mut statements = Vec::new();
-        fn is_block_end(token: &&TokenWithContext) -> bool {
-            match **token {
-                TokenWithContext {
-                    token: Token::RightBrace,
-                    ..
-                } => true,
-                _ => false,
+        fn is_block_end(t: Option<&&TokenWithContext>) -> bool {
+            if let Some(&TokenWithContext {
+                token: Token::RightBrace,
+                ..
+            }) = t
+            {
+                return true;
+            } else {
+                return false;
             }
-        }
-        while let Some(false) = tokens.peek().map(&is_block_end) {
+        };
+        while !is_block_end(tokens.peek()) {
             match self.parse_declaration(tokens) {
                 Some(Ok(statement)) => statements.push(statement),
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
                 Some(Err(error)) => return Some(Err(error)),
             }
         }
-        if let Some(true) = tokens.peek().map(&is_block_end) {
+        if is_block_end(tokens.peek()) {
             let _ = tokens.next();
-            Some(Ok(Statement::Block(Box::new(Block {
-                statements: statements,
-            }))))
+            Some(Ok(Statement::Block(Box::new(Block { statements }))))
         } else {
             Some(Err(ParseError::UnexpectedEndOfFile)) //TODO: better message
         }
@@ -444,7 +444,7 @@ impl Parser {
     where
         I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::LeftParen,
             RequiredElement::LeftParen
@@ -454,7 +454,7 @@ impl Parser {
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::RightParen,
             RequiredElement::RightParen
@@ -474,14 +474,14 @@ impl Parser {
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
             };
             Some(Ok(Statement::IfThenElse(Box::new(IfThenElse {
-                condition: condition,
-                then_branch: then_branch,
-                else_branch: else_branch,
+                condition,
+                then_branch,
+                else_branch,
             }))))
         } else {
             Some(Ok(Statement::IfThen(Box::new(IfThen {
-                condition: condition,
-                then_branch: then_branch,
+                condition,
+                then_branch,
             }))))
         }
     }
@@ -493,7 +493,7 @@ impl Parser {
     where
         I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::LeftParen,
             RequiredElement::LeftParen
@@ -503,7 +503,7 @@ impl Parser {
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::RightParen,
             RequiredElement::RightParen
@@ -515,10 +515,7 @@ impl Parser {
             Some(Err(error)) => return Some(Err(error)),
             None => return Some(Err(ParseError::UnexpectedEndOfFile)),
         };
-        Some(Ok(Statement::While(Box::new(While {
-            condition: condition,
-            body: body,
-        }))))
+        Some(Ok(Statement::While(Box::new(While { condition, body }))))
     }
 
     fn parse_for_statement<'a, I>(
@@ -528,7 +525,7 @@ impl Parser {
     where
         I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::LeftParen,
             RequiredElement::LeftParen
@@ -549,7 +546,7 @@ impl Parser {
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
             },
         };
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::Semicolon,
             RequiredElement::Semicolon
@@ -564,7 +561,7 @@ impl Parser {
             },
         };
 
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::Semicolon,
             RequiredElement::Semicolon
@@ -578,7 +575,7 @@ impl Parser {
                 None => return Some(Err(ParseError::UnexpectedEndOfFile)),
             },
         };
-        let _ = try_wrap_err!(consume_expected_token!(
+        try_wrap_err!(consume_expected_token!(
             tokens,
             &Token::RightParen,
             RequiredElement::RightParen
@@ -601,7 +598,7 @@ impl Parser {
             body
         };
         let while_statement = Statement::While(Box::new(While {
-            condition: condition,
+            condition,
             body: desugared_body,
         }));
         Some(Ok(if let Some(initializer) = initializer {
@@ -670,7 +667,7 @@ impl Parser {
             let binary_expression = LogicExpr {
                 left: expr,
                 operator: mapped_operator,
-                right: right,
+                right,
             };
             expr = Expr::Logic(Box::new(binary_expression));
         }
@@ -712,7 +709,7 @@ impl Parser {
             let binary_expression = BinaryExpr {
                 left: expr,
                 operator: mapped_operator,
-                right: right,
+                right,
             };
             expr = Expr::Binary(Box::new(binary_expression));
         }
@@ -739,7 +736,7 @@ impl Parser {
                                     Expr::Assignment(Box::new(Assignment {
                                         handle: self.variable_use_handle_factory.next(),
                                         lvalue: target,
-                                        rvalue: rvalue,
+                                        rvalue,
                                     }))
                                 })),
                             }
@@ -751,7 +748,7 @@ impl Parser {
                                 &mut *get,
                                 Get {
                                     instance: Expr::Literal(Literal::NilLiteral),
-                                    property: property,
+                                    property,
                                 },
                             );
                             let instance = get.instance;
@@ -759,8 +756,8 @@ impl Parser {
                                 None => Some(Err(ParseError::UnexpectedEndOfFile)),
                                 Some(result) => Some(result.map(|rvalue| {
                                     Expr::Set(Box::new(Set {
-                                        instance: instance,
-                                        property: property,
+                                        instance,
+                                        property,
                                         value: rvalue,
                                     }))
                                 })),
@@ -896,7 +893,7 @@ impl Parser {
             };
             let unary_expression = UnaryExpr {
                 operator: mapped_operator,
-                right: right,
+                right,
             };
             return Some(Ok(Expr::Unary(Box::new(unary_expression))));
         } else {
@@ -942,7 +939,7 @@ impl Parser {
     where
         I: Iterator<Item = &'a TokenWithContext>,
     {
-        let _ = try!(consume_expected_token!(
+        try!(consume_expected_token!(
             tokens,
             &Token::LeftParen,
             RequiredElement::LeftParen
@@ -968,7 +965,7 @@ impl Parser {
                 }
             }
         }
-        let _ = try!(consume_expected_token!(
+        try!(consume_expected_token!(
             tokens,
             &Token::RightParen,
             RequiredElement::RightParen
@@ -986,10 +983,7 @@ impl Parser {
     {
         let arguments =
             try_wrap_err!(self.parse_function_arguments(tokens, &Parser::parse_expression));
-        Some(Ok(Expr::Call(Box::new(Call {
-            callee: callee,
-            arguments: arguments,
-        }))))
+        Some(Ok(Expr::Call(Box::new(Call { callee, arguments }))))
     }
 
     fn parse_primary<'a, I>(&mut self, tokens: &mut Peekable<I>) -> Option<Result<Expr, ParseError>>
@@ -1011,7 +1005,7 @@ impl Parser {
                     Expr::This(self.variable_use_handle_factory.next(), Identifier::this())
                 }
                 Token::Super => {
-                    let _ = try_wrap_err!(consume_expected_token!(
+                    try_wrap_err!(consume_expected_token!(
                         tokens,
                         &Token::Dot,
                         RequiredElement::Dot
@@ -1025,7 +1019,7 @@ impl Parser {
                 }
                 Token::Identifier(ref i) => Expr::Identifier(
                     self.variable_use_handle_factory.next(),
-                    self.identifier_map.from_name(i),
+                    self.identifier_map.for_name(i),
                 ),
                 Token::LeftParen => {
                     let expr = if let Some(result) = self.parse_expression(tokens) {
@@ -1036,7 +1030,7 @@ impl Parser {
                     {
                         if let Some(token) = tokens.next() {
                             if token.token == Token::RightParen {
-                                let grouping_expression = Grouping { expr: expr };
+                                let grouping_expression = Grouping { expr };
                                 return Some(Ok(Expr::Grouping(Box::new(grouping_expression))));
                             } else {
                                 return Some(Err(ParseError::Missing(

@@ -30,17 +30,19 @@ pub struct TreeWalkRuloxInterpreter {
     interpreter: StatementInterpreter,
 }
 
-impl TreeWalkRuloxInterpreter {
-    pub fn new() -> TreeWalkRuloxInterpreter {
+impl Default for TreeWalkRuloxInterpreter {
+    fn default() -> TreeWalkRuloxInterpreter {
         let mut parser = Parser::new();
         let environment = Environment::new_with_natives(&mut parser.identifier_map);
         TreeWalkRuloxInterpreter {
-            parser: parser,
+            parser,
             lexical_scope_resolver: ProgramLexicalScopesResolver::new(),
             interpreter: StatementInterpreter::new(environment),
         }
     }
+}
 
+impl TreeWalkRuloxInterpreter {
     fn scan_and_parse(&mut self, source: &str) -> Result<Vec<ast::Statement>, Vec<InputError>> {
         let (tokens, scanner_errors) = scanner::scan(source);
         let mut errors: Vec<InputError> = scanner_errors
@@ -71,7 +73,7 @@ impl TreeWalkRuloxInterpreter {
                 // - lexical analysis
                 // - actual interpretation
                 let mut resolution_errors = vec![];
-                for statement in statements.iter() {
+                for statement in &statements {
                     match self.lexical_scope_resolver.resolve(&statement) {
                         Ok(_) => (),
                         Err(e) => resolution_errors.push(e),
@@ -80,7 +82,7 @@ impl TreeWalkRuloxInterpreter {
                 if !resolution_errors.is_empty() {
                     return RunResult::LexicalScopesResolutionError(resolution_errors);
                 }
-                for statement in statements.iter() {
+                for statement in &statements {
                     match self
                         .interpreter
                         .execute(&self.lexical_scope_resolver, &statement)
@@ -113,7 +115,7 @@ mod tests {
     proptest! {
     #[test]
     fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = TreeWalkRuloxInterpreter::new();
+        let mut ruloxvm = TreeWalkRuloxInterpreter::default();
         ruloxvm.run(input)
     }
     }
