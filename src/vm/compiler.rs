@@ -1,7 +1,7 @@
 use frontend::scanner::{scan_into_iterator, Position, ScannerError, Token, TokenWithContext};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::iter::Peekable;
-use vm::bytecode::{BinaryOp, Chunk, OpCode};
+use vm::bytecode::{BinaryOp, Chunk, OpCode, Value};
 
 #[derive(Debug)]
 pub enum ParsingError {
@@ -165,11 +165,23 @@ where
             Token::Comma => (Precedence::None, None, None),
             Token::Dot => (Precedence::Call, None, None),
             Token::Minus => (Precedence::Term, Some(Parser::unary), Some(Parser::binary)),
+            Token::Bang => (Precedence::None, Some(Parser::unary), None),
             Token::Plus => (Precedence::Term, None, Some(Parser::binary)),
             Token::Slash => (Precedence::Factor, None, Some(Parser::binary)),
             Token::Star => (Precedence::Factor, None, Some(Parser::binary)),
+            Token::EqualEqual | Token::BangEqual => {
+                (Precedence::Equality, None, Some(Parser::binary))
+            }
+            Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => {
+                (Precedence::Comparison, None, Some(Parser::binary))
+            }
             Token::Semicolon => (Precedence::None, None, None),
             Token::NumberLiteral(_) => (Precedence::None, Some(Parser::number), None),
+            Token::True | Token::False | Token::Nil => {
+                (Precedence::None, Some(Parser::literal), None)
+            }
+            Token::Or => (Precedence::Or, None, Some(Parser::binary)),
+            Token::And => (Precedence::And, None, Some(Parser::binary)),
             _ => unimplemented!(),
         }
     }
@@ -232,6 +244,23 @@ where
         self.parse_precedence(Precedence::Assignment)
     }
 
+    fn literal(&mut self) -> Result<(), ParsingError> {
+        let current = self.advance();
+        let (value, line) = if let Some(ref t) = current {
+            match t.token {
+                Token::True => (Value::Bool(true), t.position.line),
+                Token::False => (Value::Bool(false), t.position.line),
+                Token::Nil => (Value::Nil, t.position.line),
+                _ => unreachable!(),
+            }
+        } else {
+            unreachable!()
+        };
+        let constant = self.chunk.add_constant(value);
+        self.chunk.add_instruction(OpCode::Constant(constant), line);
+        Ok(())
+    }
+
     fn number(&mut self) -> Result<(), ParsingError> {
         let current = self.advance();
         let (value, line) = if let Some(ref t) = current {
@@ -241,9 +270,9 @@ where
                 unreachable!()
             }
         } else {
-            panic!()
+            unreachable!()
         };
-        let constant = self.chunk.add_constant(value);
+        let constant = self.chunk.add_constant(Value::Number(value));
         self.chunk.add_instruction(OpCode::Constant(constant), line);
         Ok(())
     }
@@ -257,10 +286,17 @@ where
     fn unary(&mut self) -> Result<(), ParsingError> {
         let (opcode, line) = match self.advance() {
             Some(TokenWithContext {
-                token: Token::Minus,
+                token,
                 position,
                 lexeme: _,
-            }) => (OpCode::Negate, position.line),
+            }) => (
+                match token {
+                    Token::Minus => OpCode::Negate,
+                    Token::Bang => OpCode::Not,
+                    _ => unreachable!(),
+                },
+                position.line,
+            ),
             _ => unreachable!("This code is executed only when we know we have a unary expression"),
         };
         let _ = self.parse_precedence(Precedence::Unary)?;
@@ -269,37 +305,27 @@ where
     }
 
     fn binary(&mut self) -> Result<(), ParsingError> {
-        let (opcode, line) = match self.advance() {
-            Some(TokenWithContext {
-                token: Token::Plus,
-                position,
-                lexeme: _,
-            }) => (OpCode::Binary(BinaryOp::Add), position.line),
-            Some(TokenWithContext {
-                token: Token::Minus,
-                position,
-                lexeme: _,
-            }) => (OpCode::Binary(BinaryOp::Subtract), position.line),
-            Some(TokenWithContext {
-                token: Token::Star,
-                position,
-                lexeme: _,
-            }) => (OpCode::Binary(BinaryOp::Multiply), position.line),
-            Some(TokenWithContext {
-                token: Token::Slash,
-                position,
-                lexeme: _,
-            }) => (OpCode::Binary(BinaryOp::Divide), position.line),
-            _ => {
-                unreachable!("This code is executed only when we know we have a binary expression")
-            }
-        };
-        let precedence = {
-            let peeked = self
-                .peek()
-                .ok_or_else(|| ParsingError::UnexpectedEndOfFile)?;
-            let (precedence, _, _) = Self::find_rule(&peeked.token);
-            precedence.next()
+        let current = self.advance();
+        let (opcode, line, precedence) = if let Some(t) = current {
+            let op = match t.token {
+                Token::Plus => BinaryOp::Add,
+                Token::Minus => BinaryOp::Subtract,
+                Token::Star => BinaryOp::Multiply,
+                Token::Slash => BinaryOp::Divide,
+                Token::EqualEqual => BinaryOp::Equals,
+                Token::BangEqual => BinaryOp::NotEqual,
+                Token::Greater => BinaryOp::Greater,
+                Token::GreaterEqual => BinaryOp::GreaterEqual,
+                Token::Less => BinaryOp::Less,
+                Token::LessEqual => BinaryOp::LessEqual,
+                Token::Or => BinaryOp::Or,
+                Token::And => BinaryOp::And,
+                _ => unreachable!(),
+            };
+            let (precedence, _, _) = Self::find_rule(&t.token);
+            (OpCode::Binary(op), t.position.line, precedence.next())
+        } else {
+            unreachable!()
         };
         self.parse_precedence(precedence)?;
         self.emit(opcode, line);

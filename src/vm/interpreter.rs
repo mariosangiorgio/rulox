@@ -12,6 +12,7 @@ pub enum RuntimeError {
     // at every instruction
     InstructionOutOfBound,
     ValueOutOfBound,
+    TypeError,
 }
 
 struct Vm<'a> {
@@ -65,7 +66,18 @@ impl<'a> Vm<'a> {
             }
             OpCode::Negate => {
                 let op = try!(self.pop());
-                self.stack.push(-op);
+                match op {
+                    Value::Number(n) => self.stack.push(Value::Number(-n)),
+                    _ => return Err(RuntimeError::TypeError),
+                };
+            }
+            OpCode::Not => {
+                let op = try!(self.pop());
+                match op {
+                    Value::Bool(b) => self.stack.push(Value::Bool(!b)),
+                    Value::Nil => self.stack.push(Value::Bool(true)),
+                    _ => return Err(RuntimeError::TypeError),
+                };
             }
             OpCode::Binary(ref operator) => {
                 // Note the order!
@@ -73,12 +85,35 @@ impl<'a> Vm<'a> {
                 // Op1 is the second topmost element
                 let op2 = try!(self.pop());
                 let op1 = try!(self.pop());
-                self.stack.push(match operator {
-                    &BinaryOp::Add => op1 + op2,
-                    &BinaryOp::Subtract => op1 - op2,
-                    &BinaryOp::Multiply => op1 * op2,
-                    &BinaryOp::Divide => op1 / op2,
-                })
+                let result = match (op1, op2) {
+                    (Value::Number(op1), Value::Number(op2)) => match operator {
+                        &BinaryOp::Add => Value::Number(op1 + op2),
+                        &BinaryOp::Subtract => Value::Number(op1 - op2),
+                        &BinaryOp::Multiply => Value::Number(op1 * op2),
+                        &BinaryOp::Divide => Value::Number(op1 / op2),
+                        &BinaryOp::Equals => Value::Bool(op1 == op2),
+                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
+                        &BinaryOp::Greater => Value::Bool(op1 > op2),
+                        &BinaryOp::GreaterEqual => Value::Bool(op1 >= op2),
+                        &BinaryOp::Less => Value::Bool(op1 < op2),
+                        &BinaryOp::LessEqual => Value::Bool(op1 <= op2),
+                        _ => return Err(RuntimeError::TypeError),
+                    },
+                    (Value::Bool(op1), Value::Bool(op2)) => match operator {
+                        &BinaryOp::Equals => Value::Bool(op1 == op2),
+                        &BinaryOp::NotEqual => Value::Bool(op1 != op2),
+                        &BinaryOp::Or => Value::Bool(op1 || op2),
+                        &BinaryOp::And => Value::Bool(op1 && op2),
+                        _ => return Err(RuntimeError::TypeError),
+                    },
+                    (Value::Nil, Value::Nil) => match operator {
+                        &BinaryOp::Equals => Value::Bool(true),
+                        &BinaryOp::NotEqual => Value::Bool(false),
+                        _ => return Err(RuntimeError::TypeError),
+                    },
+                    _ => return Err(RuntimeError::TypeError),
+                };
+                self.stack.push(result);
             }
         };
         Ok(true)
@@ -91,7 +126,7 @@ impl<'a> Vm<'a> {
         try!(writeln!(out));
         try!(write!(out, "Stack: "));
         for value in self.stack.iter() {
-            try!(write!(out, "[ {} ]", value));
+            try!(write!(out, "[ {:?} ]", value));
         }
         try!(writeln!(out));
         if self.program_counter < self.chunk.instruction_count() {
@@ -128,10 +163,16 @@ mod tests {
     use proptest::prelude::*;
     use std::io::*;
     use vm::bytecode::*;
-    use vm::*;
+    use vm::interpreter::{interpret, trace};
 
-    fn arb_constants(max_constants: usize) -> VecStrategy<f64::Any> {
-        prop::collection::vec(any::<Value>(), 0..max_constants)
+    fn arb_constants(max_constants: usize) -> VecStrategy<BoxedStrategy<Value>> {
+        prop::collection::vec(
+            prop_oneof![
+                prop::num::f64::ANY.prop_map(Value::Number),
+                prop::bool::ANY.prop_map(Value::Bool),
+            ].boxed(),
+            0..max_constants,
+        )
     }
 
     fn arb_instruction(max_offset: usize) -> BoxedStrategy<OpCode> {
@@ -175,7 +216,7 @@ mod tests {
     proptest! {
     #[test]
     fn interpret_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
-        let _ = vm::interpret(chunk);
+        let _ = interpret(chunk);
     }
     }
 
@@ -183,7 +224,7 @@ mod tests {
     #[test]
     fn trace_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
         let mut writer = LineWriter::new(sink());
-        let _ = vm::trace(chunk, &mut writer);
+        let _ = trace(chunk, &mut writer);
     }
     }
 
@@ -205,8 +246,9 @@ mod tests {
 // require lots of boilerplate for little benefit.
 #[cfg(test)]
 mod end_to_end_tests {
+    use vm::bytecode::Value;
     use vm::compiler::compile;
-    use vm::vm::Vm;
+    use vm::interpreter::Vm;
 
     #[test]
     pub fn number() {
@@ -215,7 +257,7 @@ mod end_to_end_tests {
 
         let _ = vm.interpret_next().unwrap();
 
-        assert_eq!(5.0, vm.pop().unwrap());
+        assert_eq!(Value::Number(5.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -226,7 +268,18 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
         let _ = vm.interpret_next().unwrap(); // Negates it
 
-        assert_eq!(-5.0, vm.pop().unwrap());
+        assert_eq!(Value::Number(-5.0), vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn unary_bool() {
+        let chunk = compile("!true").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Negates it
+
+        assert_eq!(Value::Bool(false), vm.pop().unwrap());
     }
 
     #[test]
@@ -238,7 +291,19 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 10 on the stack
         let _ = vm.interpret_next().unwrap(); // Adds them
 
-        assert_eq!(15.0, vm.pop().unwrap());
+        assert_eq!(Value::Number(15.0), vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn binary_bool() {
+        let chunk = compile("true or false").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts true on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts false on the stack
+        let _ = vm.interpret_next().unwrap(); // Or
+
+        assert_eq!(Value::Bool(true), vm.pop().unwrap());
     }
 
     #[test]
@@ -252,7 +317,7 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
         let _ = vm.interpret_next().unwrap(); // Multiplication
 
-        assert_eq!(45.0, vm.pop().unwrap());
+        assert_eq!(Value::Number(45.0), vm.pop().unwrap());
     }
 
     #[test]
@@ -267,6 +332,26 @@ mod end_to_end_tests {
         let _ = vm.interpret_next().unwrap(); // Multiplication
         let _ = vm.interpret_next().unwrap(); // Addition
 
-        assert_eq!(25.0, vm.pop().unwrap());
+        assert_eq!(Value::Number(25.0), vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn complex() {
+        let chunk = compile("!(5 - 4 > 3 * 2 == !nil)").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 4 on the stack
+        let _ = vm.interpret_next().unwrap(); // Subtract
+        let _ = vm.interpret_next().unwrap(); // Puts 2 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Multiply
+        let _ = vm.interpret_next().unwrap(); // Greater
+        let _ = vm.interpret_next().unwrap(); // Puts Nil on the stack
+        let _ = vm.interpret_next().unwrap(); // Not
+        let _ = vm.interpret_next().unwrap(); // Equals
+        let _ = vm.interpret_next().unwrap(); // Not
+
+        assert_eq!(Value::Bool(true), vm.pop().unwrap());
     }
 }
