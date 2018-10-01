@@ -57,7 +57,7 @@ pub enum Token {
 /// index, since this struct exists only to provide
 /// context to the user.
 pub struct Position {
-    line: usize,
+    pub line: usize,
     column: usize,
 }
 
@@ -189,7 +189,8 @@ impl<'a> Scanner<'a> {
         }
         let literal_length = self.current_lexeme.len() - 2;
         // Trims delimiters
-        let literal = self.current_lexeme
+        let literal = self
+            .current_lexeme
             .chars()
             .skip(1)
             .take(literal_length)

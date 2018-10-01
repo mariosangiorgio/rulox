@@ -47,7 +47,7 @@ impl<'a> Vm<'a> {
     /// or false if we're done interpreting the chunk.
     fn interpret_next(&mut self) -> Result<bool, RuntimeError> {
         self.program_counter += 1;
-        if self.program_counter >= self.chunk.instruction_count() {
+        if self.program_counter > self.chunk.instruction_count() {
             return Err(RuntimeError::InstructionOutOfBound);
         }
         match self.chunk.get(self.program_counter - 1) {
@@ -87,6 +87,8 @@ impl<'a> Vm<'a> {
     where
         T: Write,
     {
+        try!(write!(out, "Program Counter: {}", self.program_counter));
+        try!(writeln!(out));
         try!(write!(out, "Stack: "));
         for value in self.stack.iter() {
             try!(write!(out, "[ {} ]", value));
@@ -191,5 +193,80 @@ mod tests {
         let mut writer = LineWriter::new(sink());
         let _ = disassemble(chunk, "Test", &mut writer);
     }
+    }
+}
+
+// The following are end to end tests that cover everything.
+// They start from a string, compile them (thus covering the code)
+// in compiler.rs, and finally run the generated chunk.
+//
+// This is the easiest way to check that everything works properly.
+// Testing bytecode generation and interpretation separately would
+// require lots of boilerplate for little benefit.
+#[cfg(test)]
+mod end_to_end_tests {
+    use vm::compiler::compile;
+    use vm::vm::Vm;
+
+    #[test]
+    pub fn number() {
+        let chunk = compile("5").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap();
+
+        assert_eq!(5.0, vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn unary() {
+        let chunk = compile("-5").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Negates it
+
+        assert_eq!(-5.0, vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn binary() {
+        let chunk = compile("5+10").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 10 on the stack
+        let _ = vm.interpret_next().unwrap(); // Adds them
+
+        assert_eq!(15.0, vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn grouping() {
+        let chunk = compile("(5+10)*3").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 10 on the stack
+        let _ = vm.interpret_next().unwrap(); // Addition
+        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Multiplication
+
+        assert_eq!(45.0, vm.pop().unwrap());
+    }
+
+    #[test]
+    pub fn precedence() {
+        let chunk = compile("-5+10*3").unwrap();
+        let mut vm = Vm::new(&chunk);
+
+        let _ = vm.interpret_next().unwrap(); // Puts 5 on the stack
+        let _ = vm.interpret_next().unwrap(); // Negates it
+        let _ = vm.interpret_next().unwrap(); // Puts 10 on the stack
+        let _ = vm.interpret_next().unwrap(); // Puts 3 on the stack
+        let _ = vm.interpret_next().unwrap(); // Multiplication
+        let _ = vm.interpret_next().unwrap(); // Addition
+
+        assert_eq!(25.0, vm.pop().unwrap());
     }
 }

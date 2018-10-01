@@ -171,14 +171,17 @@ impl LexicalScopesResolver for Statement {
                 Ok(())
             }
             Statement::Expression(ref e) => e.resolve(resolver),
-            Statement::IfThen(ref s) => s.condition
+            Statement::IfThen(ref s) => s
+                .condition
                 .resolve(resolver)
                 .and_then(|_| s.then_branch.resolve(resolver)),
-            Statement::IfThenElse(ref s) => s.condition
+            Statement::IfThenElse(ref s) => s
+                .condition
                 .resolve(resolver)
                 .and_then(|_| s.then_branch.resolve(resolver))
                 .and_then(|_| s.else_branch.resolve(resolver)),
-            Statement::While(ref s) => s.condition
+            Statement::While(ref s) => s
+                .condition
                 .resolve(resolver)
                 .and_then(|_| s.body.resolve(resolver)),
             Statement::Print(ref e) => e.resolve(resolver),
@@ -209,16 +212,18 @@ impl LexicalScopesResolver for Expr {
                 resolver.resolve_local(handle.clone(), identifier);
                 Ok(())
             }
-            Expr::Super(ref handle, ref super_identifier, _member_identifier) => match resolver
-                .current_class
-            {
-                ClassType::None => Err(LexicalScopesResolutionError::UseOfSuperOutsideAClass),
-                ClassType::Class => Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass),
-                _ => {
-                    resolver.resolve_local(handle.clone(), super_identifier);
-                    Ok(())
+            Expr::Super(ref handle, ref super_identifier, _member_identifier) => {
+                match resolver.current_class {
+                    ClassType::None => Err(LexicalScopesResolutionError::UseOfSuperOutsideAClass),
+                    ClassType::Class => {
+                        Err(LexicalScopesResolutionError::UseOfSuperOutsideASubClass)
+                    }
+                    _ => {
+                        resolver.resolve_local(handle.clone(), super_identifier);
+                        Ok(())
+                    }
                 }
-            },
+            }
             Expr::Identifier(ref handle, ref identifier) => {
                 let scopes = resolver.scopes.len();
                 if scopes != 0
@@ -236,10 +241,12 @@ impl LexicalScopesResolver for Expr {
             Expr::Assignment(ref assigment) => assigment.resolve(resolver),
             Expr::Literal(_) => Ok(()),
             Expr::Unary(ref e) => e.right.resolve(resolver),
-            Expr::Binary(ref e) => e.left
+            Expr::Binary(ref e) => e
+                .left
                 .resolve(resolver)
                 .and_then(|_| e.right.resolve(resolver)),
-            Expr::Logic(ref e) => e.left
+            Expr::Logic(ref e) => e
+                .left
                 .resolve(resolver)
                 .and_then(|_| e.right.resolve(resolver)),
             Expr::Grouping(ref e) => e.expr.resolve(resolver),

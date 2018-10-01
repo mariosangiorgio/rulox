@@ -5,6 +5,10 @@ pub mod vm;
 
 extern crate fnv;
 extern crate itertools;
+extern crate num_traits;
+
+#[macro_use]
+extern crate num_derive;
 
 #[cfg(test)]
 #[macro_use]

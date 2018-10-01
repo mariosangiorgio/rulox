@@ -81,7 +81,8 @@ impl TreeWalkRuloxInterpreter {
                     return RunResult::LexicalScopesResolutionError(resolution_errors);
                 }
                 for statement in statements.iter() {
-                    match self.interpreter
+                    match self
+                        .interpreter
                         .execute(&self.lexical_scope_resolver, &statement)
                     {
                         Ok(_) => (),
