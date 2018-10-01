@@ -1,6 +1,6 @@
 pub mod bytecode;
 pub mod compiler;
-pub mod vm;
+pub mod interpreter;
 
 use std::io::{stdout, LineWriter};
 use user_interface::{RuloxImplementation, RunResult as UiRunResult};
@@ -20,7 +20,7 @@ impl RuloxImplementation for RuloxVm {
         let handle = stdout.lock();
         let mut writer = LineWriter::new(handle);
         let _ = bytecode::disassemble(&chunk, "Test", &mut writer).unwrap();
-        let _ = vm::trace(&chunk, &mut writer).unwrap();
+        let _ = interpreter::trace(&chunk, &mut writer).unwrap();
         UiRunResult::Ok
     }
 }
