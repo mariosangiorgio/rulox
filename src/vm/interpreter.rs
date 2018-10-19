@@ -109,28 +109,24 @@ impl<'a> Vm<'a> {
                 self.stack.push(value)
             }
             OpCode::Negate => {
-                let op = try!(self.pop());
-                match op {
+                match self.pop()? {
                     Value::Number(n) => self.stack.push(Value::Number(-n)),
                     _ => return Err(RuntimeError::TypeError),
                 };
             }
             OpCode::Not => {
-                let op = try!(self.pop());
-                match op {
+                match self.pop()? {
                     Value::Bool(b) => self.stack.push(Value::Bool(!b)),
                     Value::Nil => self.stack.push(Value::Bool(true)),
                     _ => return Err(RuntimeError::TypeError),
                 };
             }
             OpCode::Binary(ref operator) => {
-                // Note the order!
-                // Op2 is the topmost element of the stack,
-                // Op1 is the second topmost element
-                let op2 = try!(self.pop());
-                let op1 = try!(self.pop());
-                let result = match (op1, op2) {
-                    (Value::Number(op1), Value::Number(op2)) => match *operator {
+                let result = match (self.pop()?, self.pop()?) {
+                    // Note the order!
+                    // Op2 is the topmost element of the stack,
+                    // Op1 is the second topmost element
+                    (Value::Number(op2), Value::Number(op1)) => match *operator {
                         BinaryOp::Add => Value::Number(op1 + op2),
                         BinaryOp::Subtract => Value::Number(op1 - op2),
                         BinaryOp::Multiply => Value::Number(op1 * op2),
@@ -180,13 +176,13 @@ impl<'a> Vm<'a> {
     where
         T: Write,
     {
-        try!(write!(out, "Program Counter: {}", self.program_counter));
-        try!(writeln!(out));
-        try!(write!(out, "Stack: "));
+        write!(out, "Program Counter: {}", self.program_counter)?;
+        writeln!(out)?;
+        write!(out, "Stack: ")?;
         for value in &self.stack {
-            try!(write!(out, "[ {:?} ]", value));
+            write!(out, "[ {:?} ]", value)?;
         }
-        try!(writeln!(out));
+        writeln!(out)?;
         if self.program_counter < self.chunk.instruction_count() {
             disassemble_instruction(&self.chunk.get(self.program_counter), self.chunk, out)
         } else {
@@ -198,7 +194,7 @@ impl<'a> Vm<'a> {
 
 pub fn interpret(chunk: &Chunk) -> Result<(), RuntimeError> {
     let mut vm = Vm::new(chunk);
-    while try!{vm.interpret_next()} {}
+    while vm.interpret_next()? {}
     Ok(())
 }
 
@@ -208,8 +204,8 @@ where
 {
     let mut vm = Vm::new(chunk);
     while {
-        try!{vm.trace(writer).map_err(RuntimeError::TracingError)};
-        try!{vm.interpret_next()}
+        vm.trace(writer).map_err(RuntimeError::TracingError)?;
+        vm.interpret_next()?
     } {}
     Ok(())
 }
