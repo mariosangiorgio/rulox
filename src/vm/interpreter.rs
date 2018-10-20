@@ -59,11 +59,7 @@ impl<'a> Vm<'a> {
     }
 
     fn pop(&mut self) -> Result<Value, RuntimeError> {
-        if let Some(value) = self.stack.pop() {
-            Ok(value)
-        } else {
-            Err(RuntimeError::StackUnderflow)
-        }
+        self.stack.pop().ok_or(RuntimeError::StackUnderflow)
     }
 
     /// Takes ownership of the string and creates the corresponding Lox
