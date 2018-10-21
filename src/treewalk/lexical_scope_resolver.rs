@@ -31,10 +31,10 @@ pub enum LexicalScopesResolutionError {
     UseOfSuperOutsideASubClass,
 }
 
-trait LexicalScopesResolver {
+trait LexicallyScoped {
     fn resolve(
         &self,
-        &mut ProgramLexicalScopesResolver,
+        &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError>;
 }
 
@@ -52,7 +52,7 @@ enum ClassType {
     Subclass,
 }
 
-pub struct ProgramLexicalScopesResolver {
+pub struct LexicalScopesResolver {
     // Note that this doesn't track globals at all
     scopes: Vec<FnvHashMap<Identifier, VariableDefinition>>,
     current_function: Option<FunctionKind>,
@@ -60,9 +60,9 @@ pub struct ProgramLexicalScopesResolver {
     lexical_scopes: LexicalScopes,
 }
 
-impl ProgramLexicalScopesResolver {
-    pub fn new() -> ProgramLexicalScopesResolver {
-        ProgramLexicalScopesResolver {
+impl LexicalScopesResolver {
+    pub fn new() -> LexicalScopesResolver {
+        LexicalScopesResolver {
             scopes: vec![],
             current_function: None,
             current_class: ClassType::None,
@@ -123,10 +123,10 @@ impl ProgramLexicalScopesResolver {
     }
 }
 
-impl LexicalScopesResolver for Statement {
+impl LexicallyScoped for Statement {
     fn resolve(
         &self,
-        resolver: &mut ProgramLexicalScopesResolver,
+        resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Statement::Block(ref b) => {
@@ -201,10 +201,10 @@ impl LexicalScopesResolver for Statement {
     }
 }
 
-impl LexicalScopesResolver for Expr {
+impl LexicallyScoped for Expr {
     fn resolve(
         &self,
-        resolver: &mut ProgramLexicalScopesResolver,
+        resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
         match *self {
             Expr::This(ref handle, ref identifier) => {
@@ -272,10 +272,10 @@ impl LexicalScopesResolver for Expr {
     }
 }
 
-impl LexicalScopesResolver for Assignment {
+impl LexicallyScoped for Assignment {
     fn resolve(
         &self,
-        resolver: &mut ProgramLexicalScopesResolver,
+        resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
         try!{self.rvalue.resolve(resolver)};
         let Target::Identifier(ref identifier) = self.lvalue;
@@ -284,10 +284,10 @@ impl LexicalScopesResolver for Assignment {
     }
 }
 
-impl LexicalScopesResolver for FunctionDefinition {
+impl LexicallyScoped for FunctionDefinition {
     fn resolve(
         &self,
-        resolver: &mut ProgramLexicalScopesResolver,
+        resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
         try!(resolver.declare(self.name));
         let enclosing_function = resolver.current_function;
@@ -315,7 +315,7 @@ mod tests {
     fn global_variable() {
         let (tokens, _) = scan(&"var a = 0;{fun f() {print a;}}");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
@@ -329,7 +329,7 @@ mod tests {
     fn captured_variable() {
         let (tokens, _) = scan(&"{var a = 0;fun f() {print a;}}");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
@@ -343,7 +343,7 @@ mod tests {
     fn lexical_capture() {
         let (tokens, _) = scan(&"var a = 0;{fun f() {print a;} var a = 1;}");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
         }
@@ -357,7 +357,7 @@ mod tests {
     fn error_on_shadowing() {
         let (tokens, _) = scan(&"var a = 0;{var a = a;}");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_err());
     }
@@ -366,7 +366,7 @@ mod tests {
     fn error_on_local_redeclaration() {
         let (tokens, _) = scan(&"fun bad() {var a = 1;var a = 2;}");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
     }
 
@@ -374,7 +374,7 @@ mod tests {
     fn global_redeclaration_is_allowed() {
         let (tokens, _) = scan(&"var a = 1;var a = 2;");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_ok());
     }
@@ -383,7 +383,7 @@ mod tests {
     fn error_on_return_outside_a_function() {
         let (tokens, _) = scan(&"return;");
         let statements = Parser::default().parse(&tokens).unwrap();
-        let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut lexical_scope_resolver = LexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
     }
 }

@@ -52,7 +52,7 @@ impl Callable {
         &self,
         arguments: &[Value],
         _environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match *self {
             Callable::Clock => {
@@ -281,7 +281,7 @@ impl StatementInterpreter {
 
     pub fn execute(
         &mut self,
-        lexical_scope_resolver: &ProgramLexicalScopesResolver,
+        lexical_scope_resolver: &LexicalScopesResolver,
         statement: &Statement,
     ) -> Result<Option<Value>, RuntimeError> {
         statement.execute(&self.environment, lexical_scope_resolver)
@@ -303,7 +303,7 @@ trait Interpret {
     fn interpret(
         &self,
         environment: &Environment,
-        &ProgramLexicalScopesResolver,
+        &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError>;
 }
 
@@ -311,7 +311,7 @@ trait Execute {
     fn execute(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Option<Value>, RuntimeError>;
 }
 
@@ -319,7 +319,7 @@ impl Interpret for Expr {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match *self {
             Expr::Literal(ref l) => l.interpret(environment, scope_resolver),
@@ -375,7 +375,7 @@ impl Interpret for Literal {
     fn interpret(
         &self,
         _: &Environment,
-        _: &ProgramLexicalScopesResolver,
+        _: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
@@ -390,7 +390,7 @@ impl Interpret for Assignment {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         let Target::Identifier(target) = self.lvalue;
         match self.rvalue.interpret(environment, scope_resolver) {
@@ -414,7 +414,7 @@ impl Interpret for Grouping {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         self.expr.interpret(environment, scope_resolver)
     }
@@ -424,7 +424,7 @@ impl Interpret for UnaryExpr {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         let value = try!(self.right.interpret(environment, scope_resolver));
         match self.operator {
@@ -441,7 +441,7 @@ impl Interpret for BinaryExpr {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         let left = try!(self.left.interpret(environment, scope_resolver));
         let right = try!(self.right.interpret(environment, scope_resolver));
@@ -491,7 +491,7 @@ impl Interpret for LogicExpr {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match self.operator {
             LogicOperator::Or => {
@@ -518,7 +518,7 @@ impl Interpret for Call {
     fn interpret(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Value, RuntimeError> {
         match self.callee.interpret(environment, scope_resolver) {
             Ok(Value::Callable(c)) => {
@@ -541,7 +541,7 @@ impl Execute for Statement {
     fn execute(
         &self,
         environment: &Environment,
-        scope_resolver: &ProgramLexicalScopesResolver,
+        scope_resolver: &LexicalScopesResolver,
     ) -> Result<Option<Value>, RuntimeError> {
         match *self {
             Statement::Expression(ref e) => e.interpret(environment, scope_resolver).map(|_| None),
@@ -656,7 +656,7 @@ mod tests {
     use frontend::scanner::*;
     use treewalk::ast::*;
     use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
-    use treewalk::lexical_scope_resolver::ProgramLexicalScopesResolver;
+    use treewalk::lexical_scope_resolver::LexicalScopesResolver;
     use treewalk::parser::*;
 
     //TODO: change these tests so that:
@@ -666,7 +666,7 @@ mod tests {
     #[test]
     fn literal() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let string = String::from("abc");
         let expr = Expr::Literal(Literal::StringLiteral(string.clone()));
         assert_eq!(
@@ -678,7 +678,7 @@ mod tests {
     #[test]
     fn grouping() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = Grouping {
             expr: Expr::Literal(Literal::NumberLiteral(45.67f64)),
         };
@@ -691,7 +691,7 @@ mod tests {
     #[test]
     fn unary() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Bang,
             right: Expr::Literal(Literal::BoolLiteral(false)),
@@ -707,7 +707,7 @@ mod tests {
         let mut identifier_map = IdentifierMap::new();
         let mut interpreter =
             StatementInterpreter::new(Environment::new_with_natives(&mut identifier_map));
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = UnaryExpr {
             operator: UnaryOperator::Minus,
             right: Expr::Literal(Literal::NilLiteral),
@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn binary() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
             left: Expr::Literal(Literal::NumberLiteral(1.0f64)),
@@ -734,7 +734,7 @@ mod tests {
     #[test]
     fn string_concatenation() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::Plus,
             left: Expr::Literal(Literal::StringLiteral("Foo".into())),
@@ -749,7 +749,7 @@ mod tests {
     #[test]
     fn binary_expression_with_mismatching_types() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = BinaryExpr {
             operator: BinaryOperator::LessEqual,
             left: Expr::Literal(Literal::NilLiteral),
@@ -761,7 +761,7 @@ mod tests {
     #[test]
     fn expression_statement() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::Expression(expr);
         assert_eq!(
@@ -773,7 +773,7 @@ mod tests {
     #[test]
     fn complex_expression_statement() {
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let subexpr1 = UnaryExpr {
             operator: UnaryOperator::Minus,
             right: Expr::Literal(Literal::NumberLiteral(2f64)),
@@ -798,7 +798,7 @@ mod tests {
     fn variable_definition() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let statement = Statement::VariableDefinition(identifier);
         assert_eq!(
@@ -812,7 +812,7 @@ mod tests {
     fn error_accessing_undefined_variable() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let statement = Statement::Expression(Expr::Identifier(handle_factory.next(), identifier));
@@ -824,7 +824,7 @@ mod tests {
     fn error_assigning_undefined_variable() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let statement = Statement::Expression(Expr::Assignment(Box::new(Assignment {
@@ -840,7 +840,7 @@ mod tests {
     fn variable_definition_with_initializer() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
@@ -858,7 +858,7 @@ mod tests {
     fn block_affects_outer_scope() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let mut handle_factory = VariableUseHandleFactory::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
@@ -891,7 +891,7 @@ mod tests {
     fn block_variable_dont_escape_scope() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statements = vec![Statement::VariableDefinitionWithInitalizer(
@@ -937,7 +937,7 @@ mod tests {
     fn if_then_else() {
         let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
-        let scope_resolver = ProgramLexicalScopesResolver::new();
+        let scope_resolver = LexicalScopesResolver::new();
         let identifier = identifier_map.for_name(&"x");
         let condition = Expr::Literal(Literal::BoolLiteral(false));
         let then_expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
@@ -961,7 +961,7 @@ mod tests {
     #[test]
     fn while_loop() {
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
         let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
@@ -985,7 +985,7 @@ mod tests {
     fn function_declaration_and_call() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1006,7 +1006,7 @@ mod tests {
     fn function_declaration_and_call_no_return() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1027,7 +1027,7 @@ mod tests {
     fn local_variables_dont_pollute_outer_scope() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1052,7 +1052,7 @@ mod tests {
     fn class_constructor() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"class C{} var c = C();");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1081,7 +1081,7 @@ mod tests {
     fn class_properties() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"class C{} var c = C();c.a = 10;c.b=c.a+1;");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1111,7 +1111,7 @@ mod tests {
     fn method_execution() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"class A {a() { return 1; } } var v = A().a();");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
@@ -1132,7 +1132,7 @@ mod tests {
     fn custom_initializer() {
         let mut parser = Parser::default();
         let environment = Environment::new();
-        let mut scope_resolver = ProgramLexicalScopesResolver::new();
+        let mut scope_resolver = LexicalScopesResolver::new();
         let (tokens, _) = scan(&"class A {init(a) { this._a=a; } } var v = A(10)._a;");
         let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {

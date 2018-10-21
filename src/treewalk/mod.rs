@@ -5,7 +5,7 @@ mod parser;
 mod pretty_printer;
 
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
-use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
+use self::lexical_scope_resolver::{LexicalScopesResolutionError, LexicalScopesResolver};
 use self::parser::{ParseError, Parser};
 use self::ast::{IdentifierMap};
 use frontend::scanner;
@@ -27,7 +27,7 @@ enum InputError {
 
 pub struct TreeWalkRuloxInterpreter {
     parser: Parser,
-    lexical_scope_resolver: ProgramLexicalScopesResolver,
+    lexical_scope_resolver: LexicalScopesResolver,
     interpreter: StatementInterpreter,
 }
 
@@ -38,7 +38,7 @@ impl Default for TreeWalkRuloxInterpreter {
         let parser = Parser::new(identifier_map);
         TreeWalkRuloxInterpreter {
             parser,
-            lexical_scope_resolver: ProgramLexicalScopesResolver::new(),
+            lexical_scope_resolver: LexicalScopesResolver::new(),
             interpreter: StatementInterpreter::new(environment),
         }
     }
