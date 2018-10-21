@@ -7,6 +7,7 @@ mod pretty_printer;
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
 use self::parser::{ParseError, Parser};
+use self::ast::{IdentifierMap};
 use frontend::scanner;
 use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 
@@ -32,8 +33,9 @@ pub struct TreeWalkRuloxInterpreter {
 
 impl Default for TreeWalkRuloxInterpreter {
     fn default() -> TreeWalkRuloxInterpreter {
-        let mut parser = Parser::new();
-        let environment = Environment::new_with_natives(&mut parser.identifier_map);
+        let mut identifier_map = IdentifierMap::new();
+        let environment = Environment::new_with_natives(&mut identifier_map);
+        let parser = Parser::new(identifier_map);
         TreeWalkRuloxInterpreter {
             parser,
             lexical_scope_resolver: ProgramLexicalScopesResolver::new(),

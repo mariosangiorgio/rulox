@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn global_variable() {
         let (tokens, _) = scan(&"var a = 0;{fun f() {print a;}}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn captured_variable() {
         let (tokens, _) = scan(&"{var a = 0;fun f() {print a;}}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn lexical_capture() {
         let (tokens, _) = scan(&"var a = 0;{fun f() {print a;} var a = 1;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         for statement in statements.iter() {
             assert!(lexical_scope_resolver.resolve(&statement).is_ok());
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn error_on_shadowing() {
         let (tokens, _) = scan(&"var a = 0;{var a = a;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_err());
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn error_on_local_redeclaration() {
         let (tokens, _) = scan(&"fun bad() {var a = 1;var a = 2;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
     }
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn global_redeclaration_is_allowed() {
         let (tokens, _) = scan(&"var a = 1;var a = 2;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_ok());
         assert!(lexical_scope_resolver.resolve(&statements[1]).is_ok());
@@ -382,7 +382,7 @@ mod tests {
     #[test]
     fn error_on_return_outside_a_function() {
         let (tokens, _) = scan(&"return;");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let statements = Parser::default().parse(&tokens).unwrap();
         let mut lexical_scope_resolver = ProgramLexicalScopesResolver::new();
         assert!(lexical_scope_resolver.resolve(&statements[0]).is_err());
     }

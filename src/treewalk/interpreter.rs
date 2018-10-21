@@ -960,11 +960,11 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        let mut identifier_map = IdentifierMap::new();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"var a = 2; var b = 0;while(a > 0){ a = a - 1; b = b + 1;}");
-        let statements = Parser::new().parse(&tokens).unwrap();
+        let mut parser = Parser::default();
+        let statements = parser.parse(&tokens).unwrap();
         for statement in statements.iter() {
             let _ = scope_resolver.resolve(statement);
         }
@@ -973,17 +973,17 @@ mod tests {
         }
         assert_eq!(
             Value::Number(0.0f64),
-            environment.get(identifier_map.for_name(&"a"), 0).unwrap()
+            environment.get(parser.identifier_map.for_name(&"a"), 0).unwrap()
         );
         assert_eq!(
             Value::Number(2.0f64),
-            environment.get(identifier_map.for_name(&"b"), 0).unwrap()
+            environment.get(parser.identifier_map.for_name(&"b"), 0).unwrap()
         );
     }
 
     #[test]
     fn function_declaration_and_call() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"fun double(n) {return 2 * n;} var a = double(3);");
@@ -1004,7 +1004,7 @@ mod tests {
 
     #[test]
     fn function_declaration_and_call_no_return() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"fun double(n) {print 2 * n;} var a = double(3);");
@@ -1025,7 +1025,7 @@ mod tests {
 
     #[test]
     fn local_variables_dont_pollute_outer_scope() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"var a = 21;fun foo(x, y) {var a = 1; var b = x + y;} foo();");
@@ -1050,7 +1050,7 @@ mod tests {
 
     #[test]
     fn class_constructor() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"class C{} var c = C();");
@@ -1079,7 +1079,7 @@ mod tests {
 
     #[test]
     fn class_properties() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"class C{} var c = C();c.a = 10;c.b=c.a+1;");
@@ -1109,7 +1109,7 @@ mod tests {
 
     #[test]
     fn method_execution() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"class A {a() { return 1; } } var v = A().a();");
@@ -1130,7 +1130,7 @@ mod tests {
 
     #[test]
     fn custom_initializer() {
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let environment = Environment::new();
         let mut scope_resolver = ProgramLexicalScopesResolver::new();
         let (tokens, _) = scan(&"class A {init(a) { this._a=a; } } var v = A(10)._a;");
