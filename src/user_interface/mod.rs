@@ -3,60 +3,49 @@ use std::io;
 use std::io::prelude::*;
 
 #[derive(Debug)]
-pub enum RunResult {
-    Ok,
+pub enum RunError {
     Error,
     IoError(String), //TODO: improve error reporting
 }
 
-pub trait RuloxImplementation {
+type RunResult = Result<(), RunError>;
+
+pub trait LoxImplementation {
     fn run(&mut self, source: &str) -> RunResult;
 }
 
-pub struct Runner<I: RuloxImplementation> {
+pub struct Runner<I: LoxImplementation> {
     rulox: I,
 }
 
-impl<I: RuloxImplementation> Runner<I> {
+impl<I: LoxImplementation> Runner<I> {
     pub fn new(implementation: I) -> Runner<I> {
         Runner {
             rulox: implementation,
         }
     }
     pub fn run_file(&mut self, file_name: &str) -> RunResult {
-        match File::open(file_name) {
-            Err(_) => {
-                RunResult::IoError("Error opening file".into()) // TODO: add context
-            }
-            Ok(mut file) => {
-                let mut source = String::new();
-                match file.read_to_string(&mut source) {
-                    Err(_) => {
-                        RunResult::IoError("Error reading file".into()) // TODO: add context
-                    }
-                    Ok(_) => self.rulox.run(&source),
-                }
-            }
-        }
+        let mut file =
+            File::open(file_name).map_err(|_| RunError::IoError("Error opening file".into()))?; // TODO: add context
+        let mut source = String::new();
+        file.read_to_string(&mut source)
+            .map_err(|_| RunError::IoError("Error reading file".into()))?;
+        self.rulox.run(&source)
     }
 
-    fn run_prompt(&mut self) -> RunResult {
+    fn run_prompt(&mut self) -> Result<(), RunError> {
         println!("Rulox - A lox interpreter written in Rust");
         let _ = io::stdout().flush(); //TODO: is this okay?
         loop {
             print!("> ");
-            let _ = io::stdout().flush();
+            io::stdout().flush().unwrap();
             let mut source = String::new();
             let _ = io::stdin().read_line(&mut source);
             // TODO: add a way to exit
-            let result = self.rulox.run(&source);
-            match result {
-                RunResult::Ok => (),
-                _ => {
-                    println!("{:?}", result);
-                    let _ = io::stdout().flush();
-                }
-            }
+            self.rulox.run(&source).unwrap_or_else(|error| {
+                println!("{:?}", error);
+                io::stdout().flush().unwrap()
+            });
         }
     }
 
@@ -67,11 +56,11 @@ impl<I: RuloxImplementation> Runner<I> {
             2 => self.run_file(&args[1]),
             _ => {
                 println!("Usage: rulox [script]");
-                RunResult::Ok
+                Ok(())
             }
         };
         match result {
-            RunResult::Ok => 0,
+            Ok(_) => 0,
             _ => {
                 println!("{:?}", result);
                 1

@@ -70,9 +70,17 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new() -> Parser {
+    #[allow(dead_code)] // Used in tests
+    pub fn default() -> Parser {
         Parser {
             identifier_map: IdentifierMap::new(),
+            variable_use_handle_factory: VariableUseHandleFactory::new(),
+        }
+    }
+
+    pub fn new(identifier_map: IdentifierMap) -> Parser {
+        Parser {
+            identifier_map,
             variable_use_handle_factory: VariableUseHandleFactory::new(),
         }
     }
@@ -1066,7 +1074,7 @@ mod tests {
     fn literal() {
         let string = String::from("123");
         let (tokens, _) = scan(&string);
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1077,7 +1085,7 @@ mod tests {
     #[test]
     fn binary() {
         let (tokens, _) = scan(&"123+456");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1088,7 +1096,7 @@ mod tests {
     #[test]
     fn precedence_add_mul() {
         let (tokens, _) = scan(&"123+456*789");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1102,7 +1110,7 @@ mod tests {
     #[test]
     fn precedence_mul_add() {
         let (tokens, _) = scan(&"123*456+789");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1116,7 +1124,7 @@ mod tests {
     #[test]
     fn precedence_mul_add_unary() {
         let (tokens, _) = scan(&"-123*456+789");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1130,7 +1138,7 @@ mod tests {
     #[test]
     fn logic() {
         let (tokens, _) = scan(&"123 and 456");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1141,7 +1149,7 @@ mod tests {
     #[test]
     fn precedence_or_and() {
         let (tokens, _) = scan(&"a or b and c");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let expr = parser
             .parse_expression(&mut tokens.iter().peekable())
             .unwrap()
@@ -1155,19 +1163,19 @@ mod tests {
     #[test]
     fn unclosed_group() {
         let (tokens, _) = scan(&"(2");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn unopened_group() {
         let (tokens, _) = scan(&"2)");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn multiple_statements() {
         let (tokens, _) = scan(&"var x; {var x=10; print x;} print x;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("var x;", statements[0].pretty_print(&parser.identifier_map));
         assert_eq!(
@@ -1183,7 +1191,7 @@ mod tests {
     #[test]
     fn expr_with_equality() {
         let (tokens, _) = scan(&"x/2 == 1;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "(== (/ x 2) 1);",
@@ -1194,7 +1202,7 @@ mod tests {
     #[test]
     fn assignment() {
         let (tokens, _) = scan(&"a = 1;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("a = 1;", statements[0].pretty_print(&parser.identifier_map));
     }
@@ -1202,31 +1210,31 @@ mod tests {
     #[test]
     fn wrong_variable_declaration_target() {
         let (tokens, _) = scan(&"var 1 = 1;");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn wrong_assigment_target() {
         let (tokens, _) = scan(&"1 = 1;");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn missing_initializer() {
         let (tokens, _) = scan(&"var a =;");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn unfinished_block() {
         let (tokens, _) = scan(&"{var a = 1;");
-        assert!(Parser::new().parse(&tokens).is_err());
+        assert!(Parser::default().parse(&tokens).is_err());
     }
 
     #[test]
     fn if_then_statement() {
         let (tokens, _) = scan(&"if(a) x = 2;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "if ( a ) x = 2;",
@@ -1237,7 +1245,7 @@ mod tests {
     #[test]
     fn if_then_else_statement() {
         let (tokens, _) = scan(&"if(a and b) { x = 2;} else{x = 3;}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "if ( (and a b) ) { x = 2; } else { x = 3; }",
@@ -1248,7 +1256,7 @@ mod tests {
     #[test]
     fn while_statement() {
         let (tokens, _) = scan(&"while(a > 0){ a = a - 1;}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "while ( (> a 0) ) { a = (- a 1); }",
@@ -1259,7 +1267,7 @@ mod tests {
     #[test]
     fn for_statement() {
         let (tokens, _) = scan(&"for (var i = 0; i < 10; i = i + 1) print i;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "{ var i = 0; while ( (< i 10) ) { print i; i = (+ i 1); } }",
@@ -1269,7 +1277,7 @@ mod tests {
     #[test]
     fn for_statement_no_initializer() {
         let (tokens, _) = scan(&"for (; i < 10; i = i + 1) print i;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "while ( (< i 10) ) { print i; i = (+ i 1); }",
@@ -1279,7 +1287,7 @@ mod tests {
     #[test]
     fn for_statement_no_condition() {
         let (tokens, _) = scan(&"for (var i = 0;; i = i + 1) print i;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "{ var i = 0; while ( true ) { print i; i = (+ i 1); } }",
@@ -1290,7 +1298,7 @@ mod tests {
     #[test]
     fn for_statement_no_increment() {
         let (tokens, _) = scan(&"for (var i = 0; i < 10;) print i;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "{ var i = 0; while ( (< i 10) ) print i; }",
@@ -1301,7 +1309,7 @@ mod tests {
     #[test]
     fn function_with_no_arguments() {
         let (tokens, _) = scan(&"fun add(){return 1;}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "fun add () { return 1; }",
@@ -1312,7 +1320,7 @@ mod tests {
     #[test]
     fn function_with_one_argument() {
         let (tokens, _) = scan(&"fun add(x){return 2*x;}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "fun add (x ) { return (* 2 x); }",
@@ -1323,7 +1331,7 @@ mod tests {
     #[test]
     fn function_with_two_arguments() {
         let (tokens, _) = scan(&"fun add(x,y){return x + y;}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "fun add (x y ) { return (+ x y); }",
@@ -1334,7 +1342,7 @@ mod tests {
     #[test]
     fn class() {
         let (tokens, _) = scan(&"class A{m(){print 1;}}");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "class A { m () { print 1; } }",
@@ -1345,7 +1353,7 @@ mod tests {
     #[test]
     fn get() {
         let (tokens, _) = scan(&"a.b;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!("a.b;", statements[0].pretty_print(&parser.identifier_map));
     }
@@ -1353,7 +1361,7 @@ mod tests {
     #[test]
     fn set() {
         let (tokens, _) = scan(&"a.b = 10;");
-        let mut parser = Parser::new();
+        let mut parser = Parser::default();
         let statements = parser.parse(&tokens).unwrap();
         assert_eq!(
             "a.b = 10;",

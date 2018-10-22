@@ -4,15 +4,15 @@ mod lexical_scope_resolver;
 mod parser;
 mod pretty_printer;
 
+use self::ast::IdentifierMap;
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
-use self::lexical_scope_resolver::{LexicalScopesResolutionError, ProgramLexicalScopesResolver};
+use self::lexical_scope_resolver::{LexicalScopesResolutionError, LexicalScopesResolver};
 use self::parser::{ParseError, Parser};
 use frontend::scanner;
-use user_interface::{RuloxImplementation, RunResult as UiRunResult};
+use user_interface::{LoxImplementation, RunError};
 
 #[derive(Debug)]
-enum RunResult {
-    Ok,
+enum LoxError {
     InputError(Vec<InputError>),
     LexicalScopesResolutionError(Vec<LexicalScopesResolutionError>),
     RuntimeError(RuntimeError),
@@ -26,17 +26,18 @@ enum InputError {
 
 pub struct TreeWalkRuloxInterpreter {
     parser: Parser,
-    lexical_scope_resolver: ProgramLexicalScopesResolver,
+    lexical_scope_resolver: LexicalScopesResolver,
     interpreter: StatementInterpreter,
 }
 
 impl Default for TreeWalkRuloxInterpreter {
     fn default() -> TreeWalkRuloxInterpreter {
-        let mut parser = Parser::new();
-        let environment = Environment::new_with_natives(&mut parser.identifier_map);
+        let mut identifier_map = IdentifierMap::new();
+        let environment = Environment::new_with_natives(&mut identifier_map);
+        let parser = Parser::new(identifier_map);
         TreeWalkRuloxInterpreter {
             parser,
-            lexical_scope_resolver: ProgramLexicalScopesResolver::new(),
+            lexical_scope_resolver: LexicalScopesResolver::new(),
             interpreter: StatementInterpreter::new(environment),
         }
     }
@@ -66,44 +67,26 @@ impl TreeWalkRuloxInterpreter {
         }
     }
 
-    fn run(&mut self, source: &str) -> RunResult {
-        match self.scan_and_parse(source) {
-            Ok(statements) => {
-                // Once we get the statements and their AST we run the following passes:
-                // - lexical analysis
-                // - actual interpretation
-                let mut resolution_errors = vec![];
-                for statement in &statements {
-                    match self.lexical_scope_resolver.resolve(&statement) {
-                        Ok(_) => (),
-                        Err(e) => resolution_errors.push(e),
-                    }
-                }
-                if !resolution_errors.is_empty() {
-                    return RunResult::LexicalScopesResolutionError(resolution_errors);
-                }
-                for statement in &statements {
-                    match self
-                        .interpreter
-                        .execute(&self.lexical_scope_resolver, &statement)
-                    {
-                        Ok(_) => (),
-                        Err(e) => return RunResult::RuntimeError(e),
-                    }
-                }
-                RunResult::Ok
-            }
-            Err(e) => RunResult::InputError(e),
+    fn run(&mut self, source: &str) -> Result<(), LoxError> {
+        let statements = self.scan_and_parse(source).map_err(LoxError::InputError)?;
+        self.lexical_scope_resolver
+            .resolve_all(&statements)
+            .map_err(LoxError::LexicalScopesResolutionError)?;
+        for statement in &statements {
+            self.interpreter
+                .execute(&self.lexical_scope_resolver, &statement)
+                .map_err(LoxError::RuntimeError)?;
         }
+        Ok(())
     }
 }
 
-impl RuloxImplementation for TreeWalkRuloxInterpreter {
-    fn run(&mut self, source: &str) -> UiRunResult {
+impl LoxImplementation for TreeWalkRuloxInterpreter {
+    fn run(&mut self, source: &str) -> Result<(), RunError> {
         match self.run(source) {
-            RunResult::Ok => UiRunResult::Ok,
+            Ok(_) => Ok(()),
             //TODO: improve
-            _ => UiRunResult::Error,
+            _ => Err(RunError::Error),
         }
     }
 }
@@ -115,8 +98,8 @@ mod tests {
     proptest! {
     #[test]
     fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = TreeWalkRuloxInterpreter::default();
-        ruloxvm.run(input)
+        let mut lox_vm = TreeWalkRuloxInterpreter::default();
+        lox_vm.run(input)
     }
     }
 }

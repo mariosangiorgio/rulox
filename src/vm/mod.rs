@@ -3,20 +3,20 @@ pub mod compiler;
 pub mod interpreter;
 
 use std::io::{stdout, LineWriter};
-use user_interface::{RuloxImplementation, RunResult as UiRunResult};
+use user_interface::{LoxImplementation, RunError};
 
 #[derive(Default)]
-pub struct RuloxVm {}
+pub struct LoxVm {}
 
-impl RuloxImplementation for RuloxVm {
-    fn run(&mut self, source: &str) -> UiRunResult {
-        let chunk = compiler::compile(source).unwrap();
+impl LoxImplementation for LoxVm {
+    fn run(&mut self, source: &str) -> Result<(), RunError> {
+        let chunk = compiler::compile(source).map_err(|_| RunError::Error)?;
         let stdout = stdout();
         let handle = stdout.lock();
         let mut writer = LineWriter::new(handle);
-        bytecode::disassemble(&chunk, "Test", &mut writer).unwrap();
-        interpreter::trace(&chunk, &mut writer).unwrap();
-        UiRunResult::Ok
+        bytecode::disassemble(&chunk, "Test", &mut writer).map_err(|_| RunError::Error)?;
+        interpreter::trace(&chunk, &mut writer).map_err(|_| RunError::Error)?;
+        Ok(())
     }
 }
 
@@ -28,8 +28,8 @@ mod tests {
     #[test]
     #[ignore]
     fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = RuloxVm::default();
-        ruloxvm.run(input)
+        let mut lox_vm = LoxVm::default();
+        lox_vm.run(input)
     }
     }
 }
