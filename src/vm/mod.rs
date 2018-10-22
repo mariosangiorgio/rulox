@@ -10,12 +10,12 @@ pub struct LoxVm {}
 
 impl LoxImplementation for LoxVm {
     fn run(&mut self, source: &str) -> Result<(), RunError> {
-        let chunk = compiler::compile(source).unwrap();
+        let chunk = compiler::compile(source).map_err(|_| RunError::Error)?;
         let stdout = stdout();
         let handle = stdout.lock();
         let mut writer = LineWriter::new(handle);
-        bytecode::disassemble(&chunk, "Test", &mut writer).unwrap();
-        interpreter::trace(&chunk, &mut writer).unwrap();
+        bytecode::disassemble(&chunk, "Test", &mut writer).map_err(|_| RunError::Error)?;
+        interpreter::trace(&chunk, &mut writer).map_err(|_| RunError::Error)?;
         Ok(())
     }
 }
