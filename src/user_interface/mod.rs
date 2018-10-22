@@ -10,15 +10,15 @@ pub enum RunError {
 
 type RunResult = Result<(), RunError>;
 
-pub trait RuloxImplementation {
+pub trait LoxImplementation {
     fn run(&mut self, source: &str) -> RunResult;
 }
 
-pub struct Runner<I: RuloxImplementation> {
+pub struct Runner<I: LoxImplementation> {
     rulox: I,
 }
 
-impl<I: RuloxImplementation> Runner<I> {
+impl<I: LoxImplementation> Runner<I> {
     pub fn new(implementation: I) -> Runner<I> {
         Runner {
             rulox: implementation,

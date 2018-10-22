@@ -3,12 +3,12 @@ pub mod compiler;
 pub mod interpreter;
 
 use std::io::{stdout, LineWriter};
-use user_interface::{RuloxImplementation, RunError};
+use user_interface::{LoxImplementation, RunError};
 
 #[derive(Default)]
-pub struct RuloxVm {}
+pub struct LoxVm {}
 
-impl RuloxImplementation for RuloxVm {
+impl LoxImplementation for LoxVm {
     fn run(&mut self, source: &str) -> Result<(), RunError> {
         let chunk = compiler::compile(source).unwrap();
         let stdout = stdout();
@@ -28,8 +28,8 @@ mod tests {
     #[test]
     #[ignore]
     fn doesnt_crash(ref input in "\\PC*") {
-        let mut ruloxvm = RuloxVm::default();
-        ruloxvm.run(input)
+        let mut lox_vm = LoxVm::default();
+        lox_vm.run(input)
     }
     }
 }
