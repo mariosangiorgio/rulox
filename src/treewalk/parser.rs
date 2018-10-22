@@ -78,7 +78,7 @@ impl Parser {
         }
     }
 
-    pub fn new(identifier_map : IdentifierMap) -> Parser {
+    pub fn new(identifier_map: IdentifierMap) -> Parser {
         Parser {
             identifier_map,
             variable_use_handle_factory: VariableUseHandleFactory::new(),

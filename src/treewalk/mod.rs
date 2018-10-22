@@ -4,16 +4,15 @@ mod lexical_scope_resolver;
 mod parser;
 mod pretty_printer;
 
+use self::ast::IdentifierMap;
 use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, LexicalScopesResolver};
 use self::parser::{ParseError, Parser};
-use self::ast::{IdentifierMap};
 use frontend::scanner;
 use user_interface::{RuloxImplementation, RunResult as UiRunResult};
 
 #[derive(Debug)]
-enum RunResult {
-    Ok,
+enum LoxError {
     InputError(Vec<InputError>),
     LexicalScopesResolutionError(Vec<LexicalScopesResolutionError>),
     RuntimeError(RuntimeError),
@@ -68,42 +67,24 @@ impl TreeWalkRuloxInterpreter {
         }
     }
 
-    fn run(&mut self, source: &str) -> RunResult {
-        match self.scan_and_parse(source) {
-            Ok(statements) => {
-                // Once we get the statements and their AST we run the following passes:
-                // - lexical analysis
-                // - actual interpretation
-                let mut resolution_errors = vec![];
-                for statement in &statements {
-                    match self.lexical_scope_resolver.resolve(&statement) {
-                        Ok(_) => (),
-                        Err(e) => resolution_errors.push(e),
-                    }
-                }
-                if !resolution_errors.is_empty() {
-                    return RunResult::LexicalScopesResolutionError(resolution_errors);
-                }
-                for statement in &statements {
-                    match self
-                        .interpreter
-                        .execute(&self.lexical_scope_resolver, &statement)
-                    {
-                        Ok(_) => (),
-                        Err(e) => return RunResult::RuntimeError(e),
-                    }
-                }
-                RunResult::Ok
-            }
-            Err(e) => RunResult::InputError(e),
+    fn run(&mut self, source: &str) -> Result<(), LoxError> {
+        let statements = self.scan_and_parse(source).map_err(LoxError::InputError)?;
+        self.lexical_scope_resolver
+            .resolve_all(&statements)
+            .map_err(LoxError::LexicalScopesResolutionError)?;
+        for statement in &statements {
+            self.interpreter
+                .execute(&self.lexical_scope_resolver, &statement)
+                .map_err(LoxError::RuntimeError)?;
         }
+        Ok(())
     }
 }
 
 impl RuloxImplementation for TreeWalkRuloxInterpreter {
     fn run(&mut self, source: &str) -> UiRunResult {
         match self.run(source) {
-            RunResult::Ok => UiRunResult::Ok,
+            Ok(_) => UiRunResult::Ok,
             //TODO: improve
             _ => UiRunResult::Error,
         }

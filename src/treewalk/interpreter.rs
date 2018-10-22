@@ -372,11 +372,7 @@ impl Interpret for Expr {
 }
 
 impl Interpret for Literal {
-    fn interpret(
-        &self,
-        _: &Environment,
-        _: &LexicalScopesResolver,
-    ) -> Result<Value, RuntimeError> {
+    fn interpret(&self, _: &Environment, _: &LexicalScopesResolver) -> Result<Value, RuntimeError> {
         match *self {
             Literal::NilLiteral => Ok(Value::Nil),
             Literal::BoolLiteral(b) => Ok(Value::Boolean(b)),
@@ -973,11 +969,15 @@ mod tests {
         }
         assert_eq!(
             Value::Number(0.0f64),
-            environment.get(parser.identifier_map.for_name(&"a"), 0).unwrap()
+            environment
+                .get(parser.identifier_map.for_name(&"a"), 0)
+                .unwrap()
         );
         assert_eq!(
             Value::Number(2.0f64),
-            environment.get(parser.identifier_map.for_name(&"b"), 0).unwrap()
+            environment
+                .get(parser.identifier_map.for_name(&"b"), 0)
+                .unwrap()
         );
     }
 

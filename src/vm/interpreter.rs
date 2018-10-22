@@ -276,9 +276,7 @@ mod tests {
         let mut writer = LineWriter::new(sink());
         let _ = trace(chunk, &mut writer);
     }
-    }
 
-    proptest! {
     #[test]
     fn disassemble_doesnt_crash(ref chunk in arb_chunk(10, 20)) {
         let mut writer = LineWriter::new(sink());

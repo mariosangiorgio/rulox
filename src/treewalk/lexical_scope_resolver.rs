@@ -32,10 +32,7 @@ pub enum LexicalScopesResolutionError {
 }
 
 trait LexicallyScoped {
-    fn resolve(
-        &self,
-        &mut LexicalScopesResolver,
-    ) -> Result<(), LexicalScopesResolutionError>;
+    fn resolve(&self, &mut LexicalScopesResolver) -> Result<(), LexicalScopesResolutionError>;
 }
 
 #[derive(PartialEq)]
@@ -114,8 +111,27 @@ impl LexicalScopesResolver {
         self.lexical_scopes.depths.insert(handle, max_depth);
     }
 
+    #[allow(dead_code)] // Used in tests
     pub fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
         statement.resolve(self)
+    }
+
+    pub fn resolve_all(
+        &mut self,
+        statements: &[Statement],
+    ) -> Result<(), Vec<LexicalScopesResolutionError>> {
+        let mut resolution_errors = vec![];
+        for statement in statements {
+            match statement.resolve(self) {
+                Ok(_) => (),
+                Err(e) => resolution_errors.push(e),
+            }
+        }
+        if resolution_errors.is_empty() {
+            Ok(())
+        } else {
+            Err(resolution_errors)
+        }
     }
 
     pub fn get_depth(&self, handle: VariableUseHandle) -> Option<&Depth> {
