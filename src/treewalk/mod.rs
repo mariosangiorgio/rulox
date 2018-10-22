@@ -9,7 +9,7 @@ use self::interpreter::{Environment, RuntimeError, StatementInterpreter};
 use self::lexical_scope_resolver::{LexicalScopesResolutionError, LexicalScopesResolver};
 use self::parser::{ParseError, Parser};
 use frontend::scanner;
-use user_interface::{RuloxImplementation, RunResult as UiRunResult};
+use user_interface::{RuloxImplementation, RunError};
 
 #[derive(Debug)]
 enum LoxError {
@@ -82,11 +82,11 @@ impl TreeWalkRuloxInterpreter {
 }
 
 impl RuloxImplementation for TreeWalkRuloxInterpreter {
-    fn run(&mut self, source: &str) -> UiRunResult {
+    fn run(&mut self, source: &str) -> Result<(), RunError> {
         match self.run(source) {
-            Ok(_) => UiRunResult::Ok,
+            Ok(_) => Ok(()),
             //TODO: improve
-            _ => UiRunResult::Error,
+            _ => Err(RunError::Error),
         }
     }
 }
