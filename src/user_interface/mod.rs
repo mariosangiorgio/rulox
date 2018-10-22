@@ -38,18 +38,14 @@ impl<I: LoxImplementation> Runner<I> {
         let _ = io::stdout().flush(); //TODO: is this okay?
         loop {
             print!("> ");
-            let _ = io::stdout().flush();
+            io::stdout().flush().unwrap();
             let mut source = String::new();
             let _ = io::stdin().read_line(&mut source);
             // TODO: add a way to exit
-            let result = self.rulox.run(&source);
-            match result {
-                Ok(_) => (),
-                _ => {
-                    println!("{:?}", result);
-                    let _ = io::stdout().flush();
-                }
-            }
+            self.rulox.run(&source).unwrap_or_else(|error| {
+                println!("{:?}", error);
+                io::stdout().flush().unwrap()
+            });
         }
     }
 
