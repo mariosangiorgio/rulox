@@ -36,16 +36,17 @@ impl<I: LoxImplementation> Runner<I> {
     fn run_prompt(&mut self) -> Result<(), RunError> {
         println!("Rulox - A lox interpreter written in Rust");
         let _ = io::stdout().flush(); //TODO: is this okay?
+        let mut source = String::new();
         loop {
             print!("> ");
             io::stdout().flush().unwrap();
-            let mut source = String::new();
             let _ = io::stdin().read_line(&mut source);
             // TODO: add a way to exit
             self.rulox.run(&source).unwrap_or_else(|error| {
                 println!("{:?}", error);
                 io::stdout().flush().unwrap()
             });
+            source.clear();
         }
     }
 
