@@ -112,17 +112,23 @@ impl LexicalScopesResolver {
     }
 
     #[allow(dead_code)] // Used in tests
-    pub fn resolve(&mut self, statement: &Statement) -> Result<&LexicalScopes, LexicalScopesResolutionError> {
-        statement.resolve(self).map(move |_|&self.lexical_scopes)
+    pub fn resolve(
+        &mut self,
+        statement: &Statement,
+    ) -> Result<&LexicalScopes, LexicalScopesResolutionError> {
+        statement.resolve(self).map(move |_| &self.lexical_scopes)
     }
 
     pub fn resolve_all(
         &mut self,
         statements: &[Statement],
     ) -> Result<&LexicalScopes, Vec<LexicalScopesResolutionError>> {
-        let resolution_errors : Vec<LexicalScopesResolutionError> = statements.iter()
-        .map(|s|s.resolve(self))
-        .filter(|r|r.is_err()).map(|r|r.unwrap_err()).collect();
+        let resolution_errors: Vec<LexicalScopesResolutionError> = statements
+            .iter()
+            .map(|s| s.resolve(self))
+            .filter(|r| r.is_err())
+            .map(|r| r.unwrap_err())
+            .collect();
         if resolution_errors.is_empty() {
             Ok(&self.lexical_scopes)
         } else {

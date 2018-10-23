@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use treewalk::ast::*;
-use treewalk::lexical_scope_resolver::{LexicalScopes, Depth};
+use treewalk::lexical_scope_resolver::{Depth, LexicalScopes};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Callable {
@@ -74,9 +74,7 @@ impl Callable {
                 for (i, argument) in arguments.iter().enumerate() {
                     local_environment.define(function_definition.arguments[i], argument.clone());
                 }
-                let result = function_definition
-                    .body
-                    .execute(&local_environment, scopes);
+                let result = function_definition.body.execute(&local_environment, scopes);
                 result.map(|ok| match ok {
                     Some(value) => value,
                     None => {
@@ -300,11 +298,7 @@ pub enum RuntimeError {
 }
 
 trait Interpret {
-    fn interpret(
-        &self,
-        environment: &Environment,
-        &LexicalScopes,
-    ) -> Result<Value, RuntimeError>;
+    fn interpret(&self, environment: &Environment, &LexicalScopes) -> Result<Value, RuntimeError>;
 }
 
 trait Execute {
@@ -652,7 +646,7 @@ mod tests {
     use frontend::scanner::*;
     use treewalk::ast::*;
     use treewalk::interpreter::{Environment, Execute, Interpret, StatementInterpreter, Value};
-    use treewalk::lexical_scope_resolver::{LexicalScopes,LexicalScopesResolver};
+    use treewalk::lexical_scope_resolver::{LexicalScopes, LexicalScopesResolver};
     use treewalk::parser::*;
 
     //TODO: change these tests so that:
@@ -759,10 +753,7 @@ mod tests {
         let scopes = LexicalScopes::new();
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::Expression(expr);
-        assert_eq!(
-            None,
-            statement.execute(&environment, &scopes).unwrap()
-        );
+        assert_eq!(None, statement.execute(&environment, &scopes).unwrap());
     }
 
     #[test]
@@ -783,10 +774,7 @@ mod tests {
         };
         let expr = Expr::Binary(Box::new(binary_expr));
         let statement = Statement::Expression(expr);
-        assert_eq!(
-            None,
-            statement.execute(&environment, &scopes).unwrap()
-        );
+        assert_eq!(None, statement.execute(&environment, &scopes).unwrap());
     }
 
     #[test]
@@ -796,10 +784,7 @@ mod tests {
         let scopes = LexicalScopes::new();
         let identifier = identifier_map.for_name(&"x");
         let statement = Statement::VariableDefinition(identifier);
-        assert_eq!(
-            None,
-            statement.execute(&environment, &scopes).unwrap()
-        );
+        assert_eq!(None, statement.execute(&environment, &scopes).unwrap());
         assert_eq!(Value::Nil, environment.get(identifier, 0).unwrap());
     }
 
@@ -839,10 +824,7 @@ mod tests {
         let identifier = identifier_map.for_name(&"x");
         let expr = Expr::Literal(Literal::NumberLiteral(1.0f64));
         let statement = Statement::VariableDefinitionWithInitalizer(identifier.clone(), expr);
-        assert_eq!(
-            None,
-            statement.execute(&environment, &scopes).unwrap()
-        );
+        assert_eq!(None, statement.execute(&environment, &scopes).unwrap());
         assert_eq!(
             Value::Number(1.0f64),
             environment.get(identifier, 0).unwrap()
@@ -862,9 +844,7 @@ mod tests {
             let scopes = scopes_resolver.resolve(&outer_statement).unwrap();
             assert_eq!(
                 None,
-                outer_statement
-                    .execute(&environment, &scopes)
-                    .unwrap()
+                outer_statement.execute(&environment, &scopes).unwrap()
             );
         }
         let statements = vec![Statement::Expression(Expr::Assignment(Box::new(
