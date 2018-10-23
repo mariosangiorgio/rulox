@@ -69,12 +69,12 @@ impl TreeWalkRuloxInterpreter {
 
     fn run(&mut self, source: &str) -> Result<(), LoxError> {
         let statements = self.scan_and_parse(source).map_err(LoxError::InputError)?;
-        self.lexical_scope_resolver
+        let lexical_scope = self.lexical_scope_resolver
             .resolve_all(&statements)
             .map_err(LoxError::LexicalScopesResolutionError)?;
         for statement in &statements {
             self.interpreter
-                .execute(&self.lexical_scope_resolver, &statement)
+                .execute(&lexical_scope, &statement)
                 .map_err(LoxError::RuntimeError)?;
         }
         Ok(())

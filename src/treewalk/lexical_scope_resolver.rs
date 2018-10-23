@@ -9,7 +9,7 @@ pub struct LexicalScopes {
 }
 
 impl LexicalScopes {
-    fn new() -> LexicalScopes {
+    pub fn new() -> LexicalScopes {
         LexicalScopes {
             depths: FnvHashMap::default(),
         }
@@ -112,30 +112,22 @@ impl LexicalScopesResolver {
     }
 
     #[allow(dead_code)] // Used in tests
-    pub fn resolve(&mut self, statement: &Statement) -> Result<(), LexicalScopesResolutionError> {
-        statement.resolve(self)
+    pub fn resolve(&mut self, statement: &Statement) -> Result<&LexicalScopes, LexicalScopesResolutionError> {
+        statement.resolve(self).map(move |_|&self.lexical_scopes)
     }
 
     pub fn resolve_all(
         &mut self,
         statements: &[Statement],
-    ) -> Result<(), Vec<LexicalScopesResolutionError>> {
-        let mut resolution_errors = vec![];
-        for statement in statements {
-            match statement.resolve(self) {
-                Ok(_) => (),
-                Err(e) => resolution_errors.push(e),
-            }
-        }
+    ) -> Result<&LexicalScopes, Vec<LexicalScopesResolutionError>> {
+        let resolution_errors : Vec<LexicalScopesResolutionError> = statements.iter()
+        .map(|s|s.resolve(self))
+        .filter(|r|r.is_err()).map(|r|r.unwrap_err()).collect();
         if resolution_errors.is_empty() {
-            Ok(())
+            Ok(&self.lexical_scopes)
         } else {
             Err(resolution_errors)
         }
-    }
-
-    pub fn get_depth(&self, handle: VariableUseHandle) -> Option<&Depth> {
-        self.lexical_scopes.get_depth(handle)
     }
 }
 
