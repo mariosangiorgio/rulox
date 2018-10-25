@@ -220,14 +220,14 @@ where
     /// Top level function of the parser.
     /// Parses all the statements in the input and, when necessary,
     /// applies the recovery logic for cleaner error messages.
-    fn parse(&mut self) -> Result<(), ()> {
+    fn parse(mut self) -> Result<(), Vec<CompilationError>> {
         while let Some(_) = self.peek() {
             if let Err(error) = self.expression() {
                 self.errors.push(CompilationError::ParsingError(error));
             }
         }
         if !self.errors.is_empty() {
-            Err(())
+            Err(self.errors)
         } else {
             Ok(())
         }
@@ -336,17 +336,14 @@ pub fn compile(text: &str) -> Result<Chunk, Vec<CompilationError>> {
     let mut chunk = Chunk::default();
     let tokens = scan_into_iterator(text);
     {
-        let mut parser = Parser::new(&mut chunk, tokens);
-        // Chunk is known, errors will be captured later
-        // TODO: check if this is the best design
-        let _ = parser.parse();
-        // TODO: assert that we consumed everything
+        {
+            let parser = Parser::new(&mut chunk, tokens);
+            let _ = parser.parse()?;
+            // TODO: assert that we consumed everything
+        }
         // Line is meaningless, but this is temporary to see some results
         // while the implementation is in progress.
-        parser.emit(OpCode::Return, 0);
-        if !parser.errors.is_empty() {
-            return Err(parser.errors);
-        }
+        chunk.add_instruction(OpCode::Return, 0);
     }
     Ok(chunk)
 }
