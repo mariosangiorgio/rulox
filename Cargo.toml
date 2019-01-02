@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Mario Sangiorgio <mariosangiorgio@gmail.com>"]
 
 [dependencies]
-itertools = "^0.7"
+itertools = "^0.8"
 fnv = "^1"
 num-traits = "^0.2"
 num-derive = "^0.2"
