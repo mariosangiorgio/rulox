@@ -91,11 +91,9 @@ impl Callable {
             Callable::Class(ref class) => {
                 let instance = Instance::new(class);
                 if let Some(initializer) = class.methods.get(&Identifier::init()) {
-                    try!(
-                        initializer
-                            .bind(&instance)
-                            .call(arguments, _environment, scopes)
-                    );
+                    initializer
+                        .bind(&instance)
+                        .call(arguments, _environment, scopes)?;
                 }
                 Ok(Value::Instance(instance))
             }
@@ -354,7 +352,7 @@ impl Interpret for Expr {
             },
             Expr::Set(ref s) => match s.instance.interpret(environment, scopes) {
                 Ok(Value::Instance(ref instance)) => {
-                    let value = try!(s.value.interpret(environment, scopes));
+                    let value = s.value.interpret(environment, scopes)?;
                     instance.set(s.property, &value);
                     Ok(value)
                 }
@@ -416,7 +414,7 @@ impl Interpret for UnaryExpr {
         environment: &Environment,
         scopes: &LexicalScopes,
     ) -> Result<Value, RuntimeError> {
-        let value = try!(self.right.interpret(environment, scopes));
+        let value = self.right.interpret(environment, scopes)?;
         match self.operator {
             UnaryOperator::Bang => Ok(Value::Boolean(!value.is_true())),
             UnaryOperator::Minus => match value {
@@ -433,8 +431,8 @@ impl Interpret for BinaryExpr {
         environment: &Environment,
         scopes: &LexicalScopes,
     ) -> Result<Value, RuntimeError> {
-        let left = try!(self.left.interpret(environment, scopes));
-        let right = try!(self.right.interpret(environment, scopes));
+        let left = self.left.interpret(environment, scopes)?;
+        let right = self.right.interpret(environment, scopes)?;
         match (&self.operator, &left, &right) {
             (&BinaryOperator::Minus, &Value::Number(l), &Value::Number(r)) => {
                 Ok(Value::Number(l - r))
@@ -485,7 +483,7 @@ impl Interpret for LogicExpr {
     ) -> Result<Value, RuntimeError> {
         match self.operator {
             LogicOperator::Or => {
-                let left = try!(self.left.interpret(environment, scopes));
+                let left = self.left.interpret(environment, scopes)?;
                 if left.is_true() {
                     Ok(left)
                 } else {
@@ -493,7 +491,7 @@ impl Interpret for LogicExpr {
                 }
             }
             LogicOperator::And => {
-                let left = try!(self.left.interpret(environment, scopes));
+                let left = self.left.interpret(environment, scopes)?;
                 if !left.is_true() {
                     Ok(left)
                 } else {
@@ -562,7 +560,7 @@ impl Execute for Statement {
             Statement::Block(ref b) => {
                 let environment = Environment::new_with_parent(environment);
                 for statement in &b.statements {
-                    let result = try!(statement.execute(&environment, scopes));
+                    let result = statement.execute(&environment, scopes)?;
                     if let Some(value) = result {
                         return Ok(Some(value));
                     }
@@ -570,8 +568,10 @@ impl Execute for Statement {
                 Ok(None)
             }
             Statement::IfThen(ref c) => {
-                let condition = try!{c.condition.interpret(environment, scopes)
-                .map(|v|v.is_true())};
+                let condition = c
+                    .condition
+                    .interpret(environment, scopes)
+                    .map(|v| v.is_true())?;
                 if condition {
                     c.then_branch.execute(environment, scopes)
                 } else {
@@ -579,8 +579,10 @@ impl Execute for Statement {
                 }
             }
             Statement::IfThenElse(ref c) => {
-                let condition = try!{c.condition.interpret(environment, scopes)
-                .map(|v|v.is_true())};
+                let condition = c
+                    .condition
+                    .interpret(environment, scopes)
+                    .map(|v| v.is_true())?;
                 if condition {
                     c.then_branch.execute(environment, scopes)
                 } else {
@@ -588,10 +590,12 @@ impl Execute for Statement {
                 }
             }
             Statement::While(ref l) => {
-                while try!{l.condition.interpret(environment, scopes)
-                .map(|v|v.is_true())}
+                while l
+                    .condition
+                    .interpret(environment, scopes)
+                    .map(|v| v.is_true())?
                 {
-                    try!{l.body.execute(environment, scopes)};
+                    l.body.execute(environment, scopes)?;
                 }
                 Ok(None)
             }
@@ -607,7 +611,7 @@ impl Execute for Statement {
                 environment.define(c.name, Value::Nil);
                 let (superclass, superclass_environment) =
                     if let Some(ref superclass) = c.superclass {
-                        let value = try!(superclass.interpret(environment, scopes));
+                        let value = superclass.interpret(environment, scopes)?;
                         if let Value::Callable(Callable::Class(ref s)) = value {
                             let superclass_environment = Environment::new_with_parent(environment);
                             superclass_environment
