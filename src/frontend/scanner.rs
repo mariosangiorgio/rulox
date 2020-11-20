@@ -127,7 +127,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn peek_check(&mut self, check: &Fn(char) -> bool) -> bool {
+    fn peek_check(&mut self, check: &dyn Fn(char) -> bool) -> bool {
         self.source.reset_peek();
         match self.source.peek() {
             Some(&c) => check(c),
@@ -135,7 +135,11 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn peek_check2(&mut self, check1: &Fn(char) -> bool, check2: &Fn(char) -> bool) -> bool {
+    fn peek_check2(
+        &mut self,
+        check1: &dyn Fn(char) -> bool,
+        check2: &dyn Fn(char) -> bool,
+    ) -> bool {
         self.source.reset_peek();
         match self.source.peek() {
             Some(&p1) => match self.source.peek() {
@@ -153,7 +157,7 @@ impl<'a> Scanner<'a> {
             if c == '\n' {
                 self.current_position.increment_line();
             } else {
-                self.current_position.increment_column();;
+                self.current_position.increment_column();
             }
         };
         next
@@ -168,7 +172,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn advance_while(&mut self, condition: &Fn(char) -> bool) -> () {
+    fn advance_while(&mut self, condition: &dyn Fn(char) -> bool) -> () {
         while self.peek_check(condition) {
             self.advance();
         }
@@ -420,5 +424,4 @@ mod tests {
         assert_eq!(tokens[7].token, Token::Semicolon);
         assert_eq!(errors.len(), 1);
     }
-
 }

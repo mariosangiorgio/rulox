@@ -146,38 +146,38 @@ impl LexicallyScoped for Statement {
             Statement::Block(ref b) => {
                 resolver.begin_scope();
                 for statement in &b.statements {
-                    try!(statement.resolve(resolver));
+                    statement.resolve(resolver)?;
                 }
                 resolver.end_scope();
                 Ok(())
             }
             Statement::VariableDefinition(ref identifier) => {
-                try!(resolver.declare(*identifier));
+                resolver.declare(*identifier)?;
                 resolver.define(*identifier);
                 Ok(())
             }
             Statement::VariableDefinitionWithInitalizer(ref identifier, ref initializer) => {
-                try!(resolver.declare(*identifier));
-                try!(initializer.resolve(resolver));
+                resolver.declare(*identifier)?;
+                initializer.resolve(resolver)?;
                 resolver.define(*identifier);
                 Ok(())
             }
             Statement::FunctionDefinition(ref f) => f.resolve(resolver),
             Statement::Class(ref c) => {
-                try!(resolver.declare(c.name));
+                resolver.declare(c.name)?;
                 let enclosing_class = resolver.current_class;
                 resolver.current_class = ClassType::Class;
                 resolver.define(c.name);
                 if let Some(ref superclass) = c.superclass {
                     resolver.current_class = ClassType::Subclass;
-                    try!(superclass.resolve(resolver));
+                    superclass.resolve(resolver)?;
                     resolver.begin_scope();
                     resolver.define(Identifier::super_identifier());
                 }
                 resolver.begin_scope();
                 resolver.define(Identifier::this());
                 for method in &c.methods {
-                    try!(method.resolve(resolver));
+                    method.resolve(resolver)?;
                 }
                 resolver.end_scope();
                 if c.superclass.is_some() {
@@ -267,19 +267,19 @@ impl LexicallyScoped for Expr {
                 .and_then(|_| e.right.resolve(resolver)),
             Expr::Grouping(ref e) => e.expr.resolve(resolver),
             Expr::Call(ref e) => {
-                try!(e.callee.resolve(resolver));
+                e.callee.resolve(resolver)?;
                 for argument in &e.arguments {
-                    try!(argument.resolve(resolver));
+                    argument.resolve(resolver)?;
                 }
                 Ok(())
             }
             Expr::Get(ref g) => {
-                try!(g.instance.resolve(resolver));
+                g.instance.resolve(resolver)?;
                 Ok(())
             }
             Expr::Set(ref s) => {
-                try!(s.value.resolve(resolver));
-                try!(s.instance.resolve(resolver));
+                s.value.resolve(resolver)?;
+                s.instance.resolve(resolver)?;
                 Ok(())
             }
         }
@@ -291,7 +291,7 @@ impl LexicallyScoped for Assignment {
         &self,
         resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
-        try!{self.rvalue.resolve(resolver)};
+        self.rvalue.resolve(resolver)?;
         let Target::Identifier(ref identifier) = self.lvalue;
         resolver.resolve_local(self.handle, *identifier);
         Ok(())
@@ -303,16 +303,16 @@ impl LexicallyScoped for FunctionDefinition {
         &self,
         resolver: &mut LexicalScopesResolver,
     ) -> Result<(), LexicalScopesResolutionError> {
-        try!(resolver.declare(self.name));
+        resolver.declare(self.name)?;
         let enclosing_function = resolver.current_function;
         resolver.current_function = Some(self.kind);
         resolver.define(self.name);
         resolver.begin_scope();
         for argument in &self.arguments {
-            try!(resolver.declare(*argument));
+            resolver.declare(*argument)?;
             resolver.define(*argument);
         }
-        try!(self.body.resolve(resolver));
+        self.body.resolve(resolver)?;
         resolver.end_scope();
         resolver.current_function = enclosing_function;
         Ok(())

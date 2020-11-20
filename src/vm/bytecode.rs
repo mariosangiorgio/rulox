@@ -139,21 +139,21 @@ pub fn disassemble<T>(chunk: &Chunk, name: &str, out: &mut LineWriter<T>) -> Res
 where
     T: Write,
 {
-    try!(writeln!(out, "== {} ==", name));
+    writeln!(out, "== {} ==", name)?;
     let mut line = 0;
     for (i, instruction) in chunk.instructions.iter().enumerate() {
         // Note that this is not printing offsets as the book does.
         // Using the OpCode enum all the opcodes have the same size.
         // It is not space-efficient, but for now it's fine
-        try!(write!(out, "{:04}", i));
+        write!(out, "{:04}", i)?;
         if line == chunk.lines[i] {
-            try!(write!(out, "   |"));
+            write!(out, "   |")?;
         } else {
             line = chunk.lines[i];
-            try!(write!(out, "{:4}", line));
+            write!(out, "{:4}", line)?;
         }
-        try!(write!(out, " "));
-        try!{disassemble_instruction(instruction, chunk, out)};
+        write!(out, " ")?;
+        disassemble_instruction(instruction, chunk, out)?;
     }
     Ok(())
 }
