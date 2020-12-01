@@ -7,7 +7,7 @@ authors = ["Mario Sangiorgio <mariosangiorgio@gmail.com>"]
 itertools = "^0.8"
 fnv = "^1"
 num-traits = "^0.2"
-num-derive = "^0.2"
+num-derive = "^0.3"
 
 [dev-dependencies]
 proptest = "^0.8"
